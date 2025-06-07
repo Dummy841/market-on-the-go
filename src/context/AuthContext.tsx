@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextProps {
   user: User | null;
@@ -39,7 +40,7 @@ const defaultRoles = {
     coupons: ['view', 'create', 'edit', 'delete'],
     roles: ['view', 'create', 'edit', 'delete']
   },
-  sales_executive: {
+  sales: {
     dashboard: ['view'],
     products: ['view'],
     sales: ['view', 'create'],
@@ -58,6 +59,13 @@ const defaultRoles = {
     transactions: ['view'],
     tickets: ['view', 'create', 'edit'],
     coupons: ['view', 'create', 'edit']
+  },
+  accountant: {
+    dashboard: ['view'],
+    transactions: ['view', 'create', 'edit'],
+    sales: ['view'],
+    customers: ['view'],
+    farmers: ['view']
   }
 };
 
@@ -65,10 +73,10 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Mock users for demo purposes
+// Mock users for demo purposes - these will be supplemented by Supabase data
 const mockUsers = [
   { id: '1', name: 'Admin User', email: 'admin@dostanfarms.com', role: 'admin', password: 'password' },
-  { id: '2', name: 'Sales Executive', email: 'sales@dostanfarms.com', role: 'sales_executive', password: 'password' },
+  { id: '2', name: 'Sales Executive', email: 'sales@dostanfarms.com', role: 'sales', password: 'password' },
   { id: '3', name: 'Manager User', email: 'manager@dostanfarms.com', role: 'manager', password: 'password' }
 ];
 
@@ -97,54 +105,78 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (username: string, password: string): Promise<boolean> => {
     console.log('Login attempt:', { username, password });
     
-    // First check registered employees from localStorage
-    const registeredEmployees = localStorage.getItem('registeredEmployees');
-    let allUsers = [...mockUsers];
-    
-    if (registeredEmployees) {
-      try {
-        const employees = JSON.parse(registeredEmployees);
-        console.log('Registered employees:', employees);
-        // Ensure all registered employees have proper structure and default roles
+    try {
+      // First check Supabase employees
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('*');
+
+      let allUsers = [...mockUsers];
+      
+      if (!error && employees) {
+        console.log('Supabase employees:', employees);
+        // Format Supabase employees to match expected structure
         const formattedEmployees = employees.map((emp: any) => ({
           id: emp.id,
           name: emp.name,
-          email: emp.email || `${emp.name.toLowerCase().replace(/\s+/g, '')}@dostanfarms.com`,
-          role: emp.role || 'sales_executive',
-          password: emp.password || 'password'
+          email: emp.email,
+          role: emp.role,
+          password: emp.password
         }));
         allUsers = [...allUsers, ...formattedEmployees];
-      } catch (error) {
-        console.error('Error parsing registered employees:', error);
+      } else {
+        console.log('No Supabase employees found or error:', error);
       }
-    }
-    
-    console.log('All users available for login:', allUsers);
-    
-    // Authentication - check both email and name, and validate password
-    const foundUser = allUsers.find(u => {
-      const usernameMatch = u.email === username || 
-                           u.name.toLowerCase().replace(/\s+/g, '') === username.toLowerCase() ||
-                           u.name.toLowerCase() === username.toLowerCase();
-      const passwordMatch = u.password === password;
       
-      console.log('Checking user:', u.name, 'Username match:', usernameMatch, 'Password match:', passwordMatch);
+      // Also check localStorage registered employees for backward compatibility
+      const registeredEmployees = localStorage.getItem('registeredEmployees');
+      if (registeredEmployees) {
+        try {
+          const employees = JSON.parse(registeredEmployees);
+          console.log('LocalStorage employees:', employees);
+          const formattedEmployees = employees.map((emp: any) => ({
+            id: emp.id,
+            name: emp.name,
+            email: emp.email || `${emp.name.toLowerCase().replace(/\s+/g, '')}@dostanfarms.com`,
+            role: emp.role || 'sales',
+            password: emp.password || 'password'
+          }));
+          allUsers = [...allUsers, ...formattedEmployees];
+        } catch (error) {
+          console.error('Error parsing registered employees:', error);
+        }
+      }
       
-      return usernameMatch && passwordMatch;
-    });
-    
-    console.log('Found user:', foundUser);
-    
-    if (foundUser) {
-      console.log('Login successful for:', foundUser);
-      // Don't store password in the user state
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      return true;
+      console.log('All users available for login:', allUsers);
+      
+      // Authentication - check both email and name, and validate password
+      const foundUser = allUsers.find(u => {
+        const usernameMatch = u.email === username || 
+                             u.name.toLowerCase().replace(/\s+/g, '') === username.toLowerCase() ||
+                             u.name.toLowerCase() === username.toLowerCase();
+        const passwordMatch = u.password === password;
+        
+        console.log('Checking user:', u.name, 'Username match:', usernameMatch, 'Password match:', passwordMatch);
+        
+        return usernameMatch && passwordMatch;
+      });
+      
+      console.log('Found user:', foundUser);
+      
+      if (foundUser) {
+        console.log('Login successful for:', foundUser);
+        // Don't store password in the user state
+        const { password: _, ...userWithoutPassword } = foundUser;
+        setUser(userWithoutPassword);
+        return true;
+      }
+      
+      console.log('Login failed - no matching user or wrong password');
+      return false;
+    } catch (error) {
+      console.error('Error during login:', error);
+      return false;
     }
-    
-    console.log('Login failed - no matching user or wrong password');
-    return false;
   };
 
   const logout = () => {

@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { Pencil, Trash2, User } from 'lucide-react';
-import { Employee } from '@/utils/employeeData';
+import { Employee } from '@/hooks/useEmployees';
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -64,13 +64,13 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     ? 'bg-red-100 text-red-700' 
                     : employee.role === 'manager'
                       ? 'bg-blue-100 text-blue-700'
-                      : employee.role === 'sales_executive'
+                      : employee.role === 'sales'
                         ? 'bg-green-100 text-green-700'
-                        : employee.role === 'support_agent'
+                        : employee.role === 'accountant'
                           ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-purple-100 text-purple-700'
                 }`}>
-                  {employee.role.replace('_', ' ').charAt(0).toUpperCase() + employee.role.replace('_', ' ').slice(1)}
+                  {employee.role.charAt(0).toUpperCase() + employee.role.slice(1)}
                 </span>
               </td>
               <td className="p-2">
@@ -79,11 +79,9 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   "Not specified"}
               </td>
               <td className="p-2">
-                {employee.dateJoined ? (
-                  employee.dateJoined instanceof Date 
-                    ? format(employee.dateJoined, 'MMM dd, yyyy') 
-                    : format(new Date(employee.dateJoined), 'MMM dd, yyyy')
-                ) : 'Not available'}
+                {employee.date_joined ? 
+                  format(new Date(employee.date_joined), 'MMM dd, yyyy') : 
+                  'Not available'}
               </td>
               <td className="p-2 text-right">
                 <div className="flex justify-end gap-2">

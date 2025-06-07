@@ -9,7 +9,393 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          expiry_date: string
+          id: string
+          is_active: boolean
+          max_discount_limit: number | null
+          target_type: string
+          target_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          expiry_date: string
+          id?: string
+          is_active?: boolean
+          max_discount_limit?: number | null
+          target_type?: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          expiry_date?: string
+          id?: string
+          is_active?: boolean
+          max_discount_limit?: number | null
+          target_type?: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          date_joined: string
+          email: string | null
+          id: string
+          mobile: string
+          name: string
+          password: string
+          pincode: string | null
+          profile_photo: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          date_joined?: string
+          email?: string | null
+          id?: string
+          mobile: string
+          name: string
+          password: string
+          pincode?: string | null
+          profile_photo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          date_joined?: string
+          email?: string | null
+          id?: string
+          mobile?: string
+          name?: string
+          password?: string
+          pincode?: string | null
+          profile_photo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          account_holder_name: string | null
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          date_joined: string
+          district: string | null
+          email: string
+          id: string
+          ifsc_code: string | null
+          name: string
+          password: string
+          phone: string | null
+          profile_photo: string | null
+          role: string
+          state: string | null
+          updated_at: string
+          village: string | null
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          date_joined?: string
+          district?: string | null
+          email: string
+          id?: string
+          ifsc_code?: string | null
+          name: string
+          password: string
+          phone?: string | null
+          profile_photo?: string | null
+          role?: string
+          state?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          date_joined?: string
+          district?: string | null
+          email?: string
+          id?: string
+          ifsc_code?: string | null
+          name?: string
+          password?: string
+          phone?: string | null
+          profile_photo?: string | null
+          role?: string
+          state?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Relationships: []
+      }
+      farmers: {
+        Row: {
+          account_number: string | null
+          address: string | null
+          bank_name: string | null
+          created_at: string
+          date_joined: string
+          district: string | null
+          email: string
+          id: string
+          ifsc_code: string | null
+          name: string
+          password: string
+          phone: string
+          profile_photo: string | null
+          state: string | null
+          updated_at: string
+          village: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          address?: string | null
+          bank_name?: string | null
+          created_at?: string
+          date_joined?: string
+          district?: string | null
+          email: string
+          id?: string
+          ifsc_code?: string | null
+          name: string
+          password: string
+          phone: string
+          profile_photo?: string | null
+          state?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          address?: string | null
+          bank_name?: string | null
+          created_at?: string
+          date_joined?: string
+          district?: string | null
+          email?: string
+          id?: string
+          ifsc_code?: string | null
+          name?: string
+          password?: string
+          phone?: string
+          profile_photo?: string | null
+          state?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          barcode: string | null
+          category: string
+          created_at: string
+          farmer_id: string | null
+          id: string
+          name: string
+          price_per_unit: number
+          quantity: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          barcode?: string | null
+          category: string
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          name: string
+          price_per_unit: number
+          quantity?: number
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string | null
+          category?: string
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          name?: string
+          price_per_unit?: number
+          quantity?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          permissions: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          permissions?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          permissions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          assigned_to: string | null
+          attachment_url: string | null
+          created_at: string
+          id: string
+          message: string
+          resolution: string | null
+          status: string
+          updated_at: string
+          user_contact: string
+          user_id: string
+          user_name: string
+          user_type: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          attachment_url?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          resolution?: string | null
+          status?: string
+          updated_at?: string
+          user_contact: string
+          user_id: string
+          user_name: string
+          user_type: string
+        }
+        Update: {
+          assigned_to?: string | null
+          attachment_url?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          resolution?: string | null
+          status?: string
+          updated_at?: string
+          user_contact?: string
+          user_id?: string
+          user_name?: string
+          user_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          coupon_used: string | null
+          created_at: string
+          customer_id: string | null
+          customer_mobile: string
+          customer_name: string
+          discount: number
+          id: string
+          items: Json
+          payment_method: string
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          coupon_used?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_mobile: string
+          customer_name: string
+          discount?: number
+          id?: string
+          items: Json
+          payment_method: string
+          status?: string
+          subtotal: number
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          coupon_used?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_mobile?: string
+          customer_name?: string
+          discount?: number
+          id?: string
+          items?: Json
+          payment_method?: string
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

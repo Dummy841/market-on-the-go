@@ -1,25 +1,23 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { getAllEmployees } from '@/utils/employeeData';
-import { Employee } from '@/utils/employeeData';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/Sidebar';
 import { UserPlus } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 import EmployeeTable from '@/components/employees/EmployeeTable';
 import AddEmployeeDialog from '@/components/employees/AddEmployeeDialog';
 import EditEmployeeDialog from '@/components/employees/EditEmployeeDialog';
 import { EmployeeFormData } from '@/components/employees/EmployeeFormBase';
+import { useEmployees, Employee } from '@/hooks/useEmployees';
 
 const Employees = () => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const { employees, loading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { toast } = useToast();
   const { checkPermission } = useAuth();
   
   const [formData, setFormData] = useState<EmployeeFormData>({
@@ -27,7 +25,7 @@ const Employees = () => {
     email: '',
     phone: '',
     password: '',
-    role: 'sales_executive',
+    role: 'sales',
     state: '',
     district: '',
     village: '',
@@ -36,26 +34,6 @@ const Employees = () => {
     bankName: '',
     ifscCode: ''
   });
-
-  // Load employees on component mount
-  useEffect(() => {
-    const loadEmployees = () => {
-      console.log('Loading all employees...');
-      const allEmployees = getAllEmployees();
-      console.log('Loaded employees:', allEmployees);
-      setEmployees(allEmployees);
-    };
-
-    loadEmployees();
-    
-    // Listen for storage changes to update employee list
-    const handleStorageChange = () => {
-      loadEmployees();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
   
   const handleFormDataChange = (data: Partial<EmployeeFormData>) => {
     setFormData(prev => ({
@@ -74,7 +52,7 @@ const Employees = () => {
       email: '',
       phone: '',
       password: '',
-      role: 'sales_executive',
+      role: 'sales',
       state: '',
       district: '',
       village: '',
@@ -92,22 +70,12 @@ const Employees = () => {
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      toast({
-        title: "Invalid email",
-        description: "Please enter a valid email address",
-        variant: "destructive"
-      });
       return false;
     }
     
     // Validate phone (10 digits, starting with proper range)
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(formData.phone)) {
-      toast({
-        title: "Invalid phone number",
-        description: "Phone number must be 10 digits and start with 6-9",
-        variant: "destructive"
-      });
       return false;
     }
 
@@ -115,11 +83,6 @@ const Employees = () => {
     if (formData.accountNumber) {
       const accountNumberRegex = /^\d{9,18}$/;
       if (!accountNumberRegex.test(formData.accountNumber)) {
-        toast({
-          title: "Invalid account number",
-          description: "Account number should be 9-18 digits",
-          variant: "destructive"
-        });
         return false;
       }
     }
@@ -127,11 +90,6 @@ const Employees = () => {
     if (formData.ifscCode) {
       const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
       if (!ifscRegex.test(formData.ifscCode)) {
-        toast({
-          title: "Invalid IFSC code",
-          description: "Please enter a valid IFSC code",
-          variant: "destructive"
-        });
         return false;
       }
     }
@@ -139,11 +97,10 @@ const Employees = () => {
     return true;
   };
   
-  const handleAddEmployee = () => {
+  const handleAddEmployee = async () => {
     if (!validateForm()) return;
     
-    const newEmployee: Employee = {
-      id: `emp-${Date.now()}`,
+    const employeeData = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
@@ -152,34 +109,19 @@ const Employees = () => {
       state: formData.state,
       district: formData.district, 
       village: formData.village,
-      profilePhoto: formData.profilePhoto,
-      accountHolderName: formData.accountHolderName,
-      accountNumber: formData.accountNumber,
-      bankName: formData.bankName,
-      ifscCode: formData.ifscCode,
-      dateJoined: new Date()
+      profile_photo: formData.profilePhoto,
+      account_holder_name: formData.accountHolderName,
+      account_number: formData.accountNumber,
+      bank_name: formData.bankName,
+      ifsc_code: formData.ifscCode
     };
     
-    // Get existing registered employees
-    const registeredEmployees = localStorage.getItem('registeredEmployees');
-    const parsedEmployees = registeredEmployees ? JSON.parse(registeredEmployees) : [];
+    const result = await addEmployee(employeeData);
     
-    // Add new employee to registered employees
-    const updatedRegisteredEmployees = [...parsedEmployees, newEmployee];
-    localStorage.setItem('registeredEmployees', JSON.stringify(updatedRegisteredEmployees));
-    
-    // Update local state with all employees
-    const allEmployees = getAllEmployees();
-    setEmployees(allEmployees);
-    
-    setIsAddDialogOpen(false);
-    resetForm();
-    
-    console.log('Employee added:', newEmployee);
-    toast({
-      title: "Employee added",
-      description: `${formData.name} was successfully added as ${formData.role} and can now log in.`
-    });
+    if (result.success) {
+      setIsAddDialogOpen(false);
+      resetForm();
+    }
   };
   
   const handleAddDialogCancel = () => {
@@ -198,11 +140,11 @@ const Employees = () => {
       state: employee.state || '',
       district: employee.district || '',
       village: employee.village || '',
-      profilePhoto: employee.profilePhoto,
-      accountHolderName: employee.accountHolderName || '',
-      accountNumber: employee.accountNumber || '',
-      bankName: employee.bankName || '',
-      ifscCode: employee.ifscCode || ''
+      profilePhoto: employee.profile_photo,
+      accountHolderName: employee.account_holder_name || '',
+      accountNumber: employee.account_number || '',
+      bankName: employee.bank_name || '',
+      ifscCode: employee.ifsc_code || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -212,91 +154,55 @@ const Employees = () => {
     resetForm();
   };
   
-  const handleUpdateEmployee = () => {
+  const handleUpdateEmployee = async () => {
     if (!selectedEmployee || !validateForm()) return;
     
-    const updatedEmployees = employees.map(emp => {
-      if (emp.id === selectedEmployee.id) {
-        return {
-          ...emp,
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          role: formData.role,
-          state: formData.state,
-          district: formData.district,
-          village: formData.village,
-          profilePhoto: formData.profilePhoto,
-          accountHolderName: formData.accountHolderName,
-          accountNumber: formData.accountNumber,
-          bankName: formData.bankName,
-          ifscCode: formData.ifscCode
-        };
-      }
-      return emp;
-    });
+    const employeeData = {
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      role: formData.role,
+      state: formData.state,
+      district: formData.district,
+      village: formData.village,
+      profile_photo: formData.profilePhoto,
+      account_holder_name: formData.accountHolderName,
+      account_number: formData.accountNumber,
+      bank_name: formData.bankName,
+      ifsc_code: formData.ifscCode
+    };
     
-    setEmployees(updatedEmployees);
+    const result = await updateEmployee(selectedEmployee.id, employeeData);
     
-    // Update in localStorage
-    const registeredEmployees = localStorage.getItem('registeredEmployees');
-    if (registeredEmployees) {
-      const parsedEmployees = JSON.parse(registeredEmployees);
-      const updatedStoredEmployees = parsedEmployees.map((emp: Employee) => {
-        if (emp.id === selectedEmployee.id) {
-          return {
-            ...emp,
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            password: formData.password,
-            role: formData.role,
-            state: formData.state,
-            district: formData.district,
-            village: formData.village,
-            profilePhoto: formData.profilePhoto,
-            accountHolderName: formData.accountHolderName,
-            accountNumber: formData.accountNumber,
-            bankName: formData.bankName,
-            ifscCode: formData.ifscCode
-          };
-        }
-        return emp;
-      });
-      localStorage.setItem('registeredEmployees', JSON.stringify(updatedStoredEmployees));
+    if (result.success) {
+      setIsEditDialogOpen(false);
+      resetForm();
     }
-    
-    setIsEditDialogOpen(false);
-    resetForm();
-    
-    toast({
-      title: "Employee updated",
-      description: `${formData.name}'s information was successfully updated.`
-    });
   };
   
-  const handleDeleteEmployee = (id: string) => {
-    const updatedEmployees = employees.filter(emp => emp.id !== id);
-    setEmployees(updatedEmployees);
-    
-    // Update in localStorage
-    const registeredEmployees = localStorage.getItem('registeredEmployees');
-    if (registeredEmployees) {
-      const parsedEmployees = JSON.parse(registeredEmployees);
-      const updatedStoredEmployees = parsedEmployees.filter((emp: Employee) => emp.id !== id);
-      localStorage.setItem('registeredEmployees', JSON.stringify(updatedStoredEmployees));
-    }
-    
-    toast({
-      title: "Employee removed",
-      description: "The employee record has been deleted."
-    });
+  const handleDeleteEmployee = async (id: string) => {
+    await deleteEmployee(id);
   };
   
   const canCreate = checkPermission('employees', 'create');
   const canEdit = checkPermission('employees', 'edit');
   const canDelete = checkPermission('employees', 'delete');
+  
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <Sidebar />
+          <main className="flex-1 p-6 overflow-y-auto">
+            <div className="flex justify-center items-center h-64">
+              <div className="text-lg">Loading employees...</div>
+            </div>
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
   
   return (
     <SidebarProvider>
