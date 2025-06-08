@@ -10,13 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import CustomerEditDialog from '@/components/customers/CustomerEditDialog';
 import CustomerOrdersDialog from '@/components/customers/CustomerOrdersDialog';
 import Sidebar from '@/components/Sidebar';
-import { useCustomers, Customer } from '@/hooks/useCustomers';
+import { useCustomers } from '@/hooks/useCustomers';
+import { Customer as TypesCustomer } from '@/utils/types';
 
 const Customers = () => {
   const { customers, loading, updateCustomer, deleteCustomer } = useCustomers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [viewingOrders, setViewingOrders] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<TypesCustomer | null>(null);
+  const [viewingOrders, setViewingOrders] = useState<TypesCustomer | null>(null);
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter(customer =>
@@ -29,12 +30,35 @@ const Customers = () => {
     await deleteCustomer(customerId);
   };
 
-  const handleEditCustomer = async (updatedCustomer: Customer) => {
-    const result = await updateCustomer(updatedCustomer.id, updatedCustomer);
+  const handleEditCustomer = async (updatedCustomer: TypesCustomer) => {
+    // Convert TypesCustomer to the format expected by updateCustomer
+    const customerUpdate = {
+      id: updatedCustomer.id,
+      name: updatedCustomer.name,
+      email: updatedCustomer.email,
+      mobile: updatedCustomer.mobile,
+      address: updatedCustomer.address,
+      pincode: updatedCustomer.pincode
+    };
+    
+    const result = await updateCustomer(updatedCustomer.id, customerUpdate);
     if (result.success) {
       setEditingCustomer(null);
     }
   };
+
+  // Convert hook customer to TypesCustomer for dialog compatibility
+  const convertToTypesCustomer = (hookCustomer: any): TypesCustomer => ({
+    id: hookCustomer.id,
+    name: hookCustomer.name,
+    mobile: hookCustomer.mobile,
+    email: hookCustomer.email,
+    address: hookCustomer.address,
+    pincode: hookCustomer.pincode,
+    date_joined: hookCustomer.dateRegistered || hookCustomer.date_joined || new Date().toISOString(),
+    profile_photo: hookCustomer.profile_photo,
+    password: 'hidden' // Password is not exposed in the UI
+  });
 
   if (loading) {
     return (
@@ -112,13 +136,13 @@ const Customers = () => {
                           <TableCell className="max-w-xs truncate" title={customer.address}>
                             {customer.address || 'Not provided'}
                           </TableCell>
-                          <TableCell>{new Date(customer.date_joined).toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(customer.dateRegistered || customer.date_joined || new Date()).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setViewingOrders(customer)}
+                                onClick={() => setViewingOrders(convertToTypesCustomer(customer))}
                                 title="View Orders"
                               >
                                 <Eye className="h-4 w-4" />
@@ -126,7 +150,7 @@ const Customers = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setEditingCustomer(customer)}
+                                onClick={() => setEditingCustomer(convertToTypesCustomer(customer))}
                                 title="Edit Customer"
                               >
                                 <Edit className="h-4 w-4" />

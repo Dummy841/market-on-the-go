@@ -7,7 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Customer } from '@/utils/types';
+
+interface CustomerForm {
+  name: string;
+  mobile: string;
+  email?: string;
+}
 
 const CustomerRegister = () => {
   const navigate = useNavigate();
@@ -17,7 +22,7 @@ const CustomerRegister = () => {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otp, setOtp] = useState('');
   
-  const [customer, setCustomer] = useState<Customer>({
+  const [customer, setCustomer] = useState<CustomerForm>({
     name: '',
     mobile: '',
     email: ''
@@ -109,7 +114,8 @@ const CustomerRegister = () => {
         id: `cust_${Date.now()}`,
         address,
         pincode,
-        dateJoined: new Date().toISOString()
+        date_joined: new Date().toISOString(),
+        password: 'defaultPassword123' // In real app, this would be handled properly
       };
       
       customers.push(newCustomer);

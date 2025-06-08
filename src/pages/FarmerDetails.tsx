@@ -82,7 +82,7 @@ const FarmerDetails = () => {
       // Create transaction for the product
       const transaction: Transaction = {
         id: `tr_${Date.now()}`,
-        amount: product.quantity * product.pricePerUnit,
+        amount: product.quantity * product.price_per_unit,
         date: new Date(),
         type: 'credit',
         description: `${product.name} delivery`,
@@ -99,11 +99,11 @@ const FarmerDetails = () => {
       // Update earnings and unsettled amount
       setDailyEarnings(getDailyEarnings(farmer.id));
       setMonthlyEarnings(getMonthlyEarnings(farmer.id));
-      setUnsettledAmount(prev => prev + (product.quantity * product.pricePerUnit));
+      setUnsettledAmount(prev => prev + (product.quantity * product.price_per_unit));
       
       toast({
         title: "Product Added",
-        description: `Added ${product.quantity} ${product.unit} of ${product.name} for ₹${(product.quantity * product.pricePerUnit).toFixed(2)}`,
+        description: `Added ${product.quantity} ${product.unit} of ${product.name} for ₹${(product.quantity * product.price_per_unit).toFixed(2)}`,
       });
     }
   };
@@ -216,7 +216,7 @@ const FarmerDetails = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Joined:</span>
-                        <span>{format(farmer.dateJoined, 'MMM dd, yyyy')}</span>
+                        <span>{format(new Date(farmer.date_joined), 'MMM dd, yyyy')}</span>
                       </div>
                     </div>
                   </div>
@@ -225,16 +225,16 @@ const FarmerDetails = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Bank:</span>
-                        <span>{farmer.bankName}</span>
+                        <span>{farmer.bank_name}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Account:</span>
-                        <span>{farmer.accountNumber}</span>
+                        <span>{farmer.account_number}</span>
                       </div>
-                      {farmer.ifscCode && (
+                      {farmer.ifsc_code && (
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">IFSC:</span>
-                          <span>{farmer.ifscCode}</span>
+                          <span>{farmer.ifsc_code}</span>
                         </div>
                       )}
                     </div>
@@ -306,11 +306,11 @@ const FarmerDetails = () => {
                               <tr key={product.id} className="border-b">
                                 <td className="p-2">{product.name}</td>
                                 <td className="p-2">{product.category || 'N/A'}</td>
-                                <td className="p-2">{format(product.date, 'MMM dd, yyyy')}</td>
+                                <td className="p-2">{format(new Date(product.created_at), 'MMM dd, yyyy')}</td>
                                 <td className="text-right p-2">{product.quantity} {product.unit}</td>
-                                <td className="text-right p-2">₹{product.pricePerUnit.toFixed(2)}</td>
+                                <td className="text-right p-2">₹{product.price_per_unit.toFixed(2)}</td>
                                 <td className="text-right p-2 font-medium">
-                                  ₹{(product.quantity * product.pricePerUnit).toFixed(2)}
+                                  ₹{(product.quantity * product.price_per_unit).toFixed(2)}
                                 </td>
                                 <td className="text-center p-2">
                                   <Button 

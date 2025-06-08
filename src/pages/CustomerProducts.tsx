@@ -114,7 +114,7 @@ const CustomerProducts = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Price:</span>
-                      <span className="font-medium">₹{product.pricePerUnit}/{product.unit}</span>
+                      <span className="font-medium">₹{product.price_per_unit}/{product.unit}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Available:</span>
