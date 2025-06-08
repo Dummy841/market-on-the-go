@@ -1,20 +1,21 @@
+
 export interface Farmer {
   id: string;
   name: string;
   phone: string;
-  address: string;
-  accountNumber: string;
-  bankName: string;
-  ifscCode: string;
-  dateJoined: Date;
-  products: Product[];
-  transactions: Transaction[];
+  address?: string;
+  account_number?: string;
+  bank_name?: string;
+  ifsc_code?: string;
+  date_joined: string;
+  products?: Product[];
+  transactions?: Transaction[];
   email: string;
   password: string;
-  profilePhoto?: string;
-  state: string;
-  district: string;
-  village: string;
+  profile_photo?: string;
+  state?: string;
+  district?: string;
+  village?: string;
 }
 
 export interface Product {
@@ -22,11 +23,12 @@ export interface Product {
   name: string;
   quantity: number;
   unit: string;
-  pricePerUnit: number;
+  price_per_unit: number;
   category: string;
-  date: Date;
-  farmerId: string;
-  barcode?: string; // Added barcode field
+  created_at: string;
+  updated_at: string;
+  farmer_id?: string;
+  barcode?: string;
 }
 
 export interface Transaction {
@@ -61,14 +63,15 @@ export interface CartItem {
 }
 
 export interface Customer {
-  id?: string;
+  id: string;
   name: string;
   mobile: string;
   email?: string;
   address?: string;
   pincode?: string;
-  dateJoined?: string;
-  profilePhoto?: string;
+  date_joined: string;
+  profile_photo?: string;
+  password: string;
 }
 
 // Order Management types
