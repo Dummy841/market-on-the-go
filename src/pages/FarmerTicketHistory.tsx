@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -66,14 +65,27 @@ const FarmerTicketHistory = () => {
     navigate('/farmer-login');
   };
   
-  const handleTicketSubmit = (ticket: Omit<Ticket, 'id'>) => {
-    // Create a new ticket with ID
+  const handleTicketSubmit = (ticketData: {
+    user_id: string;
+    user_type: string;
+    user_name: string;
+    user_contact: string;
+    message: string;
+    status: string;
+    attachment_url?: string;
+  }) => {
+    // Map snake_case properties to camelCase for Ticket type
     const newTicket: Ticket = {
-      ...ticket,
       id: `${Date.now()}`,
+      userId: ticketData.user_id,
+      userType: ticketData.user_type as 'farmer' | 'customer',
+      userName: ticketData.user_name,
+      userContact: ticketData.user_contact,
+      message: ticketData.message,
+      status: ticketData.status as 'pending' | 'in-review' | 'closed',
       dateCreated: new Date(),
       lastUpdated: new Date(),
-      status: 'pending'
+      attachmentUrl: ticketData.attachment_url
     };
     
     // Add to existing tickets
