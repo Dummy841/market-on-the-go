@@ -55,7 +55,7 @@ const Customers = () => {
     email: hookCustomer.email,
     address: hookCustomer.address,
     pincode: hookCustomer.pincode,
-    date_joined: hookCustomer.dateRegistered || hookCustomer.date_joined || new Date().toISOString(),
+    date_joined: hookCustomer.date_joined || new Date().toISOString(),
     profile_photo: hookCustomer.profile_photo,
     password: 'hidden' // Password is not exposed in the UI
   });
@@ -136,7 +136,7 @@ const Customers = () => {
                           <TableCell className="max-w-xs truncate" title={customer.address}>
                             {customer.address || 'Not provided'}
                           </TableCell>
-                          <TableCell>{new Date(customer.dateRegistered || customer.date_joined || new Date()).toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(customer.date_joined || new Date()).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button

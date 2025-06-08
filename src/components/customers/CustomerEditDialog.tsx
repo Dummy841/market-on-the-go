@@ -5,38 +5,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  mobile: string;
-  address: string;
-  dateRegistered: string;
-}
+import { Customer as TypesCustomer } from '@/utils/types';
 
 interface CustomerEditDialogProps {
-  customer: Customer;
+  customer: TypesCustomer;
   open: boolean;
   onClose: () => void;
-  onSave: (customer: Customer) => void;
+  onSave: (customer: TypesCustomer) => void;
 }
 
 const CustomerEditDialog = ({ customer, open, onClose, onSave }: CustomerEditDialogProps) => {
   const [formData, setFormData] = useState({
     name: customer.name,
-    email: customer.email,
+    email: customer.email || '',
     mobile: customer.mobile,
-    address: customer.address,
+    address: customer.address || '',
+    pincode: customer.pincode || '',
   });
 
   // Reset form data when customer changes
   useEffect(() => {
     setFormData({
       name: customer.name,
-      email: customer.email,
+      email: customer.email || '',
       mobile: customer.mobile,
-      address: customer.address,
+      address: customer.address || '',
+      pincode: customer.pincode || '',
     });
   }, [customer]);
 
@@ -79,7 +73,6 @@ const CustomerEditDialog = ({ customer, open, onClose, onSave }: CustomerEditDia
               type="email"
               value={formData.email}
               onChange={(e) => handleChange('email', e.target.value)}
-              required
             />
           </div>
           
@@ -99,7 +92,15 @@ const CustomerEditDialog = ({ customer, open, onClose, onSave }: CustomerEditDia
               id="address"
               value={formData.address}
               onChange={(e) => handleChange('address', e.target.value)}
-              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pincode">Pincode</Label>
+            <Input
+              id="pincode"
+              value={formData.pincode}
+              onChange={(e) => handleChange('pincode', e.target.value)}
             />
           </div>
           
