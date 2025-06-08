@@ -2,18 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-export interface Customer {
-  id: string;
-  name: string;
-  email?: string;
-  mobile: string;
-  address?: string;
-  pincode?: string;
-  password: string;
-  profile_photo?: string;
-  date_joined: string;
-}
+import { Customer } from '@/utils/types';
 
 export const useCustomers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
