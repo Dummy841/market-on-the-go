@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Customer as TypesCustomer } from '@/utils/types';
+import { Customer } from '@/hooks/useCustomers';
 
 interface CustomerEditDialogProps {
-  customer: TypesCustomer;
+  customer: Customer;
   open: boolean;
   onClose: () => void;
-  onSave: (customer: TypesCustomer) => void;
+  onSave: (customer: Customer) => void;
 }
 
 const CustomerEditDialog = ({ customer, open, onClose, onSave }: CustomerEditDialogProps) => {

@@ -5,45 +5,60 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Sidebar from '@/components/Sidebar';
 import { useNavigate } from 'react-router-dom';
+import { useProducts } from '@/hooks/useProducts';
+import { useCustomers } from '@/hooks/useCustomers';
+import { useCoupons } from '@/hooks/useCoupons';
+import { useTickets } from '@/hooks/useTickets';
 import { 
   TrendingUp, 
   Users, 
   Package, 
   IndianRupee,
-  ShoppingCart
+  ShoppingCart,
+  Tag,
+  Ticket
 } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { products } = useProducts();
+  const { customers } = useCustomers();
+  const { coupons } = useCoupons();
+  const { tickets } = useTickets();
 
   const handleSalesDashboardClick = () => {
     navigate('/sales-dashboard');
   };
 
+  // Calculate total value of products
+  const totalProductValue = products.reduce((total, product) => {
+    return total + (product.price_per_unit * product.quantity);
+  }, 0);
+
   const stats = [
     {
-      title: "Total Sales",
-      value: "₹25,430",
-      change: "+12.5% from last month",
-      icon: <TrendingUp className="h-6 w-6" />
-    },
-    {
-      title: "Total Farmers",
-      value: "156",
-      change: "+3.2% from last month",
-      icon: <Users className="h-6 w-6" />
-    },
-    {
-      title: "Products",
-      value: "89",
-      change: "+8.1% from last month",
+      title: "Total Products",
+      value: products.length.toString(),
+      change: `Value: ₹${totalProductValue.toFixed(2)}`,
       icon: <Package className="h-6 w-6" />
     },
     {
-      title: "Revenue",
-      value: "₹1,23,450",
-      change: "+15.3% from last month",
-      icon: <IndianRupee className="h-6 w-6" />
+      title: "Total Customers",
+      value: customers.length.toString(),
+      change: "+New registrations",
+      icon: <Users className="h-6 w-6" />
+    },
+    {
+      title: "Active Coupons",
+      value: coupons.filter(c => c.is_active).length.toString(),
+      change: `${coupons.length} total coupons`,
+      icon: <Tag className="h-6 w-6" />
+    },
+    {
+      title: "Support Tickets",
+      value: tickets.length.toString(),
+      change: `${tickets.filter(t => t.status === 'pending').length} pending`,
+      icon: <Ticket className="h-6 w-6" />
     }
   ];
 
@@ -97,22 +112,22 @@ const Dashboard = () => {
                   <div className="flex items-center space-x-4">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">New farmer registered</p>
-                      <p className="text-xs text-muted-foreground">2 minutes ago</p>
+                      <p className="text-sm font-medium">Products synced with Supabase</p>
+                      <p className="text-xs text-muted-foreground">Real-time updates</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Product added to inventory</p>
-                      <p className="text-xs text-muted-foreground">15 minutes ago</p>
+                      <p className="text-sm font-medium">Customer data synchronized</p>
+                      <p className="text-xs text-muted-foreground">Database connected</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Sale completed</p>
-                      <p className="text-xs text-muted-foreground">1 hour ago</p>
+                      <p className="text-sm font-medium">Coupons and tickets ready</p>
+                      <p className="text-xs text-muted-foreground">All systems online</p>
                     </div>
                   </div>
                 </div>
@@ -136,10 +151,10 @@ const Dashboard = () => {
                   <Button 
                     variant="outline" 
                     className="h-20 flex-col"
-                    onClick={() => navigate('/farmers')}
+                    onClick={() => navigate('/customers')}
                   >
                     <Users className="h-6 w-6 mb-2" />
-                    <span>Manage Farmers</span>
+                    <span>Manage Customers</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -152,10 +167,10 @@ const Dashboard = () => {
                   <Button 
                     variant="outline" 
                     className="h-20 flex-col"
-                    onClick={() => navigate('/transactions')}
+                    onClick={() => navigate('/coupons')}
                   >
-                    <IndianRupee className="h-6 w-6 mb-2" />
-                    <span>View Transactions</span>
+                    <Tag className="h-6 w-6 mb-2" />
+                    <span>Manage Coupons</span>
                   </Button>
                 </div>
               </CardContent>

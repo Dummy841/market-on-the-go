@@ -4,12 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Product } from '@/utils/types';
+import { Product } from '@/hooks/useProducts';
 import { Barcode } from 'lucide-react';
 
 interface ProductFormProps {
   farmerId: string;
-  onSubmit: (product: Product) => void;
+  onSubmit: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
   onCancel: () => void;
   editProduct?: Product;
 }
@@ -19,6 +19,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
   const [quantity, setQuantity] = useState(editProduct?.quantity.toString() || '1');
   const [unit, setUnit] = useState(editProduct?.unit || 'kg');
   const [pricePerUnit, setPricePerUnit] = useState(editProduct?.price_per_unit.toString() || '');
+  const [category, setCategory] = useState(editProduct?.category || 'Vegetables');
 
   // Generate barcode for new products or keep existing barcode for edits
   const generateBarcode = () => {
@@ -32,17 +33,14 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
       return;
     }
     
-    const product: Product = {
-      id: editProduct?.id || `prod_${Date.now()}`,
+    const product = {
       name,
       quantity: parseFloat(quantity),
       unit,
       price_per_unit: parseFloat(pricePerUnit),
-      category: 'General', // Default category since it's removed from form
-      created_at: editProduct?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      category,
       farmer_id: farmerId,
-      barcode: editProduct?.barcode || generateBarcode() // Keep existing barcode or generate new one
+      barcode: editProduct?.barcode || generateBarcode()
     };
     
     onSubmit(product);
@@ -61,6 +59,22 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
               placeholder="Enter product name"
               required
             />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Vegetables">Vegetables</SelectItem>
+                <SelectItem value="Fruits">Fruits</SelectItem>
+                <SelectItem value="Grains">Grains</SelectItem>
+                <SelectItem value="Dairy">Dairy</SelectItem>
+                <SelectItem value="General">General</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="grid grid-cols-3 gap-4">

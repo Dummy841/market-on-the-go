@@ -1,13 +1,12 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Sidebar from '@/components/Sidebar';
-import { getProductsFromLocalStorage } from '@/utils/employeeData';
-import { Product } from '@/utils/types';
+import { useProducts, Product } from '@/hooks/useProducts';
 import { Search, Package, ShoppingCart, Trash2, Receipt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +16,7 @@ const SalesDashboardContent = () => {
   const { setOpenMobile } = useSidebar();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [products] = useState<Product[]>(getProductsFromLocalStorage());
+  const { products, loading } = useProducts();
   const [cart, setCart] = useState<Array<{product: Product, quantity: number}>>([]);
 
   // Close sidebar automatically when component mounts
@@ -104,6 +103,19 @@ const SalesDashboardContent = () => {
       }
     });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex w-full">
+        <Sidebar />
+        <main className="flex-1 p-6 overflow-y-auto">
+          <div className="text-center py-12">
+            <div className="text-muted-foreground text-lg">Loading products...</div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex w-full">

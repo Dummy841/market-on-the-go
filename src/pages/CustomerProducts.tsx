@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,28 +12,14 @@ import {
   ShoppingCart,
   Filter
 } from 'lucide-react';
-import { Product } from '@/utils/types';
+import { useProducts } from '@/hooks/useProducts';
 
 const CustomerProducts = () => {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products, loading } = useProducts();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
-  useEffect(() => {
-    // Load products from localStorage
-    const savedProducts = localStorage.getItem('products');
-    if (savedProducts) {
-      try {
-        const allProducts = JSON.parse(savedProducts);
-        setProducts(allProducts);
-      } catch (error) {
-        console.error('Error loading products:', error);
-        setProducts([]);
-      }
-    }
-  }, []);
-
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
   
   const filteredProducts = products.filter(product => {
@@ -41,6 +27,18 @@ const CustomerProducts = () => {
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
     return matchesSearch && matchesCategory && product.quantity > 0;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-muted/30 p-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <div className="text-muted-foreground text-lg">Loading products...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30 p-4">

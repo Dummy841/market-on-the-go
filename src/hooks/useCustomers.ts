@@ -2,7 +2,20 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Customer } from '@/utils/types';
+
+export interface Customer {
+  id: string;
+  name: string;
+  email: string | null;
+  mobile: string;
+  address: string | null;
+  pincode: string | null;
+  password: string;
+  profile_photo: string | null;
+  date_joined: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export const useCustomers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -27,19 +40,7 @@ export const useCustomers = () => {
         return;
       }
 
-      const formattedCustomers = data?.map(customer => ({
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        mobile: customer.mobile,
-        address: customer.address,
-        pincode: customer.pincode,
-        password: customer.password,
-        profile_photo: customer.profile_photo,
-        date_joined: customer.date_joined
-      })) || [];
-
-      setCustomers(formattedCustomers);
+      setCustomers(data || []);
     } catch (error) {
       console.error('Error in fetchCustomers:', error);
       toast({
@@ -52,7 +53,7 @@ export const useCustomers = () => {
     }
   };
 
-  const addCustomer = async (customerData: Omit<Customer, 'id' | 'date_joined'>) => {
+  const addCustomer = async (customerData: Omit<Customer, 'id' | 'date_joined' | 'created_at' | 'updated_at'>) => {
     try {
       const { data, error } = await supabase
         .from('customers')
