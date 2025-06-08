@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +18,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
   const [name, setName] = useState(editProduct?.name || '');
   const [quantity, setQuantity] = useState(editProduct?.quantity.toString() || '1');
   const [unit, setUnit] = useState(editProduct?.unit || 'kg');
-  const [pricePerUnit, setPricePerUnit] = useState(editProduct?.pricePerUnit.toString() || '');
+  const [pricePerUnit, setPricePerUnit] = useState(editProduct?.price_per_unit.toString() || '');
 
   // Generate barcode for new products or keep existing barcode for edits
   const generateBarcode = () => {
@@ -38,10 +37,11 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
       name,
       quantity: parseFloat(quantity),
       unit,
-      pricePerUnit: parseFloat(pricePerUnit),
+      price_per_unit: parseFloat(pricePerUnit),
       category: 'General', // Default category since it's removed from form
-      date: editProduct?.date || new Date(),
-      farmerId,
+      created_at: editProduct?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      farmer_id: farmerId,
       barcode: editProduct?.barcode || generateBarcode() // Keep existing barcode or generate new one
     };
     

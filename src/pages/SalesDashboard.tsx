@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,7 +69,7 @@ const SalesDashboardContent = () => {
   };
 
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + (item.product.pricePerUnit * item.quantity), 0);
+    return cart.reduce((total, item) => total + (item.product.price_per_unit * item.quantity), 0);
   };
 
   const clearCart = () => {
@@ -85,11 +86,11 @@ const SalesDashboardContent = () => {
       return;
     }
 
-    // Convert cart to the format expected by PaymentPage - removed the non-existent image property
+    // Convert cart to the format expected by PaymentPage
     const cartItems = cart.map(item => ({
       id: item.product.id,
       name: item.product.name,
-      price: item.product.pricePerUnit,
+      price: item.product.price_per_unit,
       quantity: item.quantity
     }));
 
@@ -147,7 +148,7 @@ const SalesDashboardContent = () => {
                         <div className="text-xs text-muted-foreground">
                           {product.quantity} {product.unit}
                         </div>
-                        <div className="text-sm font-semibold">₹{product.pricePerUnit}</div>
+                        <div className="text-sm font-semibold">₹{product.price_per_unit}</div>
                       </div>
                       <Button
                         size="sm"
@@ -186,7 +187,7 @@ const SalesDashboardContent = () => {
                         <div key={`${item.product.id}-${index}`} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <div className="flex-1">
                             <h4 className="font-medium text-sm">{item.product.name}</h4>
-                            <p className="text-xs text-muted-foreground">₹{item.product.pricePerUnit} per {item.product.unit}</p>
+                            <p className="text-xs text-muted-foreground">₹{item.product.price_per_unit} per {item.product.unit}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <Button

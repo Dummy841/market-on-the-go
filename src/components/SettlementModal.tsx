@@ -41,9 +41,9 @@ const SettlementModal: React.FC<SettlementModalProps> = ({
   };
 
   // Get unsettled transactions
-  const unsettledTransactions = farmer.transactions.filter(
+  const unsettledTransactions = farmer.transactions?.filter(
     t => t.type === 'credit' && !t.settled
-  );
+  ) || [];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -69,16 +69,16 @@ const SettlementModal: React.FC<SettlementModalProps> = ({
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Bank:</span>
-              <span>{farmer.bankName}</span>
+              <span>{farmer.bank_name}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Account Number:</span>
-              <span>{farmer.accountNumber}</span>
+              <span>{farmer.account_number}</span>
             </div>
-            {farmer.ifscCode && (
+            {farmer.ifsc_code && (
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">IFSC Code:</span>
-                <span>{farmer.ifscCode}</span>
+                <span>{farmer.ifsc_code}</span>
               </div>
             )}
           </div>

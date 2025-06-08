@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,12 +25,12 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
     name: '',
     phone: '',
     address: '',
-    accountNumber: '',
-    bankName: '',
-    ifscCode: '',
+    account_number: '',
+    bank_name: '',
+    ifsc_code: '',
     email: '',
     password: '',
-    profilePhoto: '',
+    profile_photo: '',
     state: '',
     district: '',
     village: ''
@@ -48,12 +47,12 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
         name: editFarmer.name,
         phone: editFarmer.phone,
         address: editFarmer.address || '',
-        accountNumber: editFarmer.accountNumber,
-        bankName: editFarmer.bankName,
-        ifscCode: editFarmer.ifscCode || '',
+        account_number: editFarmer.account_number || '',
+        bank_name: editFarmer.bank_name || '',
+        ifsc_code: editFarmer.ifsc_code || '',
         email: editFarmer.email,
         password: editFarmer.password,
-        profilePhoto: editFarmer.profilePhoto || '',
+        profile_photo: editFarmer.profile_photo || '',
         state: editFarmer.state || '',
         district: editFarmer.district || '',
         village: editFarmer.village || ''
@@ -143,7 +142,7 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
     }
 
     // Basic validation
-    if (!formData.name || !formData.phone || !formData.accountNumber || !formData.bankName || !formData.email || !formData.password || !formData.state) {
+    if (!formData.name || !formData.phone || !formData.account_number || !formData.bank_name || !formData.email || !formData.password || !formData.state) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields.",
@@ -158,15 +157,15 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
       name: formData.name,
       phone: formData.phone,
       address: formData.address,
-      accountNumber: formData.accountNumber,
-      bankName: formData.bankName,
-      ifscCode: formData.ifscCode,
-      dateJoined: editFarmer ? editFarmer.dateJoined : new Date(),
+      account_number: formData.account_number,
+      bank_name: formData.bank_name,
+      ifsc_code: formData.ifsc_code,
+      date_joined: editFarmer ? editFarmer.date_joined : new Date().toISOString(),
       products: editFarmer ? editFarmer.products : [],
       transactions: editFarmer ? editFarmer.transactions : [],
       email: formData.email,
       password: formData.password,
-      profilePhoto: formData.profilePhoto,
+      profile_photo: formData.profile_photo,
       state: formData.state,
       district: formData.district,
       village: formData.village
@@ -189,8 +188,8 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
           <CardContent className="space-y-4">
             <div className="flex justify-center mb-4">
               <PhotoUploadField
-                value={formData.profilePhoto}
-                onChange={(value) => setFormData(prev => ({ ...prev, profilePhoto: value }))}
+                value={formData.profile_photo}
+                onChange={(value) => setFormData(prev => ({ ...prev, profile_photo: value }))}
               />
             </div>
             
@@ -329,22 +328,22 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
 
               {/* Banking Details */}
               <div className="space-y-2">
-                <Label htmlFor="accountNumber">Account Number *</Label>
+                <Label htmlFor="account_number">Account Number *</Label>
                 <Input 
-                  id="accountNumber" 
-                  name="accountNumber" 
+                  id="account_number" 
+                  name="account_number" 
                   placeholder="Enter account number" 
-                  value={formData.accountNumber}
+                  value={formData.account_number}
                   onChange={handleChange}
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bankName">Bank Name *</Label>
+                <Label htmlFor="bank_name">Bank Name *</Label>
                 <Select 
-                  value={formData.bankName} 
-                  onValueChange={(value) => handleSelectChange("bankName", value)}
+                  value={formData.bank_name} 
+                  onValueChange={(value) => handleSelectChange("bank_name", value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select bank" />
@@ -358,12 +357,12 @@ const FarmerForm: React.FC<FarmerFormProps> = ({ onSubmit, onCancel, editFarmer 
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ifscCode">IFSC Code</Label>
+                <Label htmlFor="ifsc_code">IFSC Code</Label>
                 <Input 
-                  id="ifscCode" 
-                  name="ifscCode" 
+                  id="ifsc_code" 
+                  name="ifsc_code" 
                   placeholder="Enter IFSC code" 
-                  value={formData.ifscCode}
+                  value={formData.ifsc_code}
                   onChange={handleChange}
                 />
               </div>

@@ -1,3 +1,4 @@
+
 import { Farmer, Product, Transaction } from './types';
 
 export const mockFarmers: Farmer[] = [
@@ -6,28 +7,28 @@ export const mockFarmers: Farmer[] = [
     name: 'John Doe',
     phone: '9876543210',
     address: '123 Farm Road, Countryside',
-    accountNumber: '1234567890',
-    bankName: 'Agricultural Bank',
-    ifscCode: 'AGRI0001234',
-    dateJoined: new Date('2023-01-15'),
+    account_number: '1234567890',
+    bank_name: 'Agricultural Bank',
+    ifsc_code: 'AGRI0001234',
+    date_joined: '2023-01-15T00:00:00.000Z',
     products: [],
     transactions: [],
     email: 'john@example.com',
-    password: 'password123', // In a real app, you would never store plain text passwords
+    password: 'password123',
     state: 'Karnataka',
     district: 'Bangalore',
     village: 'Whitefield',
-    profilePhoto: undefined
+    profile_photo: undefined
   },
   {
     id: '2',
     name: 'Jane Smith',
     phone: '8765432109',
     address: '456 Harvest Lane, Greenfield',
-    accountNumber: '0987654321',
-    bankName: 'Rural Development Bank',
-    ifscCode: 'RURAL002345',
-    dateJoined: new Date('2023-03-22'),
+    account_number: '0987654321',
+    bank_name: 'Rural Development Bank',
+    ifsc_code: 'RURAL002345',
+    date_joined: '2023-03-22T00:00:00.000Z',
     products: [],
     transactions: [],
     email: 'jane@example.com',
@@ -35,17 +36,17 @@ export const mockFarmers: Farmer[] = [
     state: 'Maharashtra',
     district: 'Pune',
     village: 'Hinjewadi',
-    profilePhoto: undefined
+    profile_photo: undefined
   },
   {
     id: '3',
     name: 'Robert Green',
     phone: '7654321098',
     address: '789 Orchard Path, Fruitville',
-    accountNumber: '5678901234',
-    bankName: 'Farmers Credit Union',
-    ifscCode: 'FCU00987',
-    dateJoined: new Date('2023-05-10'),
+    account_number: '5678901234',
+    bank_name: 'Farmers Credit Union',
+    ifsc_code: 'FCU00987',
+    date_joined: '2023-05-10T00:00:00.000Z',
     products: [],
     transactions: [],
     email: 'robert@example.com',
@@ -53,7 +54,7 @@ export const mockFarmers: Farmer[] = [
     state: 'Tamil Nadu',
     district: 'Chennai',
     village: 'Adyar',
-    profilePhoto: undefined
+    profile_photo: undefined
   }
 ];
 
@@ -63,50 +64,55 @@ export const mockProducts: Product[] = [
     name: 'Wheat',
     quantity: 500,
     unit: 'kg',
-    pricePerUnit: 25,
+    price_per_unit: 25,
     category: 'Grains',
-    date: new Date('2023-06-15'),
-    farmerId: '1'
+    created_at: '2023-06-15T00:00:00.000Z',
+    updated_at: '2023-06-15T00:00:00.000Z',
+    farmer_id: '1'
   },
   {
     id: '2',
     name: 'Rice',
     quantity: 300,
     unit: 'kg',
-    pricePerUnit: 35,
+    price_per_unit: 35,
     category: 'Grains',
-    date: new Date('2023-06-20'),
-    farmerId: '1'
+    created_at: '2023-06-20T00:00:00.000Z',
+    updated_at: '2023-06-20T00:00:00.000Z',
+    farmer_id: '1'
   },
   {
     id: '3',
     name: 'Tomatoes',
     quantity: 200,
     unit: 'kg',
-    pricePerUnit: 20,
+    price_per_unit: 20,
     category: 'Vegetables',
-    date: new Date('2023-07-05'),
-    farmerId: '2'
+    created_at: '2023-07-05T00:00:00.000Z',
+    updated_at: '2023-07-05T00:00:00.000Z',
+    farmer_id: '2'
   },
   {
     id: '4',
     name: 'Potatoes',
     quantity: 450,
     unit: 'kg',
-    pricePerUnit: 15,
+    price_per_unit: 15,
     category: 'Vegetables',
-    date: new Date('2023-07-10'),
-    farmerId: '2'
+    created_at: '2023-07-10T00:00:00.000Z',
+    updated_at: '2023-07-10T00:00:00.000Z',
+    farmer_id: '2'
   },
   {
     id: '5',
     name: 'Apples',
     quantity: 150,
     unit: 'kg',
-    pricePerUnit: 60,
+    price_per_unit: 60,
     category: 'Fruits',
-    date: new Date('2023-07-15'),
-    farmerId: '3'
+    created_at: '2023-07-15T00:00:00.000Z',
+    updated_at: '2023-07-15T00:00:00.000Z',
+    farmer_id: '3'
   }
 ];
 
@@ -187,7 +193,7 @@ export const mockTransactions: Transaction[] = [
 
 // Initialize farmer products and transactions
 mockFarmers.forEach(farmer => {
-  farmer.products = mockProducts.filter(product => product.farmerId === farmer.id);
+  farmer.products = mockProducts.filter(product => product.farmer_id === farmer.id);
   farmer.transactions = mockTransactions.filter(transaction => transaction.farmerId === farmer.id);
 });
 
