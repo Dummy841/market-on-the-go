@@ -4,15 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  mobile: string;
-  address: string;
-  dateRegistered: string;
-}
+import { Customer } from '@/utils/types';
 
 interface Order {
   id: string;
