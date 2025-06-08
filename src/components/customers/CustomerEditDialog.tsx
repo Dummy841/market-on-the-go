@@ -111,7 +111,7 @@ const CustomerEditDialog = ({ customer, open, onClose, onSave }: CustomerEditDia
             <Button type="submit">
               Save Changes
             </Button>
-          </div>
+            </div>
         </form>
       </DialogContent>
     </Dialog>
