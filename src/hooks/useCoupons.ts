@@ -40,6 +40,7 @@ export const useCoupons = () => {
         return;
       }
 
+      console.log('Fetched coupons:', data);
       setCoupons(data || []);
     } catch (error) {
       console.error('Error in fetchCoupons:', error);
@@ -55,9 +56,20 @@ export const useCoupons = () => {
 
   const addCoupon = async (couponData: Omit<Coupon, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      console.log('Adding coupon to Supabase:', couponData);
+      
       const { data, error } = await supabase
         .from('coupons')
-        .insert([couponData])
+        .insert([{
+          code: couponData.code,
+          discount_type: couponData.discount_type,
+          discount_value: Number(couponData.discount_value),
+          expiry_date: couponData.expiry_date,
+          is_active: couponData.is_active,
+          max_discount_limit: couponData.max_discount_limit ? Number(couponData.max_discount_limit) : null,
+          target_type: couponData.target_type,
+          target_user_id: couponData.target_user_id
+        }])
         .select()
         .single();
 
@@ -65,12 +77,13 @@ export const useCoupons = () => {
         console.error('Error adding coupon:', error);
         toast({
           title: "Error",
-          description: "Failed to add coupon",
+          description: `Failed to add coupon: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };
       }
 
+      console.log('Coupon added successfully:', data);
       await fetchCoupons();
       toast({
         title: "Success",
@@ -91,9 +104,21 @@ export const useCoupons = () => {
 
   const updateCoupon = async (id: string, couponData: Partial<Coupon>) => {
     try {
+      console.log('Updating coupon:', id, couponData);
+      
+      const updateData: any = {};
+      if (couponData.code !== undefined) updateData.code = couponData.code;
+      if (couponData.discount_type !== undefined) updateData.discount_type = couponData.discount_type;
+      if (couponData.discount_value !== undefined) updateData.discount_value = Number(couponData.discount_value);
+      if (couponData.expiry_date !== undefined) updateData.expiry_date = couponData.expiry_date;
+      if (couponData.is_active !== undefined) updateData.is_active = couponData.is_active;
+      if (couponData.max_discount_limit !== undefined) updateData.max_discount_limit = couponData.max_discount_limit ? Number(couponData.max_discount_limit) : null;
+      if (couponData.target_type !== undefined) updateData.target_type = couponData.target_type;
+      if (couponData.target_user_id !== undefined) updateData.target_user_id = couponData.target_user_id;
+
       const { data, error } = await supabase
         .from('coupons')
-        .update(couponData)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -102,7 +127,7 @@ export const useCoupons = () => {
         console.error('Error updating coupon:', error);
         toast({
           title: "Error",
-          description: "Failed to update coupon",
+          description: `Failed to update coupon: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };
@@ -137,7 +162,7 @@ export const useCoupons = () => {
         console.error('Error deleting coupon:', error);
         toast({
           title: "Error",
-          description: "Failed to delete coupon",
+          description: `Failed to delete coupon: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };

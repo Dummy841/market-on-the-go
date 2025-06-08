@@ -41,6 +41,7 @@ export const useTickets = () => {
         return;
       }
 
+      console.log('Fetched tickets:', data);
       setTickets(data || []);
     } catch (error) {
       console.error('Error in fetchTickets:', error);
@@ -56,9 +57,21 @@ export const useTickets = () => {
 
   const addTicket = async (ticketData: Omit<Ticket, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      console.log('Adding ticket to Supabase:', ticketData);
+      
       const { data, error } = await supabase
         .from('tickets')
-        .insert([ticketData])
+        .insert([{
+          user_id: ticketData.user_id,
+          user_name: ticketData.user_name,
+          user_type: ticketData.user_type,
+          user_contact: ticketData.user_contact,
+          message: ticketData.message,
+          status: ticketData.status || 'pending',
+          assigned_to: ticketData.assigned_to,
+          resolution: ticketData.resolution,
+          attachment_url: ticketData.attachment_url
+        }])
         .select()
         .single();
 
@@ -66,12 +79,13 @@ export const useTickets = () => {
         console.error('Error adding ticket:', error);
         toast({
           title: "Error",
-          description: "Failed to create ticket",
+          description: `Failed to create ticket: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };
       }
 
+      console.log('Ticket added successfully:', data);
       await fetchTickets();
       toast({
         title: "Success",
@@ -92,9 +106,17 @@ export const useTickets = () => {
 
   const updateTicket = async (id: string, ticketData: Partial<Ticket>) => {
     try {
+      console.log('Updating ticket:', id, ticketData);
+      
+      const updateData: any = {};
+      if (ticketData.status !== undefined) updateData.status = ticketData.status;
+      if (ticketData.assigned_to !== undefined) updateData.assigned_to = ticketData.assigned_to;
+      if (ticketData.resolution !== undefined) updateData.resolution = ticketData.resolution;
+      if (ticketData.message !== undefined) updateData.message = ticketData.message;
+
       const { data, error } = await supabase
         .from('tickets')
-        .update(ticketData)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -103,7 +125,7 @@ export const useTickets = () => {
         console.error('Error updating ticket:', error);
         toast({
           title: "Error",
-          description: "Failed to update ticket",
+          description: `Failed to update ticket: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };
@@ -138,7 +160,7 @@ export const useTickets = () => {
         console.error('Error deleting ticket:', error);
         toast({
           title: "Error",
-          description: "Failed to delete ticket",
+          description: `Failed to delete ticket: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };

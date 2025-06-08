@@ -1,12 +1,12 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Package, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useCustomers } from '@/hooks/useCustomers';
 
 interface CustomerForm {
   name: string;
@@ -17,6 +17,7 @@ interface CustomerForm {
 const CustomerRegister = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { registerCustomer } = useCustomers();
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -82,7 +83,7 @@ const CustomerRegister = () => {
     }, 1500);
   };
   
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!customer.name || !address || !pincode) {
@@ -105,30 +106,47 @@ const CustomerRegister = () => {
     
     setIsLoading(true);
     
-    // Simulate registration process
-    setTimeout(() => {
-      // Save customer data to localStorage for demo purposes
-      const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-      const newCustomer = {
-        ...customer,
-        id: `cust_${Date.now()}`,
+    try {
+      const registrationData = {
+        name: customer.name,
+        mobile: customer.mobile,
+        email: customer.email,
         address,
-        pincode,
-        date_joined: new Date().toISOString(),
-        password: 'defaultPassword123' // In real app, this would be handled properly
+        pincode
       };
+
+      console.log('Submitting registration data:', registrationData);
+      const result = await registerCustomer(registrationData);
       
-      customers.push(newCustomer);
-      localStorage.setItem('customers', JSON.stringify(customers));
-      
-      setIsLoading(false);
+      if (result.success) {
+        // Store customer data in localStorage for immediate access
+        localStorage.setItem('currentCustomer', JSON.stringify(result.customer));
+        
+        toast({
+          title: "Registration Successful",
+          description: "Your account has been created successfully"
+        });
+        
+        // Redirect to customer home
+        navigate('/customer-home');
+      } else {
+        console.error('Registration failed:', result.error);
+        toast({
+          title: "Registration Failed",
+          description: "Failed to create account. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
       toast({
-        title: "Registration Successful",
-        description: "Your account has been created successfully"
+        title: "Registration Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
       });
-      
-      navigate('/customer-login');
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -147,7 +165,7 @@ const CustomerRegister = () => {
             </Button>
             <div className="mx-auto flex items-center gap-2">
               <Package className="h-6 w-6 text-agri-primary" />
-              <span className="text-lg font-bold">AgriPay</span>
+              <span className="text-lg font-bold">DostanFarms</span>
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-center">Customer Registration</CardTitle>

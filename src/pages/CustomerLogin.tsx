@@ -4,19 +4,21 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Package, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useCustomers } from '@/hooks/useCustomers';
 
 const CustomerLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { loginCustomer } = useCustomers();
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (!mobile || mobile.length < 10) {
       toast({
         title: "Invalid Mobile Number",
@@ -26,33 +28,44 @@ const CustomerLogin = () => {
       return;
     }
     
-    // Check if customer exists
-    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-    const customerExists = customers.some((c: any) => c.mobile === mobile);
-    
-    if (!customerExists) {
-      toast({
-        title: "Account Not Found",
-        description: "No account found with this mobile number",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     setIsLoading(true);
     
-    // Simulate OTP sending
-    setTimeout(() => {
-      setIsLoading(false);
-      setOtpSent(true);
+    try {
+      // Check if customer exists in Supabase
+      const result = await loginCustomer(mobile);
+      
+      if (!result.success) {
+        toast({
+          title: "Account Not Found",
+          description: "No account found with this mobile number",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Simulate OTP sending
+      setTimeout(() => {
+        setIsLoading(false);
+        setOtpSent(true);
+        toast({
+          title: "OTP Sent",
+          description: "An OTP has been sent to your mobile number"
+        });
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error checking customer:', error);
       toast({
-        title: "OTP Sent",
-        description: "An OTP has been sent to your mobile number"
+        title: "Error",
+        description: "Failed to send OTP. Please try again.",
+        variant: "destructive"
       });
-    }, 1500);
+      setIsLoading(false);
+    }
   };
   
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!otp || otp.length < 4) {
@@ -66,31 +79,37 @@ const CustomerLogin = () => {
     
     setIsLoading(true);
     
-    // Simulate OTP verification and login
-    setTimeout(() => {
-      const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-      const customer = customers.find((c: any) => c.mobile === mobile);
+    try {
+      // Simulate OTP verification and get customer data
+      const result = await loginCustomer(mobile);
       
-      if (customer) {
+      if (result.success && result.customer) {
         // Store logged in customer info
-        localStorage.setItem('currentCustomer', JSON.stringify(customer));
+        localStorage.setItem('currentCustomer', JSON.stringify(result.customer));
         
-        setIsLoading(false);
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${customer.name}!`
+          description: `Welcome back, ${result.customer.name}!`
         });
         
         navigate('/customer-home');
       } else {
-        setIsLoading(false);
         toast({
           title: "Login Failed",
           description: "Invalid credentials. Please try again.",
           variant: "destructive"
         });
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (

@@ -54,14 +54,16 @@ export const useProducts = () => {
 
   const addProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      console.log('Adding product to Supabase:', productData);
+      
       const { data, error } = await supabase
         .from('products')
         .insert([{
           name: productData.name,
           category: productData.category,
           unit: productData.unit,
-          quantity: productData.quantity,
-          price_per_unit: productData.price_per_unit,
+          quantity: Number(productData.quantity),
+          price_per_unit: Number(productData.price_per_unit),
           barcode: productData.barcode,
           farmer_id: productData.farmer_id
         }])
@@ -72,12 +74,13 @@ export const useProducts = () => {
         console.error('Error adding product:', error);
         toast({
           title: "Error",
-          description: "Failed to add product",
+          description: `Failed to add product: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };
       }
 
+      console.log('Product added successfully:', data);
       await fetchProducts();
       toast({
         title: "Success",
@@ -98,17 +101,20 @@ export const useProducts = () => {
 
   const updateProduct = async (id: string, productData: Partial<Product>) => {
     try {
+      console.log('Updating product:', id, productData);
+      
+      const updateData: any = {};
+      if (productData.name !== undefined) updateData.name = productData.name;
+      if (productData.category !== undefined) updateData.category = productData.category;
+      if (productData.unit !== undefined) updateData.unit = productData.unit;
+      if (productData.quantity !== undefined) updateData.quantity = Number(productData.quantity);
+      if (productData.price_per_unit !== undefined) updateData.price_per_unit = Number(productData.price_per_unit);
+      if (productData.barcode !== undefined) updateData.barcode = productData.barcode;
+      if (productData.farmer_id !== undefined) updateData.farmer_id = productData.farmer_id;
+
       const { data, error } = await supabase
         .from('products')
-        .update({
-          name: productData.name,
-          category: productData.category,
-          unit: productData.unit,
-          quantity: productData.quantity,
-          price_per_unit: productData.price_per_unit,
-          barcode: productData.barcode,
-          farmer_id: productData.farmer_id
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -117,7 +123,7 @@ export const useProducts = () => {
         console.error('Error updating product:', error);
         toast({
           title: "Error",
-          description: "Failed to update product",
+          description: `Failed to update product: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };
@@ -126,7 +132,7 @@ export const useProducts = () => {
       await fetchProducts();
       toast({
         title: "Success",
-        description: `${productData.name} was successfully updated`
+        description: `${productData.name || 'Product'} was successfully updated`
       });
       
       return { success: true, data };
@@ -152,7 +158,7 @@ export const useProducts = () => {
         console.error('Error deleting product:', error);
         toast({
           title: "Error",
-          description: "Failed to delete product",
+          description: `Failed to delete product: ${error.message}`,
           variant: "destructive"
         });
         return { success: false, error };

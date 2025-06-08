@@ -4,9 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Ticket } from '@/utils/types';
 import { Mic, MicOff, Upload, File, X } from 'lucide-react';
 
 interface TicketFormProps {
@@ -14,7 +12,15 @@ interface TicketFormProps {
   userId: string;
   userName: string;
   userContact: string;
-  onSubmit: (ticket: Omit<Ticket, 'id'>) => void;
+  onSubmit: (ticket: {
+    user_id: string;
+    user_type: string;
+    user_name: string;
+    user_contact: string;
+    message: string;
+    status: string;
+    attachment_url?: string;
+  }) => void;
   onCancel: () => void;
 }
 
@@ -119,18 +125,17 @@ const TicketForm: React.FC<TicketFormProps> = ({
       return;
     }
 
-    const newTicket: Omit<Ticket, 'id'> = {
-      userId,
-      userType,
-      userName,
-      userContact,
+    const newTicket = {
+      user_id: userId,
+      user_type: userType,
+      user_name: userName,
+      user_contact: userContact,
       message,
       status: 'pending',
-      dateCreated: new Date(),
-      lastUpdated: new Date(),
-      attachmentUrl: attachment || undefined
+      attachment_url: attachment || undefined
     };
 
+    console.log('Submitting ticket:', newTicket);
     onSubmit(newTicket);
     
     // Reset form

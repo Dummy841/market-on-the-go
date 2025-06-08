@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { Ticket, Customer } from '@/utils/types';
+import { useTickets } from '@/hooks/useTickets';
 import TicketDialog from '@/components/ticket/TicketDialog';
 import { 
   ShoppingCart, 
@@ -20,8 +20,7 @@ import {
   LogOut,
   Package,
   List,
-  ChevronLeft,
-  Menu
+  ChevronLeft
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
@@ -29,7 +28,8 @@ import { Link } from 'react-router-dom';
 const CustomerTicketHistory = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const { tickets, addTicket, fetchTickets } = useTickets();
+  const [customerTickets, setCustomerTickets] = useState<any[]>([]);
 
   // Check if customer is logged in
   const customerString = localStorage.getItem('currentCustomer');
@@ -41,18 +41,10 @@ const CustomerTicketHistory = () => {
       return;
     }
 
-    // In a real app, we would fetch the tickets from an API
-    // For now, we'll load from localStorage or use an empty array
-    const savedTickets = localStorage.getItem('tickets');
-    if (savedTickets) {
-      const allTickets = JSON.parse(savedTickets);
-      // Filter tickets for current customer only
-      const customerTickets = allTickets.filter(
-        (ticket: Ticket) => ticket.userId === customer.id
-      );
-      setTickets(customerTickets);
-    }
-  }, [customer, navigate]);
+    // Filter tickets for current customer
+    const filteredTickets = tickets.filter(ticket => ticket.user_id === customer.id);
+    setCustomerTickets(filteredTickets);
+  }, [customer, navigate, tickets]);
   
   const handleLogout = () => {
     localStorage.removeItem('currentCustomer');
@@ -63,32 +55,18 @@ const CustomerTicketHistory = () => {
     navigate('/app-landing');
   };
   
-  const handleTicketSubmit = (ticket: Omit<Ticket, 'id'>) => {
-    // Create a new ticket with ID
-    const newTicket: Ticket = {
-      ...ticket,
-      id: `${Date.now()}`,
-      dateCreated: new Date(),
-      lastUpdated: new Date(),
-      status: 'pending'
-    };
+  const handleTicketSubmit = async (ticketData: any) => {
+    console.log('Submitting ticket:', ticketData);
+    const result = await addTicket(ticketData);
     
-    // Add to existing tickets
-    const savedTickets = localStorage.getItem('tickets');
-    const allTickets = savedTickets ? JSON.parse(savedTickets) : [];
-    const updatedTickets = [...allTickets, newTicket];
-    
-    // Save to localStorage
-    localStorage.setItem('tickets', JSON.stringify(updatedTickets));
-    
-    // Update local state
-    setTickets(prev => [...prev, newTicket]);
-    
-    toast({
-      title: "Ticket Submitted",
-      description: "Your support ticket has been submitted.",
-      variant: "default",
-    });
+    if (result.success) {
+      toast({
+        title: "Ticket Submitted",
+        description: "Your support ticket has been submitted.",
+      });
+      // Refresh tickets
+      await fetchTickets();
+    }
   };
   
   const getInitials = (name: string) => {
@@ -99,7 +77,7 @@ const CustomerTicketHistory = () => {
       .toUpperCase();
   };
 
-  const getStatusBadge = (status: Ticket['status']) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
         return <Badge variant="outline" className="bg-yellow-100">Pending</Badge>;
@@ -128,7 +106,7 @@ const CustomerTicketHistory = () => {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <Package className="h-6 w-6 text-agri-primary" />
-            <span className="text-xl font-bold hidden sm:inline">AgriPay</span>
+            <span className="text-xl font-bold hidden sm:inline">DostanFarms</span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -180,13 +158,13 @@ const CustomerTicketHistory = () => {
             userType="customer"
             userId={customer.id}
             userName={customer.name}
-            userContact={customer.phone || ""}
+            userContact={customer.mobile || ""}
             onSubmit={handleTicketSubmit}
             buttonText="Raise a New Ticket"
           />
         </div>
         
-        {tickets.length === 0 ? (
+        {customerTickets.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center p-6">
               <p className="text-muted-foreground text-center mb-4">You haven't raised any support tickets yet.</p>
@@ -194,7 +172,7 @@ const CustomerTicketHistory = () => {
                 userType="customer"
                 userId={customer.id}
                 userName={customer.name}
-                userContact={customer.phone || ""}
+                userContact={customer.mobile || ""}
                 onSubmit={handleTicketSubmit}
                 buttonText="Raise Your First Ticket"
               />
@@ -202,7 +180,7 @@ const CustomerTicketHistory = () => {
           </Card>
         ) : (
           <div className="space-y-4">
-            {tickets.map((ticket) => (
+            {customerTickets.map((ticket) => (
               <Card key={ticket.id}>
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
@@ -213,7 +191,7 @@ const CustomerTicketHistory = () => {
                     <div className="flex flex-col items-end">
                       {getStatusBadge(ticket.status)}
                       <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(ticket.dateCreated), 'MMM dd, yyyy')}
+                        {format(new Date(ticket.created_at), 'MMM dd, yyyy')}
                       </p>
                     </div>
                   </div>
