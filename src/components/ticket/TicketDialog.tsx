@@ -6,7 +6,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-import { Ticket } from '@/utils/types';
 import TicketForm from './TicketForm';
 import { Ticket as TicketIcon } from 'lucide-react';
 
@@ -15,7 +14,15 @@ interface TicketDialogProps {
   userId: string;
   userName: string;
   userContact: string;
-  onSubmit: (ticket: Omit<Ticket, 'id'>) => void;
+  onSubmit: (ticket: {
+    user_id: string;
+    user_type: string;
+    user_name: string;
+    user_contact: string;
+    message: string;
+    status: string;
+    attachment_url?: string;
+  }) => void;
   buttonText?: string;
 }
 
@@ -29,7 +36,15 @@ const TicketDialog: React.FC<TicketDialogProps> = ({
 }) => {
   const [open, setOpen] = React.useState(false);
 
-  const handleSubmit = (ticket: Omit<Ticket, 'id'>) => {
+  const handleSubmit = (ticket: {
+    user_id: string;
+    user_type: string;
+    user_name: string;
+    user_contact: string;
+    message: string;
+    status: string;
+    attachment_url?: string;
+  }) => {
     onSubmit(ticket);
     setOpen(false);
   };
