@@ -11,13 +11,13 @@ import CustomerEditDialog from '@/components/customers/CustomerEditDialog';
 import CustomerOrdersDialog from '@/components/customers/CustomerOrdersDialog';
 import Sidebar from '@/components/Sidebar';
 import { useCustomers } from '@/hooks/useCustomers';
-import { Customer as TypesCustomer } from '@/utils/types';
+import { Customer } from '@/utils/types';
 
 const Customers = () => {
   const { customers, loading, updateCustomer, deleteCustomer } = useCustomers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingCustomer, setEditingCustomer] = useState<TypesCustomer | null>(null);
-  const [viewingOrders, setViewingOrders] = useState<TypesCustomer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [viewingOrders, setViewingOrders] = useState<Customer | null>(null);
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter(customer =>
@@ -30,8 +30,8 @@ const Customers = () => {
     await deleteCustomer(customerId);
   };
 
-  const handleEditCustomer = async (updatedCustomer: TypesCustomer) => {
-    // Convert TypesCustomer to the format expected by updateCustomer
+  const handleEditCustomer = async (updatedCustomer: Customer) => {
+    // Convert Customer to the format expected by updateCustomer
     const customerUpdate = {
       id: updatedCustomer.id,
       name: updatedCustomer.name,
@@ -46,19 +46,6 @@ const Customers = () => {
       setEditingCustomer(null);
     }
   };
-
-  // Convert hook customer to TypesCustomer for dialog compatibility
-  const convertToTypesCustomer = (hookCustomer: any): TypesCustomer => ({
-    id: hookCustomer.id,
-    name: hookCustomer.name,
-    mobile: hookCustomer.mobile,
-    email: hookCustomer.email,
-    address: hookCustomer.address,
-    pincode: hookCustomer.pincode,
-    date_joined: hookCustomer.date_joined || new Date().toISOString(),
-    profile_photo: hookCustomer.profile_photo,
-    password: 'hidden' // Password is not exposed in the UI
-  });
 
   if (loading) {
     return (
@@ -142,7 +129,7 @@ const Customers = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setViewingOrders(convertToTypesCustomer(customer))}
+                                onClick={() => setViewingOrders(customer)}
                                 title="View Orders"
                               >
                                 <Eye className="h-4 w-4" />
@@ -150,7 +137,7 @@ const Customers = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setEditingCustomer(convertToTypesCustomer(customer))}
+                                onClick={() => setEditingCustomer(customer)}
                                 title="Edit Customer"
                               >
                                 <Edit className="h-4 w-4" />

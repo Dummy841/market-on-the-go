@@ -1,4 +1,3 @@
-
 export interface Farmer {
   id: string;
   name: string;
@@ -66,12 +65,14 @@ export interface Customer {
   id: string;
   name: string;
   mobile: string;
-  email?: string;
-  address?: string;
-  pincode?: string;
+  email?: string | null;
+  address?: string | null;
+  pincode?: string | null;
   date_joined: string;
-  profile_photo?: string;
+  profile_photo?: string | null;
   password: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Order Management types
