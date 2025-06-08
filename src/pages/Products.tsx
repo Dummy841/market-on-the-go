@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,55 +7,45 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import Sidebar from '@/components/Sidebar';
 import ProductForm from '@/components/ProductForm';
-import { mockFarmers } from '@/utils/mockData';
-import { Product } from '@/utils/types';
-import { Search, Plus, Package, Edit, Tag, Barcode, Printer, ScanLine } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { saveProductsToLocalStorage, getProductsFromLocalStorage } from '@/utils/employeeData';
+import { useProducts, Product } from '@/hooks/useProducts';
+import { Search, Plus, Package, Edit, Printer, ScanLine } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Barcode128 from 'react-barcode-generator';
 
 const Products = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined);
   const [selectedFarmerId, setSelectedFarmerId] = useState<string>('1');
   const [scannedBarcode, setScannedBarcode] = useState('');
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
   
-  // Load products from localStorage on component mount
-  useEffect(() => {
-    const storedProducts = getProductsFromLocalStorage();
-    setProducts(storedProducts);
-  }, []);
+  const { products, loading, addProduct, updateProduct } = useProducts();
 
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (product.barcode && product.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
-  const handleAddProduct = (newProduct: Product) => {
-    let updatedProducts;
+  const handleAddProduct = async (newProduct: any) => {
+    let result;
     
     if (selectedProduct) {
-      updatedProducts = products.map(product => 
-        product.id === newProduct.id ? newProduct : product
-      );
+      result = await updateProduct(newProduct.id, newProduct);
     } else {
-      updatedProducts = [...products, newProduct];
+      result = await addProduct(newProduct);
     }
     
-    setProducts(updatedProducts);
-    saveProductsToLocalStorage(updatedProducts);
-    setIsDialogOpen(false);
-    setSelectedProduct(undefined);
+    if (result.success) {
+      setIsDialogOpen(false);
+      setSelectedProduct(undefined);
+    }
   };
 
   const handleEditProduct = (product: Product) => {
     setSelectedProduct(product);
-    setSelectedFarmerId(product.farmerId);
+    setSelectedFarmerId(product.farmer_id || '1');
     setIsDialogOpen(true);
   };
 
@@ -167,6 +157,21 @@ const Products = () => {
       });
     }
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <Sidebar />
+          <main className="flex-1 p-6 overflow-y-auto">
+            <div className="text-center py-12">
+              <div className="text-muted-foreground text-lg">Loading products...</div>
+            </div>
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
   
   return (
     <SidebarProvider>
@@ -238,7 +243,7 @@ const Products = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div><strong>Name:</strong> {scannedProduct.name}</div>
                     <div><strong>Quantity:</strong> {scannedProduct.quantity} {scannedProduct.unit}</div>
-                    <div><strong>Price:</strong> ₹{scannedProduct.pricePerUnit}</div>
+                    <div><strong>Price:</strong> ₹{scannedProduct.price_per_unit}</div>
                   </div>
                 </div>
               )}
@@ -307,7 +312,7 @@ const Products = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-xs text-muted-foreground">Price/Unit:</span>
-                          <span className="text-xs font-semibold">₹{product.pricePerUnit}</span>
+                          <span className="text-xs font-semibold">₹{product.price_per_unit}</span>
                         </div>
                       </div>
                       

@@ -1,95 +1,55 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { ArrowLeft, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import { Search, Eye, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import CustomerEditDialog from '@/components/customers/CustomerEditDialog';
 import CustomerOrdersDialog from '@/components/customers/CustomerOrdersDialog';
 import Sidebar from '@/components/Sidebar';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  mobile: string;
-  address: string;
-  dateRegistered: string;
-}
+import { useCustomers, Customer } from '@/hooks/useCustomers';
 
 const Customers = () => {
-  const { toast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const { customers, loading, updateCustomer, deleteCustomer } = useCustomers();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingOrders, setViewingOrders] = useState<Customer | null>(null);
 
-  useEffect(() => {
-    // Load customers from localStorage (only registered customers)
-    const savedCustomers = localStorage.getItem('customers');
-    if (savedCustomers) {
-      try {
-        const parsedCustomers = JSON.parse(savedCustomers);
-        console.log('Loaded customers:', parsedCustomers);
-        setCustomers(parsedCustomers);
-        setFilteredCustomers(parsedCustomers);
-      } catch (error) {
-        console.error('Error parsing customers:', error);
-        setCustomers([]);
-        setFilteredCustomers([]);
-      }
-    } else {
-      console.log('No customers found in localStorage');
-      setCustomers([]);
-      setFilteredCustomers([]);
-    }
-  }, []);
+  // Filter customers based on search term
+  const filteredCustomers = customers.filter(customer =>
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    customer.mobile.includes(searchTerm)
+  );
 
-  useEffect(() => {
-    // Filter customers based on search term
-    if (searchTerm.trim() === '') {
-      setFilteredCustomers(customers);
-    } else {
-      const filtered = customers.filter(customer =>
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.mobile.includes(searchTerm)
-      );
-      setFilteredCustomers(filtered);
-    }
-  }, [searchTerm, customers]);
-
-  const handleDeleteCustomer = (customerId: string) => {
-    const updatedCustomers = customers.filter(customer => customer.id !== customerId);
-    setCustomers(updatedCustomers);
-    setFilteredCustomers(updatedCustomers);
-    localStorage.setItem('customers', JSON.stringify(updatedCustomers));
-    
-    toast({
-      title: "Customer Deleted",
-      description: "Customer has been successfully removed.",
-    });
+  const handleDeleteCustomer = async (customerId: string) => {
+    await deleteCustomer(customerId);
   };
 
-  const handleEditCustomer = (updatedCustomer: Customer) => {
-    const updatedCustomers = customers.map(customer => 
-      customer.id === updatedCustomer.id ? updatedCustomer : customer
+  const handleEditCustomer = async (updatedCustomer: Customer) => {
+    const result = await updateCustomer(updatedCustomer.id, updatedCustomer);
+    if (result.success) {
+      setEditingCustomer(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <Sidebar />
+          <main className="flex-1 p-6 overflow-y-auto">
+            <div className="text-center py-12">
+              <div className="text-muted-foreground text-lg">Loading customers...</div>
+            </div>
+          </main>
+        </div>
+      </SidebarProvider>
     );
-    setCustomers(updatedCustomers);
-    setFilteredCustomers(updatedCustomers);
-    localStorage.setItem('customers', JSON.stringify(updatedCustomers));
-    setEditingCustomer(null);
-    
-    toast({
-      title: "Customer Updated",
-      description: "Customer details have been successfully updated.",
-    });
-  };
+  }
 
   return (
     <SidebarProvider>
@@ -147,12 +107,12 @@ const Customers = () => {
                       {filteredCustomers.map((customer) => (
                         <TableRow key={customer.id}>
                           <TableCell className="font-medium">{customer.name}</TableCell>
-                          <TableCell>{customer.email}</TableCell>
+                          <TableCell>{customer.email || 'Not provided'}</TableCell>
                           <TableCell>{customer.mobile}</TableCell>
                           <TableCell className="max-w-xs truncate" title={customer.address}>
-                            {customer.address}
+                            {customer.address || 'Not provided'}
                           </TableCell>
-                          <TableCell>{new Date(customer.dateRegistered).toLocaleDateString()}</TableCell>
+                          <TableCell>{new Date(customer.date_joined).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button

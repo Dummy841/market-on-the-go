@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,48 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import Sidebar from '@/components/Sidebar';
 import FarmerForm from '@/components/FarmerForm';
-import { Farmer } from '@/utils/types';
+import { useFarmers, Farmer } from '@/hooks/useFarmers';
 import { Search, Plus, User, Edit, Eye } from 'lucide-react';
 
 const Farmers = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedFarmer, setSelectedFarmer] = useState<Farmer | undefined>(undefined);
   
-  // Load farmers from localStorage on component mount
-  useEffect(() => {
-    const loadFarmers = () => {
-      const savedFarmers = localStorage.getItem('farmers');
-      if (savedFarmers) {
-        try {
-          const parsedFarmers = JSON.parse(savedFarmers);
-          // Convert date strings back to Date objects
-          const farmersWithDates = parsedFarmers.map((farmer: any) => ({
-            ...farmer,
-            dateJoined: new Date(farmer.dateJoined),
-            products: farmer.products || [],
-            transactions: farmer.transactions || []
-          }));
-          setFarmers(farmersWithDates);
-        } catch (error) {
-          console.error('Error loading farmers:', error);
-          setFarmers([]);
-        }
-      }
-    };
-
-    loadFarmers();
-    
-    // Listen for storage changes
-    const handleStorageChange = () => {
-      loadFarmers();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  const { farmers, loading, addFarmer, updateFarmer } = useFarmers();
   
   // Filter farmers based on search
   const filteredFarmers = farmers.filter(farmer => 
@@ -57,32 +25,42 @@ const Farmers = () => {
     farmer.phone.includes(searchTerm)
   );
   
-  const handleAddFarmer = (newFarmer: Farmer) => {
-    let updatedFarmers;
+  const handleAddFarmer = async (farmerData: Farmer) => {
+    let result;
     
     if (selectedFarmer) {
       // Update existing farmer
-      updatedFarmers = farmers.map(farmer => 
-        farmer.id === newFarmer.id ? newFarmer : farmer
-      );
+      result = await updateFarmer(farmerData.id, farmerData);
     } else {
       // Add new farmer
-      updatedFarmers = [...farmers, newFarmer];
+      result = await addFarmer(farmerData);
     }
     
-    setFarmers(updatedFarmers);
-    
-    // Save to localStorage
-    localStorage.setItem('farmers', JSON.stringify(updatedFarmers));
-    
-    setIsDialogOpen(false);
-    setSelectedFarmer(undefined);
+    if (result.success) {
+      setIsDialogOpen(false);
+      setSelectedFarmer(undefined);
+    }
   };
 
   const handleEditFarmer = (farmer: Farmer) => {
     setSelectedFarmer(farmer);
     setIsDialogOpen(true);
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <Sidebar />
+          <main className="flex-1 p-6 overflow-y-auto">
+            <div className="text-center py-12">
+              <div className="text-muted-foreground text-lg">Loading farmers...</div>
+            </div>
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
   
   return (
     <SidebarProvider>
@@ -151,7 +129,7 @@ const Farmers = () => {
                     <CardTitle className="text-lg flex justify-between items-start">
                       <span>{farmer.name}</span>
                       <span className="text-xs bg-agri-primary text-white px-2 py-1 rounded-full">
-                        ID: {farmer.id}
+                        ID: {farmer.id.slice(0, 8)}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -163,11 +141,11 @@ const Farmers = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Bank:</span>
-                        <span className="truncate max-w-[200px]">{farmer.bankName}</span>
+                        <span className="truncate max-w-[200px]">{farmer.bank_name || 'Not provided'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Account:</span>
-                        <span>{farmer.accountNumber}</span>
+                        <span>{farmer.account_number || 'Not provided'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Products:</span>
