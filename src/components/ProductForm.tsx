@@ -4,46 +4,99 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Product } from '@/hooks/useProducts';
+import { Product, useProducts } from '@/hooks/useProducts';
 import { Barcode } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProductFormProps {
-  farmerId: string;
-  onSubmit: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
+  farmerId?: string;
+  onSubmit?: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
   onCancel: () => void;
   editProduct?: Product;
 }
 
 const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormProps) => {
+  const { addProduct, updateProduct } = useProducts();
+  const { toast } = useToast();
   const [name, setName] = useState(editProduct?.name || '');
   const [quantity, setQuantity] = useState(editProduct?.quantity.toString() || '1');
   const [unit, setUnit] = useState(editProduct?.unit || 'kg');
   const [pricePerUnit, setPricePerUnit] = useState(editProduct?.price_per_unit.toString() || '');
   const [category, setCategory] = useState(editProduct?.category || 'Vegetables');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Generate barcode for new products or keep existing barcode for edits
   const generateBarcode = () => {
     return `BAR${Date.now()}${Math.floor(Math.random() * 1000)}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name || !quantity || !pricePerUnit) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
       return;
     }
     
-    const product = {
+    setIsSubmitting(true);
+    
+    const productData = {
       name,
       quantity: parseFloat(quantity),
       unit,
       price_per_unit: parseFloat(pricePerUnit),
       category,
-      farmer_id: farmerId,
+      farmer_id: farmerId || null,
       barcode: editProduct?.barcode || generateBarcode()
     };
     
-    onSubmit(product);
+    try {
+      if (editProduct) {
+        // Update existing product
+        const result = await updateProduct(editProduct.id, productData);
+        if (result.success) {
+          toast({
+            title: "Success",
+            description: "Product updated successfully"
+          });
+          onCancel(); // Close form
+        }
+      } else {
+        // Add new product
+        const result = await addProduct(productData);
+        if (result.success) {
+          toast({
+            title: "Success", 
+            description: "Product added successfully"
+          });
+          // Reset form
+          setName('');
+          setQuantity('1');
+          setPricePerUnit('');
+          setCategory('Vegetables');
+          onCancel(); // Close form
+        }
+      }
+      
+      // Call the optional onSubmit callback if provided
+      if (onSubmit) {
+        onSubmit(productData);
+      }
+      
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save product. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -58,12 +111,13 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter product name"
               required
+              disabled={isSubmitting}
             />
           </div>
           
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
+            <Select value={category} onValueChange={setCategory} disabled={isSubmitting}>
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
@@ -89,12 +143,13 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="e.g. 1, 0.5"
                 required
+                disabled={isSubmitting}
               />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="unit">Unit</Label>
-              <Select value={unit} onValueChange={setUnit}>
+              <Select value={unit} onValueChange={setUnit} disabled={isSubmitting}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select unit" />
                 </SelectTrigger>
@@ -119,6 +174,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
                 value={pricePerUnit}
                 onChange={(e) => setPricePerUnit(e.target.value)}
                 required
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -138,11 +194,16 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
               type="button" 
               variant="outline" 
               onClick={onCancel}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" className="bg-agri-primary hover:bg-agri-secondary">
-              {editProduct ? 'Update' : 'Add'} Product
+            <Button 
+              type="submit" 
+              className="bg-agri-primary hover:bg-agri-secondary"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : editProduct ? 'Update' : 'Add'} Product
             </Button>
           </div>
         </form>

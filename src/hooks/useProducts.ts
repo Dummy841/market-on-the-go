@@ -81,7 +81,10 @@ export const useProducts = () => {
       }
 
       console.log('Product added successfully:', data);
-      await fetchProducts();
+      
+      // Update local state immediately for instant feedback
+      setProducts(prevProducts => [data, ...prevProducts]);
+      
       toast({
         title: "Success",
         description: `${productData.name} was successfully added`
@@ -129,7 +132,13 @@ export const useProducts = () => {
         return { success: false, error };
       }
 
-      await fetchProducts();
+      // Update local state immediately
+      setProducts(prevProducts => 
+        prevProducts.map(product => 
+          product.id === id ? { ...product, ...data } : product
+        )
+      );
+
       toast({
         title: "Success",
         description: `${productData.name || 'Product'} was successfully updated`
@@ -164,7 +173,9 @@ export const useProducts = () => {
         return { success: false, error };
       }
 
-      await fetchProducts();
+      // Update local state immediately
+      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
+
       toast({
         title: "Success",
         description: "Product has been deleted successfully"
@@ -184,6 +195,48 @@ export const useProducts = () => {
 
   useEffect(() => {
     fetchProducts();
+
+    // Set up real-time subscription for products table
+    const channel = supabase
+      .channel('products-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'products'
+        },
+        (payload) => {
+          console.log('Real-time product change:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setProducts(prevProducts => {
+              // Check if product already exists to avoid duplicates
+              const exists = prevProducts.some(p => p.id === payload.new.id);
+              if (!exists) {
+                return [payload.new as Product, ...prevProducts];
+              }
+              return prevProducts;
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setProducts(prevProducts =>
+              prevProducts.map(product =>
+                product.id === payload.new.id ? payload.new as Product : product
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setProducts(prevProducts =>
+              prevProducts.filter(product => product.id !== payload.old.id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return {
