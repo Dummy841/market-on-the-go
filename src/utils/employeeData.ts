@@ -41,6 +41,7 @@ export const rolePermissions: RolePermission[] = [
       { resource: 'dashboard', actions: ['view'] },
       { resource: 'customers', actions: ['view', 'create'] },
       { resource: 'products', actions: ['view'] },
+      { resource: 'categories', actions: ['view'] },
       { resource: 'sales', actions: ['view', 'create'] },
       { resource: 'tickets', actions: ['view', 'create'] }
     ]
@@ -51,6 +52,7 @@ export const rolePermissions: RolePermission[] = [
       { resource: 'dashboard', actions: ['view'] },
       { resource: 'customers', actions: ['view', 'create'] },
       { resource: 'products', actions: ['view'] },
+      { resource: 'categories', actions: ['view'] },
       { resource: 'sales', actions: ['view', 'create'] },
       { resource: 'transactions', actions: ['view'] },
       { resource: 'coupons', actions: ['view'] }
@@ -59,16 +61,31 @@ export const rolePermissions: RolePermission[] = [
 ];
 
 export const getAccessibleResources = (role: Role): string[] => {
+  console.log('Getting accessible resources for role:', role);
   const rolePermission = rolePermissions.find(rp => rp.role === role);
-  return rolePermission ? rolePermission.permissions.map(p => p.resource) : [];
+  const resources = rolePermission ? rolePermission.permissions.map(p => p.resource) : [];
+  console.log('Accessible resources:', resources);
+  return resources;
 };
 
 export const hasPermission = (role: Role, resource: string, action: string): boolean => {
+  console.log('Checking permission for:', { role, resource, action });
+  
   const rolePermission = rolePermissions.find(rp => rp.role === role);
-  if (!rolePermission) return false;
+  if (!rolePermission) {
+    console.log('No role permission found for role:', role);
+    return false;
+  }
   
   const resourcePermission = rolePermission.permissions.find(p => p.resource === resource);
-  return resourcePermission ? resourcePermission.actions.includes(action as any) : false;
+  if (!resourcePermission) {
+    console.log('No resource permission found for resource:', resource);
+    return false;
+  }
+  
+  const hasAction = resourcePermission.actions.includes(action as any);
+  console.log('Permission result:', hasAction);
+  return hasAction;
 };
 
 export const getAllEmployees = () => {
