@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Product, useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
-import { Barcode } from 'lucide-react';
+import { Barcode, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ProductFormProps {
   farmerId?: string;
@@ -32,7 +34,9 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
     if (!editProduct && categories.length > 0 && !category) {
       // Set default to 'Vegetables' if available, otherwise first category
       const defaultCategory = categories.find(c => c.name === 'Vegetables') || categories[0];
-      setCategory(defaultCategory.name);
+      if (defaultCategory) {
+        setCategory(defaultCategory.name);
+      }
     }
   }, [categories, editProduct, category]);
 
@@ -52,14 +56,36 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
       });
       return;
     }
+
+    // Validate numeric fields
+    const parsedQuantity = parseFloat(quantity);
+    const parsedPrice = parseFloat(pricePerUnit);
+    
+    if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+      toast({
+        title: "Invalid quantity",
+        description: "Please enter a valid quantity greater than 0",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      toast({
+        title: "Invalid price",
+        description: "Please enter a valid price greater than 0",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
     const productData = {
-      name,
-      quantity: parseFloat(quantity),
+      name: name.trim(),
+      quantity: parsedQuantity,
       unit,
-      price_per_unit: parseFloat(pricePerUnit),
+      price_per_unit: parsedPrice,
       category,
       farmer_id: farmerId || null,
       barcode: editProduct?.barcode || generateBarcode()
@@ -111,12 +137,33 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
     }
   };
 
+  // Show alert if no categories are available
+  if (!categoriesLoading && categories.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              No categories available. Please add categories first from the Manage → Categories section.
+            </AlertDescription>
+          </Alert>
+          <div className="flex justify-end mt-4">
+            <Button variant="outline" onClick={onCancel}>
+              Close
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="product-name">Product Name</Label>
+            <Label htmlFor="product-name">Product Name*</Label>
             <Input
               id="product-name"
               value={name}
@@ -128,7 +175,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
+            <Label htmlFor="category">Category*</Label>
             <Select 
               value={category} 
               onValueChange={setCategory} 
@@ -149,7 +196,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
           
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="quantity">Quantity*</Label>
               <Input
                 id="quantity"
                 type="number"
@@ -164,7 +211,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="unit">Unit</Label>
+              <Label htmlFor="unit">Unit*</Label>
               <Select value={unit} onValueChange={setUnit} disabled={isSubmitting}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select unit" />
@@ -181,7 +228,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="price">Price per Unit (₹)</Label>
+              <Label htmlFor="price">Price per Unit (₹)*</Label>
               <Input 
                 id="price"
                 type="number" 
@@ -189,6 +236,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
                 step="0.01"
                 value={pricePerUnit}
                 onChange={(e) => setPricePerUnit(e.target.value)}
+                placeholder="0.00"
                 required
                 disabled={isSubmitting}
               />
@@ -217,7 +265,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
             <Button 
               type="submit" 
               className="bg-agri-primary hover:bg-agri-secondary"
-              disabled={isSubmitting || categoriesLoading}
+              disabled={isSubmitting || categoriesLoading || categories.length === 0}
             >
               {isSubmitting ? 'Saving...' : editProduct ? 'Update' : 'Add'} Product
             </Button>

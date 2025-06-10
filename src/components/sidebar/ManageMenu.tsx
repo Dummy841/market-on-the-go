@@ -20,7 +20,8 @@ import {
   BarChart3,
   Ticket,
   Gift,
-  DollarSign
+  DollarSign,
+  Tag
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/context/AuthContext';
@@ -34,7 +35,7 @@ const ManageMenu = () => {
 
   // Open the manage menu if current location is under any manage item
   useEffect(() => {
-    const managePathsToCheck = ['/products', '/coupons', '/tickets', '/sales-dashboard', '/settlements', '/transactions', '/employees', '/roles'];
+    const managePathsToCheck = ['/products', '/categories', '/coupons', '/tickets', '/sales-dashboard', '/settlements', '/transactions', '/employees', '/roles'];
     if (managePathsToCheck.some(path => location.pathname.startsWith(path))) {
       setManageOpen(true);
     }
@@ -47,6 +48,12 @@ const ManageMenu = () => {
       icon: <Package className="h-5 w-5" />,
       path: '/products',
       resource: 'products'
+    },
+    {
+      title: 'Categories',
+      icon: <Tag className="h-5 w-5" />,
+      path: '/categories',
+      resource: 'categories'
     },
     {
       title: 'Coupons',
