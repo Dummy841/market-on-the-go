@@ -70,3 +70,14 @@ export const hasPermission = (role: Role, resource: string, action: string): boo
   const resourcePermission = rolePermission.permissions.find(p => p.resource === resource);
   return resourcePermission ? resourcePermission.actions.includes(action as any) : false;
 };
+
+export const getAllEmployees = () => {
+  // Return mock employee data since this appears to be used for dashboard statistics
+  // In a real application, this would fetch from a database or API
+  return [
+    { id: '1', name: 'John Doe', role: 'admin', email: 'john@example.com' },
+    { id: '2', name: 'Jane Smith', role: 'manager', email: 'jane@example.com' },
+    { id: '3', name: 'Bob Johnson', role: 'employee', email: 'bob@example.com' },
+    { id: '4', name: 'Alice Brown', role: 'cashier', email: 'alice@example.com' }
+  ];
+};
