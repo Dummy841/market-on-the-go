@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Product, useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 import { Barcode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,13 +18,23 @@ interface ProductFormProps {
 
 const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormProps) => {
   const { addProduct, updateProduct } = useProducts();
+  const { categories, loading: categoriesLoading } = useCategories();
   const { toast } = useToast();
   const [name, setName] = useState(editProduct?.name || '');
   const [quantity, setQuantity] = useState(editProduct?.quantity.toString() || '1');
   const [unit, setUnit] = useState(editProduct?.unit || 'kg');
   const [pricePerUnit, setPricePerUnit] = useState(editProduct?.price_per_unit.toString() || '');
-  const [category, setCategory] = useState(editProduct?.category || 'Vegetables');
+  const [category, setCategory] = useState(editProduct?.category || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Set default category when categories load
+  useEffect(() => {
+    if (!editProduct && categories.length > 0 && !category) {
+      // Set default to 'Vegetables' if available, otherwise first category
+      const defaultCategory = categories.find(c => c.name === 'Vegetables') || categories[0];
+      setCategory(defaultCategory.name);
+    }
+  }, [categories, editProduct, category]);
 
   // Generate barcode for new products or keep existing barcode for edits
   const generateBarcode = () => {
@@ -33,7 +44,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !quantity || !pricePerUnit) {
+    if (!name || !quantity || !pricePerUnit || !category) {
       toast({
         title: "Missing fields",
         description: "Please fill in all required fields",
@@ -77,7 +88,8 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
           setName('');
           setQuantity('1');
           setPricePerUnit('');
-          setCategory('Vegetables');
+          const defaultCategory = categories.find(c => c.name === 'Vegetables') || categories[0];
+          setCategory(defaultCategory?.name || '');
           onCancel(); // Close form
         }
       }
@@ -117,16 +129,20 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
           
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={setCategory} disabled={isSubmitting}>
+            <Select 
+              value={category} 
+              onValueChange={setCategory} 
+              disabled={isSubmitting || categoriesLoading}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder={categoriesLoading ? "Loading categories..." : "Select category"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Vegetables">Vegetables</SelectItem>
-                <SelectItem value="Fruits">Fruits</SelectItem>
-                <SelectItem value="Grains">Grains</SelectItem>
-                <SelectItem value="Dairy">Dairy</SelectItem>
-                <SelectItem value="General">General</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -201,7 +217,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
             <Button 
               type="submit" 
               className="bg-agri-primary hover:bg-agri-secondary"
-              disabled={isSubmitting}
+              disabled={isSubmitting || categoriesLoading}
             >
               {isSubmitting ? 'Saving...' : editProduct ? 'Update' : 'Add'} Product
             </Button>
