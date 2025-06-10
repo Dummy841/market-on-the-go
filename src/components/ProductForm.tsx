@@ -32,8 +32,8 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
   // Set default category when categories load
   useEffect(() => {
     if (!editProduct && categories.length > 0 && !category) {
-      // Set default to 'Vegetables' if available, otherwise first category
-      const defaultCategory = categories.find(c => c.name === 'Vegetables') || categories[0];
+      // Set default to 'General' if available, otherwise first category
+      const defaultCategory = categories.find(c => c.name === 'General') || categories[0];
       if (defaultCategory) {
         setCategory(defaultCategory.name);
       }
@@ -87,9 +87,11 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
       unit,
       price_per_unit: parsedPrice,
       category,
-      farmer_id: farmerId || null,
+      farmer_id: null, // Set to null instead of farmerId
       barcode: editProduct?.barcode || generateBarcode()
     };
+    
+    console.log('Submitting product data:', productData);
     
     try {
       if (editProduct) {
@@ -114,7 +116,7 @@ const ProductForm = ({ farmerId, onSubmit, onCancel, editProduct }: ProductFormP
           setName('');
           setQuantity('1');
           setPricePerUnit('');
-          const defaultCategory = categories.find(c => c.name === 'Vegetables') || categories[0];
+          const defaultCategory = categories.find(c => c.name === 'General') || categories[0];
           setCategory(defaultCategory?.name || '');
           onCancel(); // Close form
         }
