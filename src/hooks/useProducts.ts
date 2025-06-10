@@ -197,47 +197,56 @@ export const useProducts = () => {
     fetchProducts();
 
     // Set up real-time subscription for products table
-    const channel = supabase
-      .channel('products-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'products'
-        },
-        (payload) => {
-          console.log('Real-time product change:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            setProducts(prevProducts => {
-              // Check if product already exists to avoid duplicates
-              const exists = prevProducts.some(p => p.id === payload.new.id);
-              if (!exists) {
-                return [payload.new as Product, ...prevProducts];
-              }
-              return prevProducts;
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setProducts(prevProducts =>
-              prevProducts.map(product =>
-                product.id === payload.new.id ? payload.new as Product : product
-              )
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setProducts(prevProducts =>
-              prevProducts.filter(product => product.id !== payload.old.id)
-            );
+    let channel: any = null;
+    
+    const setupRealtimeSubscription = () => {
+      channel = supabase
+        .channel(`products-changes-${Date.now()}`) // Use unique channel name
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+            schema: 'public',
+            table: 'products'
+          },
+          (payload) => {
+            console.log('Real-time product change:', payload);
+            
+            if (payload.eventType === 'INSERT') {
+              setProducts(prevProducts => {
+                // Check if product already exists to avoid duplicates
+                const exists = prevProducts.some(p => p.id === payload.new.id);
+                if (!exists) {
+                  return [payload.new as Product, ...prevProducts];
+                }
+                return prevProducts;
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              setProducts(prevProducts =>
+                prevProducts.map(product =>
+                  product.id === payload.new.id ? payload.new as Product : product
+                )
+              );
+            } else if (payload.eventType === 'DELETE') {
+              setProducts(prevProducts =>
+                prevProducts.filter(product => product.id !== payload.old.id)
+              );
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    };
+
+    setupRealtimeSubscription();
 
     // Cleanup subscription on unmount
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        console.log('Cleaning up products channel subscription');
+        supabase.removeChannel(channel);
+      }
     };
-  }, []);
+  }, []); // Empty dependency array to run only once
 
   return {
     products,
