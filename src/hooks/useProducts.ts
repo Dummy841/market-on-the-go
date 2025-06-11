@@ -6,12 +6,12 @@ import { useToast } from '@/hooks/use-toast';
 export interface Product {
   id: string;
   name: string;
-  category: string;
-  unit: string;
   quantity: number;
+  unit: string;
   price_per_unit: number;
+  category: string;
+  farmer_id?: string | null;
   barcode?: string;
-  farmer_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -27,7 +27,7 @@ export const useProducts = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('name', { ascending: true });
 
       if (error) {
         console.error('Error fetching products:', error);
@@ -58,15 +58,7 @@ export const useProducts = () => {
       
       const { data, error } = await supabase
         .from('products')
-        .insert([{
-          name: productData.name,
-          category: productData.category,
-          unit: productData.unit,
-          quantity: Number(productData.quantity),
-          price_per_unit: Number(productData.price_per_unit),
-          barcode: productData.barcode,
-          farmer_id: productData.farmer_id
-        }])
+        .insert([productData])
         .select()
         .single();
 
@@ -82,8 +74,15 @@ export const useProducts = () => {
 
       console.log('Product added successfully:', data);
       
-      // Update local state immediately for instant feedback
-      setProducts(prevProducts => [data, ...prevProducts]);
+      // Update local state immediately to prevent duplication
+      setProducts(prevProducts => {
+        // Check if product already exists to prevent duplication
+        const exists = prevProducts.some(p => p.id === data.id);
+        if (!exists) {
+          return [...prevProducts, data].sort((a, b) => a.name.localeCompare(b.name));
+        }
+        return prevProducts;
+      });
       
       toast({
         title: "Success",
@@ -106,18 +105,9 @@ export const useProducts = () => {
     try {
       console.log('Updating product:', id, productData);
       
-      const updateData: any = {};
-      if (productData.name !== undefined) updateData.name = productData.name;
-      if (productData.category !== undefined) updateData.category = productData.category;
-      if (productData.unit !== undefined) updateData.unit = productData.unit;
-      if (productData.quantity !== undefined) updateData.quantity = Number(productData.quantity);
-      if (productData.price_per_unit !== undefined) updateData.price_per_unit = Number(productData.price_per_unit);
-      if (productData.barcode !== undefined) updateData.barcode = productData.barcode;
-      if (productData.farmer_id !== undefined) updateData.farmer_id = productData.farmer_id;
-
       const { data, error } = await supabase
         .from('products')
-        .update(updateData)
+        .update(productData)
         .eq('id', id)
         .select()
         .single();
@@ -136,7 +126,7 @@ export const useProducts = () => {
       setProducts(prevProducts => 
         prevProducts.map(product => 
           product.id === id ? { ...product, ...data } : product
-        )
+        ).sort((a, b) => a.name.localeCompare(b.name))
       );
 
       toast({
@@ -201,11 +191,11 @@ export const useProducts = () => {
     
     const setupRealtimeSubscription = () => {
       channel = supabase
-        .channel(`products-changes-${Date.now()}`) // Use unique channel name
+        .channel(`products-changes-${Date.now()}`)
         .on(
           'postgres_changes',
           {
-            event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+            event: '*',
             schema: 'public',
             table: 'products'
           },
@@ -214,10 +204,9 @@ export const useProducts = () => {
             
             if (payload.eventType === 'INSERT') {
               setProducts(prevProducts => {
-                // Check if product already exists to avoid duplicates
                 const exists = prevProducts.some(p => p.id === payload.new.id);
                 if (!exists) {
-                  return [payload.new as Product, ...prevProducts];
+                  return [...prevProducts, payload.new as Product].sort((a, b) => a.name.localeCompare(b.name));
                 }
                 return prevProducts;
               });
@@ -225,7 +214,7 @@ export const useProducts = () => {
               setProducts(prevProducts =>
                 prevProducts.map(product =>
                   product.id === payload.new.id ? payload.new as Product : product
-                )
+                ).sort((a, b) => a.name.localeCompare(b.name))
               );
             } else if (payload.eventType === 'DELETE') {
               setProducts(prevProducts =>
@@ -239,14 +228,13 @@ export const useProducts = () => {
 
     setupRealtimeSubscription();
 
-    // Cleanup subscription on unmount
     return () => {
       if (channel) {
         console.log('Cleaning up products channel subscription');
         supabase.removeChannel(channel);
       }
     };
-  }, []); // Empty dependency array to run only once
+  }, []);
 
   return {
     products,

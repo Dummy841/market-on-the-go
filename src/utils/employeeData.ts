@@ -1,4 +1,3 @@
-
 import { Role, RolePermission } from './types';
 
 export const rolePermissions: RolePermission[] = [
@@ -16,7 +15,8 @@ export const rolePermissions: RolePermission[] = [
       { resource: 'coupons', actions: ['view', 'create', 'edit', 'delete'] },
       { resource: 'employees', actions: ['view', 'create', 'edit', 'delete'] },
       { resource: 'roles', actions: ['view', 'create', 'edit', 'delete'] },
-      { resource: 'tickets', actions: ['view', 'create', 'edit', 'delete'] }
+      { resource: 'tickets', actions: ['view', 'create', 'edit', 'delete'] },
+      { resource: 'customer', actions: ['view'] }
     ]
   },
   {
@@ -32,7 +32,8 @@ export const rolePermissions: RolePermission[] = [
       { resource: 'settlements', actions: ['view'] },
       { resource: 'coupons', actions: ['view', 'create'] },
       { resource: 'employees', actions: ['view'] },
-      { resource: 'tickets', actions: ['view', 'create', 'edit'] }
+      { resource: 'tickets', actions: ['view', 'create', 'edit'] },
+      { resource: 'customer', actions: ['view'] }
     ]
   },
   {
@@ -43,7 +44,8 @@ export const rolePermissions: RolePermission[] = [
       { resource: 'products', actions: ['view'] },
       { resource: 'categories', actions: ['view'] },
       { resource: 'sales', actions: ['view', 'create'] },
-      { resource: 'tickets', actions: ['view', 'create'] }
+      { resource: 'tickets', actions: ['view', 'create'] },
+      { resource: 'customer', actions: ['view'] }
     ]
   },
   {
@@ -55,7 +57,8 @@ export const rolePermissions: RolePermission[] = [
       { resource: 'categories', actions: ['view'] },
       { resource: 'sales', actions: ['view', 'create'] },
       { resource: 'transactions', actions: ['view'] },
-      { resource: 'coupons', actions: ['view'] }
+      { resource: 'coupons', actions: ['view'] },
+      { resource: 'customer', actions: ['view'] }
     ]
   }
 ];
