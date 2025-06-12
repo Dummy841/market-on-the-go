@@ -38,6 +38,7 @@ export const useRoles = () => {
         return;
       }
 
+      console.log('Fetched roles from database:', data);
       setRoles(data || []);
     } catch (error) {
       console.error('Error in fetchRoles:', error);
@@ -73,14 +74,7 @@ export const useRoles = () => {
 
       console.log('Role added successfully:', data);
       
-      setRoles(prevRoles => {
-        const exists = prevRoles.some(r => r.id === data.id);
-        if (!exists) {
-          return [...prevRoles, data].sort((a, b) => a.name.localeCompare(b.name));
-        }
-        return prevRoles;
-      });
-      
+      // Don't update local state here - let the real-time subscription handle it
       toast({
         title: "Success",
         description: `${roleData.name} role was successfully created`
@@ -118,12 +112,6 @@ export const useRoles = () => {
         });
         return { success: false, error };
       }
-
-      setRoles(prevRoles => 
-        prevRoles.map(role => 
-          role.id === id ? { ...role, ...data } : role
-        ).sort((a, b) => a.name.localeCompare(b.name))
-      );
 
       toast({
         title: "Success",
@@ -181,7 +169,7 @@ export const useRoles = () => {
   useEffect(() => {
     fetchRoles();
 
-    // Set up real-time subscription for roles table
+    // Set up real-time subscription for roles table with improved duplicate prevention
     let channel: any = null;
     
     const setupRealtimeSubscription = () => {
@@ -201,9 +189,12 @@ export const useRoles = () => {
               setRoles(prevRoles => {
                 const exists = prevRoles.some(r => r.id === payload.new.id);
                 if (!exists && payload.new.is_active) {
+                  console.log('Adding new role via realtime:', payload.new);
                   return [...prevRoles, payload.new as Role].sort((a, b) => a.name.localeCompare(b.name));
+                } else {
+                  console.log('Role already exists or inactive, skipping:', payload.new.id);
+                  return prevRoles;
                 }
-                return prevRoles;
               });
             } else if (payload.eventType === 'UPDATE') {
               setRoles(prevRoles =>

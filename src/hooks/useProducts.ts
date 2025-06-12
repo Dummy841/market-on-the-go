@@ -79,6 +79,7 @@ export const useProducts = () => {
         description: `${productData.name} was successfully added`
       });
       
+      // Don't update local state here - let the real-time subscription handle it
       return { success: true, data };
     } catch (error) {
       console.error('Error in addProduct:', error);
@@ -166,7 +167,7 @@ export const useProducts = () => {
   useEffect(() => {
     fetchProducts();
 
-    // Set up real-time subscription for products table
+    // Set up real-time subscription for products table with improved duplicate prevention
     let channel: any = null;
     
     const setupRealtimeSubscription = () => {
@@ -184,12 +185,15 @@ export const useProducts = () => {
             
             if (payload.eventType === 'INSERT') {
               setProducts(prevProducts => {
-                // Check if product already exists to prevent duplication
+                // More robust duplicate check
                 const exists = prevProducts.some(p => p.id === payload.new.id);
                 if (!exists) {
+                  console.log('Adding new product via realtime:', payload.new);
                   return [...prevProducts, payload.new as Product].sort((a, b) => a.name.localeCompare(b.name));
+                } else {
+                  console.log('Product already exists, skipping duplicate:', payload.new.id);
+                  return prevProducts;
                 }
-                return prevProducts;
               });
             } else if (payload.eventType === 'UPDATE') {
               setProducts(prevProducts =>
