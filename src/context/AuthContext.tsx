@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -54,7 +53,24 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       console.log('Fetched role permissions:', data);
-      return data?.permissions || [];
+      
+      // Ensure permissions is always an array
+      let permissions = data?.permissions || [];
+      
+      // Handle different permission formats from Supabase
+      if (typeof permissions === 'string') {
+        try {
+          permissions = JSON.parse(permissions);
+        } catch (e) {
+          console.error('Error parsing permissions:', e);
+          permissions = [];
+        }
+      } else if (!Array.isArray(permissions)) {
+        // If it's an object but not an array, convert it to array format
+        permissions = [];
+      }
+      
+      return Array.isArray(permissions) ? permissions : [];
     } catch (error) {
       console.error('Error in fetchRolePermissions:', error);
       return [];
