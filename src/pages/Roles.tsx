@@ -89,7 +89,26 @@ const Roles = () => {
 
   useEffect(() => {
     if (selectedRole) {
-      setPermissions(selectedRole.permissions || []);
+      console.log('Selected role permissions:', selectedRole.permissions);
+      // Ensure permissions is always an array
+      let rolePermissions = selectedRole.permissions;
+      
+      // Handle different permission formats from Supabase
+      if (!rolePermissions) {
+        rolePermissions = [];
+      } else if (typeof rolePermissions === 'string') {
+        try {
+          rolePermissions = JSON.parse(rolePermissions);
+        } catch (e) {
+          console.error('Error parsing permissions:', e);
+          rolePermissions = [];
+        }
+      } else if (!Array.isArray(rolePermissions)) {
+        // If it's an object but not an array, convert it to array format
+        rolePermissions = [];
+      }
+      
+      setPermissions(Array.isArray(rolePermissions) ? rolePermissions : []);
     }
   }, [selectedRole]);
 
@@ -142,6 +161,12 @@ const Roles = () => {
   };
 
   const hasPermission = (resource: string, action: string) => {
+    // Ensure permissions is always an array before using find
+    if (!Array.isArray(permissions)) {
+      console.warn('Permissions is not an array:', permissions);
+      return false;
+    }
+    
     const resourcePermission = permissions.find(p => p.resource === resource);
     return resourcePermission?.actions.includes(action) || false;
   };
