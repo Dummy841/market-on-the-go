@@ -11,10 +11,10 @@ const AppLanding = () => {
     <div className="min-h-screen bg-muted/30 flex flex-col items-center justify-center p-4">
       <div className="flex items-center gap-2 mb-6">
         <Package className="h-8 w-8 text-agri-primary" />
-        <span className="text-2xl font-bold">AgriPay</span>
+        <span className="text-2xl font-bold">Dostan Farms</span>
       </div>
       
-      <h1 className="text-2xl font-bold mb-8 text-center">Welcome to AgriPay</h1>
+      <h1 className="text-2xl font-bold mb-8 text-center">Welcome To Dostan Farms</h1>
       
       <div className="grid grid-cols-1 gap-6 w-full max-w-md">
         <Link to="/farmer-login" className="w-full">
