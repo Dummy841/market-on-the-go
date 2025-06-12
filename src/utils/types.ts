@@ -1,3 +1,4 @@
+
 export interface Farmer {
   id: string;
   name: string;
@@ -105,7 +106,7 @@ export interface Coupon {
   targetUserId?: string;
 }
 
-// Role-based access control types - now a string to allow for custom roles
+// Role-based access control types - updated to match Supabase schema
 export type Role = string;
 
 export interface Permission {
@@ -116,6 +117,18 @@ export interface Permission {
 export interface RolePermission {
   role: Role;
   permissions: Permission[];
+}
+
+// Updated Role interface to match Supabase schema
+export interface RoleData {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  permissions: Permission[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Employee {

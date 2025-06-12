@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -25,8 +26,6 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Role, RolePermission } from '@/utils/types';
-import { rolePermissions } from '@/utils/employeeData';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import Sidebar from '@/components/Sidebar';
@@ -40,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRoles, Role } from '@/hooks/useRoles';
 
 const resources = [
   { id: 'dashboard', name: 'Dashboard' },
@@ -62,26 +62,35 @@ const actions = [
   { id: 'delete', name: 'Delete' }
 ];
 
+const categories = [
+  { id: 'management', name: 'Management' },
+  { id: 'operations', name: 'Operations' },
+  { id: 'sales', name: 'Sales' },
+  { id: 'support', name: 'Support' },
+  { id: 'administration', name: 'Administration' }
+];
+
 const Roles = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [selectedRole, setSelectedRole] = useState<Role>('admin');
-  const [permissions, setPermissions] = useState<RolePermission['permissions']>([]);
-  const [savedRolePermissions, setSavedRolePermissions] = useState<RolePermission[]>([]);
+  const { roles, loading, addRole, updateRole } = useRoles();
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [permissions, setPermissions] = useState<any[]>([]);
   const [createRoleDialogOpen, setCreateRoleDialogOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDescription, setNewRoleDescription] = useState('');
+  const [newRoleCategory, setNewRoleCategory] = useState('');
 
   useEffect(() => {
-    // Load role permissions from localStorage or use default
-    const storedPermissions = localStorage.getItem('rolePermissions');
-    const initialPermissions = storedPermissions ? JSON.parse(storedPermissions) : rolePermissions;
-    setSavedRolePermissions(initialPermissions);
+    if (roles.length > 0 && !selectedRole) {
+      setSelectedRole(roles[0]);
+    }
+  }, [roles, selectedRole]);
 
-    // Set current permissions based on selected role
-    const currentRolePermissions = initialPermissions.find(
-      (rp: RolePermission) => rp.role === selectedRole
-    )?.permissions || [];
-    setPermissions([...currentRolePermissions]);
+  useEffect(() => {
+    if (selectedRole) {
+      setPermissions(selectedRole.permissions || []);
+    }
   }, [selectedRole]);
 
   const handlePermissionChange = (resource: string, action: string, checked: boolean) => {
@@ -89,8 +98,7 @@ const Roles = () => {
       const resourceIndex = prev.findIndex(p => p.resource === resource);
       
       if (resourceIndex === -1 && checked) {
-        // Add new resource with this action
-        return [...prev, { resource, actions: [action as 'view' | 'create' | 'edit' | 'delete'] }];
+        return [...prev, { resource, actions: [action] }];
       }
       
       if (resourceIndex >= 0) {
@@ -98,16 +106,13 @@ const Roles = () => {
         const resourcePermission = { ...updatedPermissions[resourceIndex] };
         
         if (checked) {
-          // Add action to existing resource
-          resourcePermission.actions = [...resourcePermission.actions, action as 'view' | 'create' | 'edit' | 'delete'];
+          resourcePermission.actions = [...resourcePermission.actions, action];
         } else {
-          // Remove action from resource
           resourcePermission.actions = resourcePermission.actions.filter(a => a !== action);
         }
         
         updatedPermissions[resourceIndex] = resourcePermission;
         
-        // If no actions left for this resource, remove it
         if (resourcePermission.actions.length === 0) {
           updatedPermissions.splice(resourceIndex, 1);
         }
@@ -119,18 +124,17 @@ const Roles = () => {
     });
   };
 
-  const handleSavePermissions = () => {
-    const updatedRolePermissions = savedRolePermissions.map(rp => 
-      rp.role === selectedRole ? { ...rp, permissions } : rp
-    );
+  const handleSavePermissions = async () => {
+    if (!selectedRole) return;
+
+    const result = await updateRole(selectedRole.id, { permissions });
     
-    setSavedRolePermissions(updatedRolePermissions);
-    localStorage.setItem('rolePermissions', JSON.stringify(updatedRolePermissions));
-    
-    toast({
-      title: "Permissions Updated",
-      description: `Permissions for ${selectedRole} role have been updated successfully.`
-    });
+    if (result?.success) {
+      toast({
+        title: "Permissions Updated",
+        description: `Permissions for ${selectedRole.name} role have been updated successfully.`
+      });
+    }
   };
 
   const handleBack = () => {
@@ -139,10 +143,10 @@ const Roles = () => {
 
   const hasPermission = (resource: string, action: string) => {
     const resourcePermission = permissions.find(p => p.resource === resource);
-    return resourcePermission?.actions.includes(action as 'view' | 'create' | 'edit' | 'delete') || false;
+    return resourcePermission?.actions.includes(action) || false;
   };
 
-  const handleCreateRole = () => {
+  const handleCreateRole = async () => {
     if (!newRoleName.trim()) {
       toast({
         title: "Role name required",
@@ -152,39 +156,37 @@ const Roles = () => {
       return;
     }
     
-    // Convert to lowercase and remove spaces for role ID
-    const roleId = newRoleName.toLowerCase().replace(/\s+/g, '-') as Role;
-    
-    // Check if role already exists
-    if (savedRolePermissions.some(rp => rp.role === roleId)) {
-      toast({
-        title: "Role already exists",
-        description: `A role with the ID '${roleId}' already exists.`,
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Create new role with default permissions (view dashboard only)
-    const newRole: RolePermission = {
-      role: roleId as Role,
-      permissions: [{ resource: 'dashboard', actions: ['view'] }]
+    const newRole = {
+      name: newRoleName,
+      description: newRoleDescription,
+      category: newRoleCategory,
+      permissions: [{ resource: 'dashboard', actions: ['view'] }],
+      is_active: true
     };
     
-    const updatedRoles = [...savedRolePermissions, newRole];
-    setSavedRolePermissions(updatedRoles);
-    localStorage.setItem('rolePermissions', JSON.stringify(updatedRoles));
+    const result = await addRole(newRole);
     
-    // Close dialog and select the new role
-    setCreateRoleDialogOpen(false);
-    setNewRoleName('');
-    setSelectedRole(roleId as Role);
-    
-    toast({
-      title: "Role Created",
-      description: `New role '${newRoleName}' has been created successfully.`
-    });
+    if (result?.success) {
+      setCreateRoleDialogOpen(false);
+      setNewRoleName('');
+      setNewRoleDescription('');
+      setNewRoleCategory('');
+      setSelectedRole(result.data);
+    }
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <Sidebar />
+          <div className="container mx-auto py-6">
+            <div className="text-center">Loading roles...</div>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -222,58 +224,64 @@ const Roles = () => {
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-2">Select Role</label>
                 <Select 
-                  value={selectedRole} 
-                  onValueChange={(value) => setSelectedRole(value as Role)}
+                  value={selectedRole?.id || ''} 
+                  onValueChange={(value) => {
+                    const role = roles.find(r => r.id === value);
+                    setSelectedRole(role || null);
+                  }}
                 >
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-[300px]">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {savedRolePermissions.map((rp) => (
-                      <SelectItem key={rp.role} value={rp.role}>
-                        {rp.role.charAt(0).toUpperCase() + rp.role.slice(1)}
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{role.name}</span>
+                          {role.category && (
+                            <span className="text-xs text-muted-foreground">{role.category}</span>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Resource</TableHead>
-                      {actions.map(action => (
-                        <TableHead key={action.id}>{action.name}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {resources.map(resource => (
-                      <TableRow key={resource.id}>
-                        <TableCell className="font-medium">{resource.name}</TableCell>
+              {selectedRole && (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[200px]">Resource</TableHead>
                         {actions.map(action => (
-                          <TableCell key={action.id}>
-                            <Checkbox 
-                              checked={hasPermission(resource.id, action.id)}
-                              onCheckedChange={(checked) => 
-                                handlePermissionChange(resource.id, action.id, checked === true)
-                              }
-                              disabled={
-                                // Only admin can edit the 'roles' resource permissions
-                                resource.id === 'roles' && selectedRole !== 'admin' && action.id !== 'view'
-                              }
-                            />
-                          </TableCell>
+                          <TableHead key={action.id}>{action.name}</TableHead>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {resources.map(resource => (
+                        <TableRow key={resource.id}>
+                          <TableCell className="font-medium">{resource.name}</TableCell>
+                          {actions.map(action => (
+                            <TableCell key={action.id}>
+                              <Checkbox 
+                                checked={hasPermission(resource.id, action.id)}
+                                onCheckedChange={(checked) => 
+                                  handlePermissionChange(resource.id, action.id, checked === true)
+                                }
+                              />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               
               <div className="mt-6 flex justify-end">
-                <Button onClick={handleSavePermissions}>
+                <Button onClick={handleSavePermissions} disabled={!selectedRole}>
                   Save Permissions
                 </Button>
               </div>
@@ -300,6 +308,35 @@ const Roles = () => {
                     value={newRoleName}
                     onChange={(e) => setNewRoleName(e.target.value)}
                   />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="roleDescription" className="text-right">
+                    Description
+                  </Label>
+                  <Input
+                    id="roleDescription"
+                    placeholder="Role description"
+                    className="col-span-3"
+                    value={newRoleDescription}
+                    onChange={(e) => setNewRoleDescription(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="roleCategory" className="text-right">
+                    Category
+                  </Label>
+                  <Select value={newRoleCategory} onValueChange={setNewRoleCategory}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>

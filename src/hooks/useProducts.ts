@@ -74,16 +74,6 @@ export const useProducts = () => {
 
       console.log('Product added successfully:', data);
       
-      // Update local state immediately to prevent duplication
-      setProducts(prevProducts => {
-        // Check if product already exists to prevent duplication
-        const exists = prevProducts.some(p => p.id === data.id);
-        if (!exists) {
-          return [...prevProducts, data].sort((a, b) => a.name.localeCompare(b.name));
-        }
-        return prevProducts;
-      });
-      
       toast({
         title: "Success",
         description: `${productData.name} was successfully added`
@@ -122,13 +112,6 @@ export const useProducts = () => {
         return { success: false, error };
       }
 
-      // Update local state immediately
-      setProducts(prevProducts => 
-        prevProducts.map(product => 
-          product.id === id ? { ...product, ...data } : product
-        ).sort((a, b) => a.name.localeCompare(b.name))
-      );
-
       toast({
         title: "Success",
         description: `${productData.name || 'Product'} was successfully updated`
@@ -162,9 +145,6 @@ export const useProducts = () => {
         });
         return { success: false, error };
       }
-
-      // Update local state immediately
-      setProducts(prevProducts => prevProducts.filter(product => product.id !== id));
 
       toast({
         title: "Success",
@@ -204,6 +184,7 @@ export const useProducts = () => {
             
             if (payload.eventType === 'INSERT') {
               setProducts(prevProducts => {
+                // Check if product already exists to prevent duplication
                 const exists = prevProducts.some(p => p.id === payload.new.id);
                 if (!exists) {
                   return [...prevProducts, payload.new as Product].sort((a, b) => a.name.localeCompare(b.name));
