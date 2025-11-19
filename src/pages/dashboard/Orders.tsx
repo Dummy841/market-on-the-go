@@ -215,7 +215,7 @@ const Orders = () => {
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div className="space-y-2">
                          <div className="flex items-center gap-2 flex-wrap">
-                           <h3 className="font-medium">Order #{order.id}</h3>
+                           <h3 className="font-medium">Order #{order.id.slice(0, -4)}<span className="font-bold text-lg">{order.id.slice(-4)}</span></h3>
                            <Badge className={getSellerStatusBadge(order.seller_status).color}>
                              {getSellerStatusBadge(order.seller_status).text}
                            </Badge>

@@ -269,21 +269,44 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
       { key: 'delivered', label: 'Delivered', icon: CheckCircle2, color: 'green' },
     ];
 
-    const statusOrder = ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'delivered'];
-    const currentIndex = statusOrder.indexOf(activeOrder.status);
+    // Use seller_status for tracking seller-related steps
+    const sellerStatus = (activeOrder as any).seller_status || 'pending';
+    const pickupStatus = (activeOrder as any).pickup_status;
+    const mainStatus = activeOrder.status;
+    
+    // Define order progression
+    const sellerStatusOrder = ['pending', 'accepted', 'preparing', 'packed'];
+    const currentSellerIndex = sellerStatusOrder.indexOf(sellerStatus);
 
     return steps.map((step) => {
-      const stepIndex = statusOrder.indexOf(step.key);
-      let completed = stepIndex <= currentIndex;
+      let completed = false;
       let color = 'gray';
       
-      if (completed) {
-        // Preparing shows orange only when currently in preparing status
-        if (step.key === 'preparing' && activeOrder.status === 'preparing') {
+      // Check completion based on step type
+      if (step.key === 'pending') {
+        completed = true; // Always completed once order is placed
+        color = step.color;
+      } else if (step.key === 'accepted') {
+        completed = currentSellerIndex >= sellerStatusOrder.indexOf('accepted');
+        color = completed ? step.color : 'gray';
+      } else if (step.key === 'preparing') {
+        completed = currentSellerIndex >= sellerStatusOrder.indexOf('preparing');
+        // Show orange only when currently in preparing status
+        if (sellerStatus === 'preparing') {
           color = 'orange';
-        } else {
-          color = step.color;
+        } else if (completed) {
+          color = 'green'; // Show green after preparing is done
         }
+      } else if (step.key === 'packed') {
+        completed = currentSellerIndex >= sellerStatusOrder.indexOf('packed');
+        color = completed ? step.color : 'gray';
+      } else if (step.key === 'going_for_delivery') {
+        // Out for delivery is completed when pickup_status is 'picked_up' or main status is 'going_for_delivery'
+        completed = pickupStatus === 'picked_up' || mainStatus === 'going_for_delivery' || mainStatus === 'delivered';
+        color = completed ? step.color : 'gray';
+      } else if (step.key === 'delivered') {
+        completed = mainStatus === 'delivered';
+        color = completed ? step.color : 'gray';
       }
       
       return {
@@ -379,13 +402,13 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
           {/* Order Status */}
           <div>
             <h3 className="font-semibold text-lg mb-2">
-              {activeOrder.status === 'preparing' ? 'Preparing your order' : 
-               activeOrder.status === 'going_for_delivery' ? 'Out for delivery' :
+              {((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') ? 'Preparing your order' : 
+               ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') ? 'Out for delivery' :
                activeOrder.status === 'delivered' ? 'Delivered' : 'Processing order'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {activeOrder.status === 'preparing' ? 'Restaurant needs a few more minutes, partner will pick up soon' :
-               activeOrder.status === 'going_for_delivery' ? 'Your order is on the way' :
+              {((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') ? 'Restaurant needs a few more minutes, partner will pick up soon' :
+               ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') ? 'Your order is on the way' :
                'Your order is being processed'}
             </p>
 
