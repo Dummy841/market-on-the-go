@@ -7,431 +7,482 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.4"
+  }
   public: {
     Tables: {
-      categories: {
+      delivery_partner_otp: {
         Row: {
           created_at: string
-          description: string | null
+          expires_at: string
           id: string
-          is_active: boolean
-          name: string
-          updated_at: string
+          is_used: boolean
+          mobile: string
+          otp_code: string
         }
         Insert: {
           created_at?: string
-          description?: string | null
+          expires_at: string
           id?: string
-          is_active?: boolean
-          name: string
-          updated_at?: string
+          is_used?: boolean
+          mobile: string
+          otp_code: string
         }
         Update: {
           created_at?: string
-          description?: string | null
+          expires_at?: string
           id?: string
-          is_active?: boolean
-          name?: string
-          updated_at?: string
+          is_used?: boolean
+          mobile?: string
+          otp_code?: string
         }
         Relationships: []
       }
-      coupons: {
+      delivery_partners: {
         Row: {
-          code: string
           created_at: string
-          discount_type: string
-          discount_value: number
-          expiry_date: string
           id: string
           is_active: boolean
-          max_discount_limit: number | null
-          target_type: string
-          target_user_id: string | null
+          is_online: boolean
+          latitude: number | null
+          longitude: number | null
+          mobile: string
+          name: string
+          password_hash: string | null
+          profile_photo_url: string | null
           updated_at: string
         }
         Insert: {
-          code: string
           created_at?: string
-          discount_type: string
-          discount_value: number
-          expiry_date: string
           id?: string
           is_active?: boolean
-          max_discount_limit?: number | null
-          target_type?: string
-          target_user_id?: string | null
+          is_online?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          mobile: string
+          name: string
+          password_hash?: string | null
+          profile_photo_url?: string | null
           updated_at?: string
         }
         Update: {
-          code?: string
           created_at?: string
-          discount_type?: string
-          discount_value?: number
-          expiry_date?: string
           id?: string
           is_active?: boolean
-          max_discount_limit?: number | null
-          target_type?: string
-          target_user_id?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      customers: {
-        Row: {
-          address: string | null
-          created_at: string
-          date_joined: string
-          email: string | null
-          id: string
-          mobile: string
-          name: string
-          password: string
-          pincode: string | null
-          profile_photo: string | null
-          updated_at: string
-        }
-        Insert: {
-          address?: string | null
-          created_at?: string
-          date_joined?: string
-          email?: string | null
-          id?: string
-          mobile: string
-          name: string
-          password: string
-          pincode?: string | null
-          profile_photo?: string | null
-          updated_at?: string
-        }
-        Update: {
-          address?: string | null
-          created_at?: string
-          date_joined?: string
-          email?: string | null
-          id?: string
+          is_online?: boolean
+          latitude?: number | null
+          longitude?: number | null
           mobile?: string
           name?: string
-          password?: string
-          pincode?: string | null
-          profile_photo?: string | null
+          password_hash?: string | null
+          profile_photo_url?: string | null
           updated_at?: string
         }
         Relationships: []
       }
-      employees: {
+      items: {
         Row: {
-          account_holder_name: string | null
-          account_number: string | null
-          bank_name: string | null
           created_at: string
-          date_joined: string
-          district: string | null
-          email: string
-          id: string
-          ifsc_code: string | null
-          name: string
-          password: string
-          phone: string | null
-          profile_photo: string | null
-          role: string
-          state: string | null
-          updated_at: string
-          village: string | null
-        }
-        Insert: {
-          account_holder_name?: string | null
-          account_number?: string | null
-          bank_name?: string | null
-          created_at?: string
-          date_joined?: string
-          district?: string | null
-          email: string
-          id?: string
-          ifsc_code?: string | null
-          name: string
-          password: string
-          phone?: string | null
-          profile_photo?: string | null
-          role?: string
-          state?: string | null
-          updated_at?: string
-          village?: string | null
-        }
-        Update: {
-          account_holder_name?: string | null
-          account_number?: string | null
-          bank_name?: string | null
-          created_at?: string
-          date_joined?: string
-          district?: string | null
-          email?: string
-          id?: string
-          ifsc_code?: string | null
-          name?: string
-          password?: string
-          phone?: string | null
-          profile_photo?: string | null
-          role?: string
-          state?: string | null
-          updated_at?: string
-          village?: string | null
-        }
-        Relationships: []
-      }
-      farmers: {
-        Row: {
-          account_number: string | null
-          address: string | null
-          bank_name: string | null
-          created_at: string
-          date_joined: string
-          district: string | null
-          email: string
-          id: string
-          ifsc_code: string | null
-          name: string
-          password: string
-          phone: string
-          profile_photo: string | null
-          state: string | null
-          updated_at: string
-          village: string | null
-        }
-        Insert: {
-          account_number?: string | null
-          address?: string | null
-          bank_name?: string | null
-          created_at?: string
-          date_joined?: string
-          district?: string | null
-          email: string
-          id?: string
-          ifsc_code?: string | null
-          name: string
-          password: string
-          phone: string
-          profile_photo?: string | null
-          state?: string | null
-          updated_at?: string
-          village?: string | null
-        }
-        Update: {
-          account_number?: string | null
-          address?: string | null
-          bank_name?: string | null
-          created_at?: string
-          date_joined?: string
-          district?: string | null
-          email?: string
-          id?: string
-          ifsc_code?: string | null
-          name?: string
-          password?: string
-          phone?: string
-          profile_photo?: string | null
-          state?: string | null
-          updated_at?: string
-          village?: string | null
-        }
-        Relationships: []
-      }
-      products: {
-        Row: {
-          barcode: string | null
-          category: string
-          created_at: string
-          farmer_id: string | null
-          id: string
-          name: string
-          price_per_unit: number
-          quantity: number
-          unit: string
-          updated_at: string
-        }
-        Insert: {
-          barcode?: string | null
-          category: string
-          created_at?: string
-          farmer_id?: string | null
-          id?: string
-          name: string
-          price_per_unit: number
-          quantity?: number
-          unit: string
-          updated_at?: string
-        }
-        Update: {
-          barcode?: string | null
-          category?: string
-          created_at?: string
-          farmer_id?: string | null
-          id?: string
-          name?: string
-          price_per_unit?: number
-          quantity?: number
-          unit?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "products_farmer_id_fkey"
-            columns: ["farmer_id"]
-            isOneToOne: false
-            referencedRelation: "farmers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      roles: {
-        Row: {
-          category: string | null
-          created_at: string
-          description: string | null
+          franchise_price: number
           id: string
           is_active: boolean
-          name: string
-          permissions: Json
+          item_name: string
+          item_photo_url: string | null
+          seller_id: string
+          seller_price: number
           updated_at: string
         }
         Insert: {
-          category?: string | null
           created_at?: string
-          description?: string | null
+          franchise_price: number
           id?: string
           is_active?: boolean
-          name: string
-          permissions?: Json
+          item_name: string
+          item_photo_url?: string | null
+          seller_id: string
+          seller_price: number
           updated_at?: string
         }
         Update: {
-          category?: string | null
           created_at?: string
-          description?: string | null
+          franchise_price?: number
           id?: string
           is_active?: boolean
-          name?: string
-          permissions?: Json
+          item_name?: string
+          item_photo_url?: string | null
+          seller_id?: string
+          seller_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "items_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          assigned_at: string | null
+          assigned_delivery_partner_id: string | null
+          created_at: string
+          delivered_at: string | null
+          delivery_address: string
+          delivery_fee: number
+          delivery_latitude: number | null
+          delivery_longitude: number | null
+          delivery_mobile: string | null
+          delivery_pin: string | null
+          going_for_delivery_at: string | null
+          going_for_pickup_at: string | null
+          gst_charges: number
+          id: string
+          instructions: string | null
+          is_rated: boolean
+          items: Json
+          payment_method: string
+          pickup_at: string | null
+          pickup_pin: string | null
+          pickup_status: string | null
+          platform_fee: number
+          seller_accepted_at: string | null
+          seller_id: string
+          seller_name: string
+          seller_packed_at: string | null
+          seller_status: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_delivery_partner_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_address: string
+          delivery_fee?: number
+          delivery_latitude?: number | null
+          delivery_longitude?: number | null
+          delivery_mobile?: string | null
+          delivery_pin?: string | null
+          going_for_delivery_at?: string | null
+          going_for_pickup_at?: string | null
+          gst_charges?: number
+          id?: string
+          instructions?: string | null
+          is_rated?: boolean
+          items: Json
+          payment_method?: string
+          pickup_at?: string | null
+          pickup_pin?: string | null
+          pickup_status?: string | null
+          platform_fee?: number
+          seller_accepted_at?: string | null
+          seller_id: string
+          seller_name: string
+          seller_packed_at?: string | null
+          seller_status?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_delivery_partner_id?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivery_address?: string
+          delivery_fee?: number
+          delivery_latitude?: number | null
+          delivery_longitude?: number | null
+          delivery_mobile?: string | null
+          delivery_pin?: string | null
+          going_for_delivery_at?: string | null
+          going_for_pickup_at?: string | null
+          gst_charges?: number
+          id?: string
+          instructions?: string | null
+          is_rated?: boolean
+          items?: Json
+          payment_method?: string
+          pickup_at?: string | null
+          pickup_pin?: string | null
+          pickup_status?: string | null
+          platform_fee?: number
+          seller_accepted_at?: string | null
+          seller_id?: string
+          seller_name?: string
+          seller_packed_at?: string | null
+          seller_status?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_assigned_delivery_partner_id_fkey"
+            columns: ["assigned_delivery_partner_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ratings: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          rating: number
+          review: string | null
+          seller_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          rating: number
+          review?: string | null
+          seller_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          rating?: number
+          review?: string | null
+          seller_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sellers: {
+        Row: {
+          account_number: string
+          bank_name: string
+          created_at: string
+          franchise_percentage: number | null
+          id: string
+          ifsc_code: string
+          is_online: boolean
+          mobile: string
+          owner_name: string
+          password_hash: string
+          profile_photo_url: string | null
+          seller_id: string | null
+          seller_latitude: number | null
+          seller_longitude: number | null
+          seller_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_number: string
+          bank_name: string
+          created_at?: string
+          franchise_percentage?: number | null
+          id?: string
+          ifsc_code: string
+          is_online?: boolean
+          mobile: string
+          owner_name: string
+          password_hash: string
+          profile_photo_url?: string | null
+          seller_id?: string | null
+          seller_latitude?: number | null
+          seller_longitude?: number | null
+          seller_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string
+          bank_name?: string
+          created_at?: string
+          franchise_percentage?: number | null
+          id?: string
+          ifsc_code?: string
+          is_online?: boolean
+          mobile?: string
+          owner_name?: string
+          password_hash?: string
+          profile_photo_url?: string | null
+          seller_id?: string | null
+          seller_latitude?: number | null
+          seller_longitude?: number | null
+          seller_name?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
       }
-      tickets: {
+      user_addresses: {
         Row: {
-          assigned_to: string | null
-          attachment_url: string | null
+          apartment_area: string | null
+          area: string | null
           created_at: string
+          directions: string | null
+          full_address: string
+          house_number: string
           id: string
-          message: string
-          resolution: string | null
-          status: string
+          is_default: boolean
+          label: string
+          latitude: number
+          longitude: number
+          mobile: string | null
           updated_at: string
-          user_contact: string
           user_id: string
-          user_name: string
-          user_type: string
         }
         Insert: {
-          assigned_to?: string | null
-          attachment_url?: string | null
+          apartment_area?: string | null
+          area?: string | null
           created_at?: string
+          directions?: string | null
+          full_address: string
+          house_number: string
           id?: string
-          message: string
-          resolution?: string | null
-          status?: string
+          is_default?: boolean
+          label?: string
+          latitude: number
+          longitude: number
+          mobile?: string | null
           updated_at?: string
-          user_contact: string
           user_id: string
-          user_name: string
-          user_type: string
         }
         Update: {
-          assigned_to?: string | null
-          attachment_url?: string | null
+          apartment_area?: string | null
+          area?: string | null
           created_at?: string
+          directions?: string | null
+          full_address?: string
+          house_number?: string
           id?: string
-          message?: string
-          resolution?: string | null
-          status?: string
+          is_default?: boolean
+          label?: string
+          latitude?: number
+          longitude?: number
+          mobile?: string | null
           updated_at?: string
-          user_contact?: string
           user_id?: string
-          user_name?: string
-          user_type?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "tickets_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      transactions: {
+      user_otp: {
         Row: {
-          coupon_used: string | null
           created_at: string
-          customer_id: string | null
-          customer_mobile: string
-          customer_name: string
-          discount: number
+          expires_at: string
           id: string
-          items: Json
-          payment_method: string
-          status: string
-          subtotal: number
-          total: number
+          is_used: boolean
+          mobile: string
+          otp_code: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_used?: boolean
+          mobile: string
+          otp_code: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean
+          mobile?: string
+          otp_code?: string
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          created_at: string
+          id: string
+          is_verified: boolean
+          mobile: string
+          name: string
           updated_at: string
         }
         Insert: {
-          coupon_used?: string | null
           created_at?: string
-          customer_id?: string | null
-          customer_mobile: string
-          customer_name: string
-          discount?: number
           id?: string
-          items: Json
-          payment_method: string
-          status?: string
-          subtotal: number
-          total: number
+          is_verified?: boolean
+          mobile: string
+          name: string
           updated_at?: string
         }
         Update: {
-          coupon_used?: string | null
           created_at?: string
-          customer_id?: string | null
-          customer_mobile?: string
-          customer_name?: string
-          discount?: number
           id?: string
-          items?: Json
-          payment_method?: string
-          status?: string
-          subtotal?: number
-          total?: number
+          is_verified?: boolean
+          mobile?: string
+          name?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_delivery_pin: { Args: never; Returns: string }
+      generate_seller_id: { Args: never; Returns: string }
+      get_seller_rating: {
+        Args: { seller_uuid: string }
+        Returns: {
+          average_rating: number
+          total_ratings: number
+        }[]
+      }
+      hash_password: { Args: { password: string }; Returns: string }
+      verify_password: {
+        Args: { hash: string; password: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
@@ -442,21 +493,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -474,14 +529,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -497,14 +554,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -520,14 +579,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -535,14 +596,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never

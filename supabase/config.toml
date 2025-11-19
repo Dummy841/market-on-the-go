@@ -1,1 +1,4 @@
-project_id = "digtqrdxrpltuyfoapbh"
+project_id = "zgyxybgogjzeuocuoane"
+
+[functions.get-mapbox-token]
+verify_jwt = false
