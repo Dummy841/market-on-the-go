@@ -358,7 +358,7 @@ export const SellerOrderManagement = () => {
                 <div className="flex justify-between items-start mb-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">Order #{order.id.slice(0, 8)}</h3>
+                      <h3 className="font-semibold">Order #{order.id}</h3>
                       <Badge className={getStatusColor((order as any).seller_status || 'pending')}>
                         {getStatusIcon((order as any).seller_status || 'pending')}
                         <span className="ml-1">{getStatusText((order as any).seller_status || 'pending')}</span>

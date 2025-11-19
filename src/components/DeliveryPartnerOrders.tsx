@@ -409,7 +409,7 @@ const DeliveryPartnerOrders = ({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span>Order #{order.id.slice(0, 8)}</span>
+                <span>Order #{order.id}</span>
                 <Badge className={getStatusBadgeColor(order.status, order.pickup_status)}>
                   {order.pickup_status ? getPickupStatusText(order.pickup_status) : order.status.replace('_', ' ')}
                 </Badge>
@@ -511,10 +511,10 @@ const DeliveryPartnerOrders = ({
         </Card>)}
       
       {/* PIN Verification Modal */}
-      {selectedOrder && <PinVerificationModal open={pinModalOpen} onOpenChange={setPinModalOpen} expectedPin={expectedPin || (selectedOrder?.pickup_pin ?? '')} onSuccess={handlePickupSuccess} orderNumber={selectedOrder.id.slice(0, 8)} />}
+      {selectedOrder && <PinVerificationModal open={pinModalOpen} onOpenChange={setPinModalOpen} expectedPin={expectedPin || (selectedOrder?.pickup_pin ?? '')} onSuccess={handlePickupSuccess} orderNumber={selectedOrder.id} />}
       
       {/* Delivery PIN Verification Modal */}
-      {selectedOrder && <DeliveryPinVerificationModal open={deliveryPinModalOpen} onOpenChange={setDeliveryPinModalOpen} expectedPin={expectedDeliveryPin || (selectedOrder?.delivery_pin ?? '')} onSuccess={handleDeliverySuccess} orderNumber={selectedOrder.id.slice(0, 8)} />}
+      {selectedOrder && <DeliveryPinVerificationModal open={deliveryPinModalOpen} onOpenChange={setDeliveryPinModalOpen} expectedPin={expectedDeliveryPin || (selectedOrder?.delivery_pin ?? '')} onSuccess={handleDeliverySuccess} orderNumber={selectedOrder.id} />}
     </div>;
 };
 export default DeliveryPartnerOrders;
