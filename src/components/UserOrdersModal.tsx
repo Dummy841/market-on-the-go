@@ -116,7 +116,7 @@ export const UserOrdersModal = ({ isOpen, onClose, userId, userName }: UserOrder
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">Order #{order.id.slice(0, 8)}</h4>
+                          <h4 className="font-medium">Order #{order.id}</h4>
                           <Badge className={getStatusColor(order.status)}>
                             {getStatusIcon(order.status)}
                             <span className="ml-1 capitalize">{order.status}</span>

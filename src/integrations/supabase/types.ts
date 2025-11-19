@@ -470,6 +470,10 @@ export type Database = {
     }
     Functions: {
       generate_delivery_pin: { Args: never; Returns: string }
+      generate_order_id: {
+        Args: { seller_name_param: string }
+        Returns: string
+      }
       generate_seller_id: { Args: never; Returns: string }
       get_seller_rating: {
         Args: { seller_uuid: string }

@@ -185,7 +185,7 @@ export const MyOrders = () => {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Order #{order.id.slice(0, 8)}
+                        Order #{order.id}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(order.created_at), {
