@@ -409,7 +409,7 @@ const DeliveryPartnerOrders = ({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span>Order #{order.id}</span>
+                <span>Order #{order.id.slice(0, -4)}<span className="font-bold text-lg">{order.id.slice(-4)}</span></span>
                 <Badge className={getStatusBadgeColor(order.status, order.pickup_status)}>
                   {order.pickup_status ? getPickupStatusText(order.pickup_status) : order.status.replace('_', ' ')}
                 </Badge>
