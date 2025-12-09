@@ -151,15 +151,17 @@ export const Header = () => {
         const displayParts = data.display_name?.split(',');
         const firstPart = displayParts?.[0]?.trim();
         
-        // Prioritize village/hamlet/locality from address, then fall back to display_name first part
+        // Prioritize village/hamlet/locality, then county (mandal), then city
         const areaName = address?.village || 
                          address?.hamlet || 
                          address?.locality ||
                          address?.neighbourhood ||
-                         (firstPart && firstPart !== address?.county ? firstPart : null) ||
                          address?.suburb || 
-                         address?.town || 
+                         address?.town ||
+                         address?.county ||
+                         firstPart ||
                          address?.city ||
+                         address?.state_district ||
                          "Select Location";
         setCurrentLocation(areaName);
         localStorage.setItem('currentLocationName', areaName);
