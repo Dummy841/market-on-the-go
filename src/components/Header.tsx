@@ -138,9 +138,9 @@ export const Header = () => {
     try {
       setCurrentLocation("Detecting location...");
       
-      // Use OpenStreetMap Nominatim API for reverse geocoding (free, no API key needed)
+      // Use OpenStreetMap Nominatim API with zoom=18 for village-level precision
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         {
           headers: {
             'Accept-Language': 'en',
@@ -150,9 +150,11 @@ export const Header = () => {
       
       if (response.ok) {
         const data = await response.json();
-        // Extract area name - prioritize village, suburb, neighbourhood, or city
         const address = data.address;
+        // Prioritize village/hamlet/locality level names for accurate location
         const areaName = address?.village || 
+                         address?.hamlet || 
+                         address?.locality || 
                          address?.suburb || 
                          address?.neighbourhood || 
                          address?.town || 
@@ -161,7 +163,6 @@ export const Header = () => {
                          address?.state_district ||
                          "Current Location";
         setCurrentLocation(areaName);
-        // Store in localStorage for persistence
         localStorage.setItem('currentLocationName', areaName);
       } else {
         setCurrentLocation("Current Location");
