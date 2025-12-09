@@ -138,19 +138,28 @@ export const Header = () => {
     try {
       setCurrentLocation("Detecting...");
       
-      // Use BigDataCloud API for better village-level precision in rural India
+      // Use Nominatim API with max zoom for village-level precision
       const response = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en' } }
       );
       
       if (response.ok) {
         const data = await response.json();
-        // Prioritize locality (village/town) level names
-        const areaName = data?.locality || 
-                         data?.city || 
-                         data?.localityInfo?.administrative?.[3]?.name ||
-                         data?.localityInfo?.administrative?.[2]?.name ||
-                         data?.principalSubdivision ||
+        const address = data.address;
+        // Get the first part of display_name which is usually the most specific location
+        const displayParts = data.display_name?.split(',');
+        const firstPart = displayParts?.[0]?.trim();
+        
+        // Prioritize village/hamlet/locality from address, then fall back to display_name first part
+        const areaName = address?.village || 
+                         address?.hamlet || 
+                         address?.locality ||
+                         address?.neighbourhood ||
+                         (firstPart && firstPart !== address?.county ? firstPart : null) ||
+                         address?.suburb || 
+                         address?.town || 
+                         address?.city ||
                          "Select Location";
         setCurrentLocation(areaName);
         localStorage.setItem('currentLocationName', areaName);
