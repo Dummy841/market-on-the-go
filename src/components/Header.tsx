@@ -136,17 +136,39 @@ export const Header = () => {
   };
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      // Using a simple geocoding approach - in production, you'd use a proper geocoding service
-      setCurrentLocation(`${lat.toFixed(3)}, ${lng.toFixed(3)}`);
-
-      // You can integrate with services like Google Geocoding API, OpenStreetMap Nominatim, etc.
-      // For now, we'll show coordinates and a generic location
-      setTimeout(() => {
+      setCurrentLocation("Detecting location...");
+      
+      // Use OpenStreetMap Nominatim API for reverse geocoding (free, no API key needed)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`,
+        {
+          headers: {
+            'Accept-Language': 'en',
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Extract area name - prioritize village, suburb, neighbourhood, or city
+        const address = data.address;
+        const areaName = address?.village || 
+                         address?.suburb || 
+                         address?.neighbourhood || 
+                         address?.town || 
+                         address?.city || 
+                         address?.county ||
+                         address?.state_district ||
+                         "Current Location";
+        setCurrentLocation(areaName);
+        // Store in localStorage for persistence
+        localStorage.setItem('currentLocationName', areaName);
+      } else {
         setCurrentLocation("Current Location");
-      }, 1000);
+      }
     } catch (error) {
       console.error('Geocoding error:', error);
-      setCurrentLocation("Location found");
+      setCurrentLocation("Current Location");
     }
   };
   const handleAuthSuccess = (userData: any) => {
