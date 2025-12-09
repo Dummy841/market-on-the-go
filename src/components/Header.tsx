@@ -20,7 +20,7 @@ export const Header = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showAddressSelector, setShowAddressSelector] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState("Detecting location...");
+  const [currentLocation, setCurrentLocation] = useState("Detecting...");
   const [locationGranted, setLocationGranted] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
     label: string;
@@ -107,7 +107,7 @@ export const Header = () => {
             reverseGeocode(position.coords.latitude, position.coords.longitude);
           }, error => {
             console.error('Location access denied:', error);
-            setCurrentLocation("Enable location access");
+            setCurrentLocation("Enable location");
             toast({
               title: "Location Access",
               description: "Please enable location access to see nearby restaurants",
@@ -115,14 +115,14 @@ export const Header = () => {
             });
           });
         } else {
-          setCurrentLocation("Location access denied");
+          setCurrentLocation("Enable location");
         }
       } catch (error) {
         console.error('Error requesting location:', error);
-        setCurrentLocation("Location unavailable");
+        setCurrentLocation("Select Location");
       }
     } else {
-      setCurrentLocation("Location not supported");
+      setCurrentLocation("Select Location");
     }
   };
   const getCurrentLocation = () => {
@@ -131,12 +131,12 @@ export const Header = () => {
       reverseGeocode(position.coords.latitude, position.coords.longitude);
     }, error => {
       console.error('Error getting location:', error);
-      setCurrentLocation("Unable to get location");
+      setCurrentLocation("Select Location");
     });
   };
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      setCurrentLocation("Detecting location...");
+      setCurrentLocation("Detecting...");
       
       // Use BigDataCloud API for better village-level precision in rural India
       const response = await fetch(
@@ -148,16 +148,18 @@ export const Header = () => {
         // Prioritize locality (village/town) level names
         const areaName = data?.locality || 
                          data?.city || 
+                         data?.localityInfo?.administrative?.[3]?.name ||
+                         data?.localityInfo?.administrative?.[2]?.name ||
                          data?.principalSubdivision ||
-                         "Current Location";
+                         "Select Location";
         setCurrentLocation(areaName);
         localStorage.setItem('currentLocationName', areaName);
       } else {
-        setCurrentLocation("Current Location");
+        setCurrentLocation("Select Location");
       }
     } catch (error) {
       console.error('Geocoding error:', error);
-      setCurrentLocation("Current Location");
+      setCurrentLocation("Select Location");
     }
   };
   const handleAuthSuccess = (userData: any) => {
@@ -184,18 +186,15 @@ export const Header = () => {
             <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-sm">
-                  {isAuthenticated && selectedAddress ? selectedAddress.label : "Current Location"}
+                  {isAuthenticated && selectedAddress ? selectedAddress.label : currentLocation}
                 </span>
-                {!isAuthenticated && (
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-600 hover:bg-orange-100 text-xs px-2 py-0">
-                    New
-                  </Badge>
-                )}
                 {isAuthenticated && <ChevronDown className="h-3 w-3 text-muted-foreground" />}
               </div>
-              <span className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">
-                {isAuthenticated && selectedAddress ? selectedAddress.address : currentLocation}
-              </span>
+              {isAuthenticated && selectedAddress && (
+                <span className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">
+                  {selectedAddress.address}
+                </span>
+              )}
             </div>
           </button>
 
