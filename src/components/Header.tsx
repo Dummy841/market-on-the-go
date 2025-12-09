@@ -138,29 +138,17 @@ export const Header = () => {
     try {
       setCurrentLocation("Detecting location...");
       
-      // Use OpenStreetMap Nominatim API with zoom=18 for village-level precision
+      // Use BigDataCloud API for better village-level precision in rural India
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        {
-          headers: {
-            'Accept-Language': 'en',
-          }
-        }
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
       );
       
       if (response.ok) {
         const data = await response.json();
-        const address = data.address;
-        // Prioritize village/hamlet/locality level names for accurate location
-        const areaName = address?.village || 
-                         address?.hamlet || 
-                         address?.locality || 
-                         address?.suburb || 
-                         address?.neighbourhood || 
-                         address?.town || 
-                         address?.city || 
-                         address?.county ||
-                         address?.state_district ||
+        // Prioritize locality (village/town) level names
+        const areaName = data?.locality || 
+                         data?.city || 
+                         data?.principalSubdivision ||
                          "Current Location";
         setCurrentLocation(areaName);
         localStorage.setItem('currentLocationName', areaName);
