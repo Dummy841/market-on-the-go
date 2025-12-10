@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +24,7 @@ const sellerSchema = z.object({
   seller_longitude: z.number().optional(),
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['active', 'inactive']).default('active'),
+  category: z.enum(['food_delivery', 'instamart', 'dineout', 'services']).default('food_delivery'),
 });
 
 type SellerFormData = z.infer<typeof sellerSchema>;
@@ -43,7 +45,8 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     resolver: zodResolver(sellerSchema),
     defaultValues: {
       status: 'active',
-      franchise_percentage: 0
+      franchise_percentage: 0,
+      category: 'food_delivery'
     }
   });
 
@@ -111,6 +114,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             franchise_percentage: data.franchise_percentage,
             status: data.status === 'active' ? 'approved' : 'inactive',
             profile_photo_url: profilePhotoUrl || null,
+            category: data.category,
           },
         ]);
 
@@ -282,6 +286,24 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             {errors.franchise_percentage && (
               <p className="text-sm text-destructive">{errors.franchise_percentage.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select
+              value={watch('category')}
+              onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dineout' | 'services')}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="food_delivery">Food Delivery</SelectItem>
+                <SelectItem value="instamart">Insta Mart</SelectItem>
+                <SelectItem value="dineout">Dine Out</SelectItem>
+                <SelectItem value="services">Services</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center space-x-2">

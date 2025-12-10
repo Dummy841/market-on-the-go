@@ -25,6 +25,7 @@ const editSellerSchema = z.object({
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['approved', 'pending', 'inactive']),
   is_online: z.boolean(),
+  category: z.enum(['food_delivery', 'instamart', 'dineout', 'services']),
 });
 
 type EditSellerFormData = z.infer<typeof editSellerSchema>;
@@ -69,6 +70,7 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
         franchise_percentage: seller.franchise_percentage || 0,
         status: seller.status as 'approved' | 'pending' | 'inactive',
         is_online: seller.is_online,
+        category: (seller as any).category || 'food_delivery',
       });
       setProfilePhotoUrl(seller.profile_photo_url || '');
     }
@@ -130,6 +132,7 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
           status: data.status,
           is_online: data.is_online,
           profile_photo_url: profilePhotoUrl || null,
+          category: data.category,
           updated_at: new Date().toISOString(),
         })
         .eq('id', seller.id);
@@ -305,6 +308,24 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={watch('category')}
+                onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dineout' | 'services')}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="food_delivery">Food Delivery</SelectItem>
+                  <SelectItem value="instamart">Insta Mart</SelectItem>
+                  <SelectItem value="dineout">Dine Out</SelectItem>
+                  <SelectItem value="services">Services</SelectItem>
                 </SelectContent>
               </Select>
             </div>
