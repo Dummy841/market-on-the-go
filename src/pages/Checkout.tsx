@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import AddressSelector from "@/components/AddressSelector";
+import { LoginForm } from "@/components/auth/LoginForm";
 export const Checkout = () => {
   const {
     cartItems,
@@ -34,6 +35,7 @@ export const Checkout = () => {
     lng: number;
   } | null>(null);
   const [showAddressSelector, setShowAddressSelector] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
     id: string;
     label: string;
@@ -140,11 +142,7 @@ export const Checkout = () => {
   };
   const handlePlaceOrder = async () => {
     if (!user || !isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please login to place an order",
-        variant: "destructive"
-      });
+      setShowLoginModal(true);
       return;
     }
 
@@ -400,5 +398,22 @@ export const Checkout = () => {
         });
       }
     }} selectedAddress={selectedAddress} />
+
+      {/* Login Modal */}
+      <LoginForm 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+        onSuccess={() => {
+          setShowLoginModal(false);
+          toast({
+            title: "Login Successful",
+            description: "You can now place your order"
+          });
+        }}
+        onRegisterRequired={() => {
+          // Handle registration if needed
+          setShowLoginModal(false);
+        }}
+      />
     </div>;
 };
