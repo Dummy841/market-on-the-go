@@ -23,6 +23,7 @@ export const Checkout = () => {
   } = useCart();
   const {
     user,
+    login,
     isAuthenticated
   } = useUserAuth();
   const { setActiveOrder } = useOrderTracking();
@@ -403,7 +404,9 @@ export const Checkout = () => {
       <LoginForm 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)} 
-        onSuccess={() => {
+        onSuccess={(userData) => {
+          // Call login from UserAuthContext to persist auth state
+          login(userData);
           setShowLoginModal(false);
           toast({
             title: "Login Successful",
@@ -411,7 +414,6 @@ export const Checkout = () => {
           });
         }}
         onRegisterRequired={() => {
-          // Handle registration if needed
           setShowLoginModal(false);
         }}
       />
