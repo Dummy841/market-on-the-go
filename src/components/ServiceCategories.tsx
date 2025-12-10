@@ -1,6 +1,7 @@
 import { UtensilsCrossed, ShoppingBasket, Wrench, Package } from "lucide-react";
 import pizza from "@/assets/pizza.jpg";
-import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+
 interface ServiceCategoryProps {
   title: string;
   subtitle: string;
@@ -9,6 +10,7 @@ interface ServiceCategoryProps {
   badge?: string;
   onClick: () => void;
 }
+
 const ServiceCategoryCard = ({
   title,
   subtitle,
@@ -36,28 +38,30 @@ const ServiceCategoryCard = ({
       </div>
     </div>;
 };
+
 interface ServiceCategoriesProps {
   onFoodDeliveryClick: () => void;
 }
+
 export const ServiceCategories = ({
   onFoodDeliveryClick
 }: ServiceCategoriesProps) => {
-  const handleComingSoon = () => {
-    toast({
-      title: "Coming Soon",
-      description: "This feature will be available soon!"
-    });
+  const navigate = useNavigate();
+
+  const handleCategoryClick = (category: string) => {
+    navigate(`/restaurants?category=${category}`);
   };
+
   return <section className="py-8 bg-background">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
-          <ServiceCategoryCard title="FOOD DELIVERY" subtitle="YESVEMBER: LIVE NOW" badge="GET 65% OFF" icon={<UtensilsCrossed className="h-6 w-6" />} image={pizza} onClick={onFoodDeliveryClick} />
+          <ServiceCategoryCard title="FOOD DELIVERY" subtitle="YESVEMBER: LIVE NOW" badge="GET 65% OFF" icon={<UtensilsCrossed className="h-6 w-6" />} image={pizza} onClick={() => handleCategoryClick('food_delivery')} />
           
-          <ServiceCategoryCard title="INSTAMART" subtitle="GROCERY DELIVERY" badge="FREE ₹125" icon={<ShoppingBasket className="h-6 w-6" />} image={pizza} onClick={handleComingSoon} />
+          <ServiceCategoryCard title="INSTAMART" subtitle="GROCERY DELIVERY" badge="FREE ₹125" icon={<ShoppingBasket className="h-6 w-6" />} image={pizza} onClick={() => handleCategoryClick('instamart')} />
           
-          <ServiceCategoryCard title="DINEOUT" subtitle="SERVICES" badge="UP TO 50% OFF" icon={<Wrench className="h-6 w-6" />} image={pizza} onClick={handleComingSoon} />
+          <ServiceCategoryCard title="DINEOUT" subtitle="SERVICES" badge="UP TO 50% OFF" icon={<Wrench className="h-6 w-6" />} image={pizza} onClick={() => handleCategoryClick('dineout')} />
           
-          <ServiceCategoryCard title="GIFTABLES" subtitle="OTHERS" badge="GET GIFTS IN MINS" icon={<Package className="h-6 w-6" />} image={pizza} onClick={handleComingSoon} />
+          <ServiceCategoryCard title="SERVICES" subtitle="OTHERS" badge="GET SERVICES IN MINS" icon={<Package className="h-6 w-6" />} image={pizza} onClick={() => handleCategoryClick('services')} />
         </div>
       </div>
     </section>;

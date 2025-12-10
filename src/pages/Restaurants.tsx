@@ -6,9 +6,22 @@ import { BottomNav } from "@/components/BottomNav";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 const Restaurants = () => {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [searchParams] = useSearchParams();
+  const category = searchParams.get('category') || 'food_delivery';
+
+  const getCategoryTitle = () => {
+    switch(category) {
+      case 'food_delivery': return 'Food Delivery';
+      case 'instamart': return 'Insta Mart';
+      case 'dineout': return 'Dine Out';
+      case 'services': return 'Services';
+      default: return 'Restaurants';
+    }
+  };
 
   return <div className="min-h-screen bg-background pb-16">
       <Header />
@@ -17,9 +30,9 @@ const Restaurants = () => {
         <section className="py-8 bg-gradient-subtle">
           <div className="container mx-auto px-4">
             <div className="text-center mb-6">
-              
+              <h2 className="text-xl font-bold text-foreground">{getCategoryTitle()}</h2>
             </div>
-            <FeaturedRestaurants />
+            <FeaturedRestaurants category={category} />
           </div>
         </section>
       </main>

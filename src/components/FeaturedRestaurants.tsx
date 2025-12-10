@@ -17,8 +17,14 @@ interface Restaurant {
   seller_longitude?: number;
   distance?: number;
   deliveryTime?: string;
+  category?: string;
 }
-export const FeaturedRestaurants = () => {
+
+interface FeaturedRestaurantsProps {
+  category?: string;
+}
+
+export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRestaurantsProps) => {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -32,7 +38,7 @@ export const FeaturedRestaurants = () => {
     if (userLocation) {
       fetchRestaurants();
     }
-  }, [userLocation]);
+  }, [userLocation, category]);
 
   const getUserLocation = async () => {
     try {
@@ -79,10 +85,17 @@ export const FeaturedRestaurants = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('sellers')
-        .select('id, seller_name, profile_photo_url, status, is_online, seller_latitude, seller_longitude')
+        .select('id, seller_name, profile_photo_url, status, is_online, seller_latitude, seller_longitude, category')
         .eq('status', 'approved');
+      
+      // Filter by category
+      if (category) {
+        query = query.eq('category', category);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -131,7 +144,7 @@ export const FeaturedRestaurants = () => {
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="animate-pulse">Loading restaurants...</div>
+        <div className="animate-pulse">Loading...</div>
       </div>
     );
   }
@@ -146,7 +159,7 @@ export const FeaturedRestaurants = () => {
   if (restaurants.length === 0 && !loading) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No restaurants found within 10km of your location</p>
+        <p className="text-muted-foreground">No sellers found in this category within 10km of your location</p>
       </div>
     );
   }
