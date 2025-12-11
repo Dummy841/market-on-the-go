@@ -67,13 +67,23 @@ const ChangePasswordModal = ({ open, onOpenChange, userType, userId, currentPass
       }
 
       // Update password in database
-      const tableName = userType === 'seller' ? 'sellers' : 'delivery_partners';
-      const { error: updateError } = await supabase
-        .from(tableName)
-        .update({ password_hash: hashedNewPassword })
-        .eq('id', userId);
+      let updateError;
+      if (userType === 'seller') {
+        const result = await supabase
+          .from('sellers')
+          .update({ password_hash: hashedNewPassword })
+          .eq('id', userId);
+        updateError = result.error;
+      } else {
+        const result = await supabase
+          .from('delivery_partners')
+          .update({ password_hash: hashedNewPassword })
+          .eq('id', userId);
+        updateError = result.error;
+      }
 
       if (updateError) {
+        console.error('Update error:', updateError);
         toast({
           title: "Error",
           description: "Failed to update password",
