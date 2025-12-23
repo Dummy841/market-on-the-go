@@ -26,7 +26,9 @@ export const Checkout = () => {
     login,
     isAuthenticated
   } = useUserAuth();
-  const { setActiveOrder } = useOrderTracking();
+  const {
+    setActiveOrder
+  } = useOrderTracking();
   const navigate = useNavigate();
   const [selectedPayment, setSelectedPayment] = useState("upi");
   const [instructions, setInstructions] = useState("");
@@ -56,21 +58,16 @@ export const Checkout = () => {
   // Load user's default address
   const loadDefaultAddress = async () => {
     if (!user) return;
-    
+
     // First check localStorage for selected address
     const storedAddress = localStorage.getItem('selectedAddress');
     if (storedAddress) {
       try {
         const parsed = JSON.parse(storedAddress);
         // Need to get full details from DB for this address
-        const { data } = await supabase
-          .from('user_addresses')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('label', parsed.label)
-          .eq('full_address', parsed.address)
-          .single();
-        
+        const {
+          data
+        } = await supabase.from('user_addresses').select('*').eq('user_id', user.id).eq('label', parsed.label).eq('full_address', parsed.address).single();
         if (data) {
           setSelectedAddress({
             id: data.id,
@@ -86,19 +83,16 @@ export const Checkout = () => {
         console.error('Error loading stored address:', error);
       }
     }
-    
+
     // Fallback to loading most recent address from database
     try {
-      const { data, error } = await supabase
-        .from('user_addresses')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
-      
+      const {
+        data,
+        error
+      } = await supabase.from('user_addresses').select('*').eq('user_id', user.id).order('updated_at', {
+        ascending: false
+      }).limit(1).single();
       if (error) throw error;
-      
       if (data) {
         setSelectedAddress({
           id: data.id,
@@ -146,7 +140,6 @@ export const Checkout = () => {
       setShowLoginModal(true);
       return;
     }
-
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
@@ -195,12 +188,9 @@ export const Checkout = () => {
       // Set active order for tracking
       if (data) {
         // Fetch full order details with related data
-        const { data: orderData } = await supabase
-          .from('orders')
-          .select('*, delivery_partners(id, name, mobile, profile_photo_url), sellers(seller_latitude, seller_longitude, seller_name)')
-          .eq('id', data.id)
-          .single();
-        
+        const {
+          data: orderData
+        } = await supabase.from('orders').select('*, delivery_partners(id, name, mobile, profile_photo_url), sellers(seller_latitude, seller_longitude, seller_name)').eq('id', data.id).single();
         if (orderData) {
           setActiveOrder(orderData);
         }
@@ -338,23 +328,7 @@ export const Checkout = () => {
 
         {/* Payment Methods */}
         <Card className="mb-6">
-          <CardContent className="p-4">
-            <h3 className="font-semibold mb-4">Payment Method</h3>
-            <div className="space-y-2">
-              <div className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${selectedPayment === 'upi' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`} onClick={() => setSelectedPayment('upi')}>
-                <Wallet className="h-5 w-5" />
-                <span className="font-medium">UPI</span>
-              </div>
-              <div className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${selectedPayment === 'card' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`} onClick={() => setSelectedPayment('card')}>
-                <CreditCard className="h-5 w-5" />
-                <span className="font-medium">Credit/Debit Card</span>
-              </div>
-              <div className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${selectedPayment === 'netbanking' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`} onClick={() => setSelectedPayment('netbanking')}>
-                <Building2 className="h-5 w-5" />
-                <span className="font-medium">Net Banking</span>
-              </div>
-            </div>
-          </CardContent>
+          
         </Card>
 
         {/* Bill Summary */}
@@ -401,21 +375,16 @@ export const Checkout = () => {
     }} selectedAddress={selectedAddress} />
 
       {/* Login Modal */}
-      <LoginForm 
-        isOpen={showLoginModal} 
-        onClose={() => setShowLoginModal(false)} 
-        onSuccess={(userData) => {
-          // Call login from UserAuthContext to persist auth state
-          login(userData);
-          setShowLoginModal(false);
-          toast({
-            title: "Login Successful",
-            description: "You can now place your order"
-          });
-        }}
-        onRegisterRequired={() => {
-          setShowLoginModal(false);
-        }}
-      />
+      <LoginForm isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onSuccess={userData => {
+      // Call login from UserAuthContext to persist auth state
+      login(userData);
+      setShowLoginModal(false);
+      toast({
+        title: "Login Successful",
+        description: "You can now place your order"
+      });
+    }} onRegisterRequired={() => {
+      setShowLoginModal(false);
+    }} />
     </div>;
 };
