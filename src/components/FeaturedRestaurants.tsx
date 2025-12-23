@@ -127,8 +127,9 @@ export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRest
       );
 
       // Filter restaurants within 10km and sort by distance
+      // Demo Restaurant is always shown regardless of distance
       const nearbyRestaurants = restaurantsWithDetails
-        .filter(r => r.distance <= 10)
+        .filter(r => r.distance <= 10 || r.seller_name === 'Demo Restaurant')
         .sort((a, b) => a.distance - b.distance);
       
       setRestaurants(nearbyRestaurants);
