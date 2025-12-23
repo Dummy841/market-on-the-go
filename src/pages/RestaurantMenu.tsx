@@ -78,25 +78,30 @@ const RestaurantMenu = () => {
         return;
       }
 
-      // If no saved address, use browser geolocation
+      // If no saved address, use browser geolocation with timeout
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        }, () => {
-          // Default to a location if geolocation fails
-          setUserLocation({
-            lat: 17.385044,
-            lng: 78.486671
-          }); // Hyderabad
-        });
+        const timeoutId = setTimeout(() => {
+          // Fallback if geolocation takes too long
+          setUserLocation({ lat: 17.385044, lng: 78.486671 }); // Hyderabad default
+        }, 5000);
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            clearTimeout(timeoutId);
+            setUserLocation({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            });
+          },
+          () => {
+            clearTimeout(timeoutId);
+            // Default to a location if geolocation fails
+            setUserLocation({ lat: 17.385044, lng: 78.486671 }); // Hyderabad
+          },
+          { timeout: 5000 }
+        );
       } else {
-        setUserLocation({
-          lat: 17.385044,
-          lng: 78.486671
-        }); // Default
+        setUserLocation({ lat: 17.385044, lng: 78.486671 }); // Default
       }
     } catch (error) {
       console.error('Error getting user location:', error);
