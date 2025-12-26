@@ -1,12 +1,15 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserAuth } from './UserAuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface OrderTrackingContextType {
   activeOrder: any | null;
   setActiveOrder: (order: any) => void;
   clearActiveOrder: () => void;
   refreshOrder: () => Promise<void>;
+  requestNotificationPermission: () => Promise<boolean>;
+  notificationPermission: NotificationPermission;
 }
 
 const OrderTrackingContext = createContext<OrderTrackingContextType | undefined>(undefined);
@@ -15,6 +18,8 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
   const [activeOrder, setActiveOrderState] = useState<any | null>(null);
   const { user } = useUserAuth();
   const activeOrderIdRef = useRef<string | null>(null);
+  const previousStatusRef = useRef<string | null>(null);
+  const { permission, requestPermission, showOrderStatusNotification } = useNotifications();
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -38,6 +43,7 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
         
         if (activeStatuses.includes(data.status) || isDeliveredRecently) {
           console.log('Setting active order with status:', data.status);
+          previousStatusRef.current = data.status;
           setActiveOrderState(data);
         } else {
           // Order is no longer active, clear it
@@ -114,16 +120,26 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
           console.log('Real-time order update received:', payload);
           const newOrder = payload.new as any;
           const currentOrderId = activeOrderIdRef.current;
+          const previousStatus = previousStatusRef.current;
           
           if (newOrder) {
             // If it's the current active order, update it
             if (currentOrderId && newOrder.id === currentOrderId) {
               console.log('Updating active order status to:', newOrder.status);
+              
+              // Show notification if status changed
+              if (previousStatus && newOrder.status !== previousStatus) {
+                console.log('Status changed from', previousStatus, 'to', newOrder.status);
+                showOrderStatusNotification(newOrder.status, newOrder.seller_name);
+              }
+              
+              previousStatusRef.current = newOrder.status;
               await loadOrderById(newOrder.id);
             }
             // If no active order but this is a new order, set it
             else if (!currentOrderId && payload.eventType === 'INSERT') {
               console.log('New order detected:', newOrder.id);
+              previousStatusRef.current = newOrder.status;
               await loadOrderById(newOrder.id);
             }
           }
@@ -137,7 +153,7 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
       console.log('Cleaning up order tracking subscription');
       supabase.removeChannel(channel);
     };
-  }, [user, loadOrderById]);
+  }, [user, loadOrderById, showOrderStatusNotification]);
 
   const setActiveOrder = useCallback((order: any) => {
     setActiveOrderState(order);
@@ -165,7 +181,14 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
   }, []);
 
   return (
-    <OrderTrackingContext.Provider value={{ activeOrder, setActiveOrder, clearActiveOrder, refreshOrder }}>
+    <OrderTrackingContext.Provider value={{ 
+      activeOrder, 
+      setActiveOrder, 
+      clearActiveOrder, 
+      refreshOrder,
+      requestNotificationPermission: requestPermission,
+      notificationPermission: permission,
+    }}>
       {children}
     </OrderTrackingContext.Provider>
   );

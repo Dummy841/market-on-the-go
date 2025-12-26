@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
+import NotificationPermissionBanner from "@/components/NotificationPermissionBanner";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
@@ -14,6 +15,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16">
+      <NotificationPermissionBanner />
       <Header />
       <main>
         <UniversalSearchBar />
