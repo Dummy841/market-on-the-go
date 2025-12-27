@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useOrderTracking } from "@/contexts/OrderTrackingContext";
+import { useZippyPass } from "@/hooks/useZippyPass";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -13,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import AddressSelector from "@/components/AddressSelector";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { ZippyPassModal } from "@/components/ZippyPassModal";
 
 declare global {
   interface Window {
@@ -36,6 +38,7 @@ export const Checkout = () => {
   const {
     setActiveOrder
   } = useOrderTracking();
+  const { hasActivePass, checkSubscription } = useZippyPass();
   const navigate = useNavigate();
   const [instructions, setInstructions] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -45,6 +48,7 @@ export const Checkout = () => {
   } | null>(null);
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showZippyPassModal, setShowZippyPassModal] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
     id: string;
@@ -64,6 +68,11 @@ export const Checkout = () => {
 
   // Load Razorpay script
   useEffect(() => {
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
+    
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
@@ -71,7 +80,9 @@ export const Checkout = () => {
     document.body.appendChild(script);
     
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
@@ -125,9 +136,12 @@ export const Checkout = () => {
   }, [user]);
 
   const itemTotal = getTotalPrice();
-  const deliveryFee = itemTotal >= 499 ? 0 : 19;
+  
+  // Calculate fees based on Zippy Pass status
+  const smallOrderFee = (!hasActivePass && itemTotal < 100) ? 10 : 0;
+  const deliveryFee = hasActivePass ? 0 : (itemTotal >= 499 ? 0 : 19);
   const platformFee = Math.round(itemTotal * 0.05);
-  const totalAmount = itemTotal + deliveryFee + platformFee;
+  const totalAmount = itemTotal + deliveryFee + platformFee + smallOrderFee;
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -370,9 +384,27 @@ export const Checkout = () => {
                 <span>Item Total</span>
                 <span>₹{itemTotal}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Delivery Fee</span>
-                <span>{deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}</span>
+              {smallOrderFee > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>Small Order Fee</span>
+                  <span>₹{smallOrderFee}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm items-center">
+                <div className="flex items-center gap-2">
+                  <span>Delivery Fee</span>
+                  {!hasActivePass && deliveryFee > 0 && (
+                    <button 
+                      onClick={() => setShowZippyPassModal(true)}
+                      className="text-xs text-orange-500 font-medium hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <span className={hasActivePass ? 'text-green-600' : ''}>
+                  {deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Platform Fee</span>
@@ -415,6 +447,16 @@ export const Checkout = () => {
       }} onRegisterRequired={() => {
         setShowLoginModal(false);
       }} />
+
+      {/* Zippy Pass Modal */}
+      <ZippyPassModal 
+        isOpen={showZippyPassModal}
+        onClose={() => setShowZippyPassModal(false)}
+        onSuccess={() => {
+          checkSubscription();
+          setShowZippyPassModal(false);
+        }}
+      />
     </div>
   );
 };

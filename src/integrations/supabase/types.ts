@@ -467,6 +467,42 @@ export type Database = {
         }
         Relationships: []
       }
+      zippy_pass_subscriptions: {
+        Row: {
+          amount: number
+          created_at: string
+          end_date: string
+          id: string
+          is_active: boolean
+          razorpay_payment_id: string
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          razorpay_payment_id: string
+          start_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          razorpay_payment_id?: string
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
