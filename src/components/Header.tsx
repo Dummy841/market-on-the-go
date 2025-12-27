@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, AlertCircle, Menu } from "lucide-react";
+import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, AlertCircle, Menu, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -10,11 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useZippyPass } from "@/hooks/useZippyPass";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+
 export const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showRegister, setShowRegister] = useState(false);
@@ -38,7 +40,9 @@ export const Header = () => {
   const {
     getTotalItems
   } = useCart();
+  const { hasActivePass, getDaysRemaining } = useZippyPass();
   const navigateToPage = useNavigate();
+
   useEffect(() => {
     requestLocationPermission();
     if (isAuthenticated) {
@@ -84,6 +88,7 @@ export const Header = () => {
       console.error('No saved addresses found');
     }
   };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -93,6 +98,7 @@ export const Header = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
   const requestLocationPermission = async () => {
     if ('geolocation' in navigator) {
       try {
@@ -125,6 +131,7 @@ export const Header = () => {
       setCurrentLocation("Select Location");
     }
   };
+
   const getCurrentLocation = () => {
     navigator.geolocation.getCurrentPosition(position => {
       setLocationGranted(true);
@@ -134,6 +141,7 @@ export const Header = () => {
       setCurrentLocation("Select Location");
     });
   };
+
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       setCurrentLocation("Detecting...");
@@ -173,15 +181,19 @@ export const Header = () => {
       setCurrentLocation("Select Location");
     }
   };
+
   const handleAuthSuccess = (userData: any) => {
     login(userData);
   };
+
   const handleRegisterRequired = () => {
     setShowRegister(true);
   };
+
   const handleLogout = () => {
     logout();
   };
+
   return <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
@@ -219,12 +231,19 @@ export const Header = () => {
             {isAuthenticated ? <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-2 h-10 px-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="" alt={user?.name} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                        {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
+                      <Avatar className={`h-8 w-8 ${hasActivePass ? 'border-2 border-background' : ''}`}>
+                        <AvatarImage src="" alt={user?.name} />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                          {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      {hasActivePass && (
+                        <div className="absolute -top-1 -right-1 bg-orange-500 rounded-full p-0.5">
+                          <Crown className="h-2.5 w-2.5 text-white" />
+                        </div>
+                      )}
+                    </div>
                     <div className="hidden md:flex flex-col items-start">
                       <span className="text-sm font-medium">{user?.name}</span>
                       <span className="text-xs text-muted-foreground">{user?.mobile}</span>
@@ -235,8 +254,19 @@ export const Header = () => {
                 <DropdownMenuContent className="w-64" align="end" sideOffset={8}>
                   <DropdownMenuLabel className="pb-2">
                     <div className="flex flex-col space-y-1">
-                      <span className="text-sm font-medium">{user?.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{user?.name}</span>
+                        {hasActivePass && (
+                          <Badge className="bg-gradient-to-r from-orange-400 to-pink-500 text-white text-xs px-1.5 py-0">
+                            <Crown className="h-3 w-3 mr-1" />
+                            Zippy
+                          </Badge>
+                        )}
+                      </div>
                       <span className="text-xs text-muted-foreground">{user?.mobile}</span>
+                      {hasActivePass && (
+                        <span className="text-xs text-orange-500">{getDaysRemaining()} days remaining</span>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

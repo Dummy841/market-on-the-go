@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useNavigate } from "react-router-dom";
 import { useUserAuth } from "@/contexts/UserAuthContext";
+import { useZippyPass } from "@/hooks/useZippyPass";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { ZippyPassModal } from "@/components/ZippyPassModal";
 import { useState } from "react";
 
 interface CartProps {
@@ -20,8 +22,10 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     cartRestaurantName
   } = useCart();
   const { isAuthenticated, login, user, logout } = useUserAuth();
+  const { hasActivePass, checkSubscription } = useZippyPass();
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showZippyPassModal, setShowZippyPassModal] = useState(false);
 
   const handleCheckout = () => {
     if (!isAuthenticated) {
@@ -40,9 +44,12 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
   };
 
   const itemTotal = getTotalPrice();
-  const deliveryFee = itemTotal >= 499 ? 0 : 19;
+  
+  // Calculate fees based on Zippy Pass status
+  const smallOrderFee = (!hasActivePass && itemTotal < 100) ? 10 : 0;
+  const deliveryFee = hasActivePass ? 0 : (itemTotal >= 499 ? 0 : 19);
   const platformFee = Math.round(itemTotal * 0.05);
-  const totalAmount = itemTotal + deliveryFee + platformFee;
+  const totalAmount = itemTotal + deliveryFee + platformFee + smallOrderFee;
 
   if (!isOpen) {
     return null;
@@ -148,9 +155,27 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
               <span>Item Total</span>
               <span>₹{itemTotal}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span>Delivery Fee</span>
-              <span>{deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}</span>
+            {smallOrderFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span>Small Order Fee</span>
+                <span>₹{smallOrderFee}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm items-center">
+              <div className="flex items-center gap-2">
+                <span>Delivery Fee</span>
+                {!hasActivePass && deliveryFee > 0 && (
+                  <button 
+                    onClick={() => setShowZippyPassModal(true)}
+                    className="text-xs text-orange-500 font-medium hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <span className={hasActivePass ? 'text-green-600' : ''}>
+                {deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}
+              </span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Platform Fee</span>
@@ -175,6 +200,16 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
           />
         </div>
       )}
+
+      {/* Zippy Pass Modal */}
+      <ZippyPassModal 
+        isOpen={showZippyPassModal}
+        onClose={() => setShowZippyPassModal(false)}
+        onSuccess={() => {
+          checkSubscription();
+          setShowZippyPassModal(false);
+        }}
+      />
     </div>
   );
 };

@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.verify-razorpay-payment]
 verify_jwt = false
+
+[functions.verify-zippy-pass-payment]
+verify_jwt = false
