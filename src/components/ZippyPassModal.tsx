@@ -237,7 +237,7 @@ export const ZippyPassModal = ({ isOpen, onClose, onSuccess }: ZippyPassModalPro
         body: {
           amount: 199,
           currency: 'INR',
-          receipt: `zippy_${user.id}_${Date.now()}`
+          receipt: `zp_${user.id.slice(0, 8)}_${Date.now()}`
         }
       });
 
