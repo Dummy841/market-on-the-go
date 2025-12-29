@@ -291,7 +291,9 @@ export const ZippyPassModal = ({
           {/* Login Form - Show if not logged in */}
           {!user ? <div className="space-y-4">
               <div className="bg-orange-500 rounded-xl p-4 text-white">
-                <p className="font-semibold">Login Required</p>
+                <p className="font-bold">for 30 days 
+OR 
+Order above 499 to get Free Delivary</p>
                 <p className="text-sm text-orange-100">Please login to purchase Zippy Pass</p>
               </div>
               
