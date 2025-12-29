@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import AddressSelector from "@/components/AddressSelector";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { ZippyPassModal } from "@/components/ZippyPassModal";
+import { AddMoreItemsModal } from "@/components/AddMoreItemsModal";
 
 declare global {
   interface Window {
@@ -49,6 +50,7 @@ export const Checkout = () => {
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showZippyPassModal, setShowZippyPassModal] = useState(false);
+  const [showAddMoreItemsModal, setShowAddMoreItemsModal] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
     id: string;
@@ -385,8 +387,16 @@ export const Checkout = () => {
                 <span>₹{itemTotal}</span>
               </div>
               {smallOrderFee > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span>Small Order Fee</span>
+                <div className="flex justify-between text-sm items-center">
+                  <div className="flex items-center gap-2">
+                    <span>Small Order Fee</span>
+                    <button 
+                      onClick={() => setShowAddMoreItemsModal(true)}
+                      className="text-xs text-orange-500 font-medium hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
                   <span>₹{smallOrderFee}</span>
                 </div>
               )}
@@ -456,6 +466,16 @@ export const Checkout = () => {
           checkSubscription();
           setShowZippyPassModal(false);
         }}
+      />
+
+      {/* Add More Items Modal */}
+      <AddMoreItemsModal
+        isOpen={showAddMoreItemsModal}
+        onClose={() => setShowAddMoreItemsModal(false)}
+        sellerId={cartItems[0]?.seller_id || ''}
+        sellerName={cartRestaurantName || ''}
+        targetAmount={100}
+        currentTotal={itemTotal}
       />
     </div>
   );
