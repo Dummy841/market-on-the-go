@@ -1,7 +1,8 @@
-import { Package, ChevronUp, GripVertical } from 'lucide-react';
+import { Package, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOrderTracking } from '@/contexts/OrderTrackingContext';
 import { useState, useRef, useEffect } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface OrderTrackingButtonProps {
   onClick: () => void;
@@ -12,6 +13,7 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isExpanded, setIsExpanded] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -137,44 +139,71 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
 
   const items = Array.isArray(activeOrder.items) ? activeOrder.items : [];
 
+  const handleCircleClick = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  const handleExpandedClick = () => {
+    onClick();
+  };
+
   return (
     <div 
       ref={buttonRef}
-      className="fixed z-50 bg-background border shadow-lg rounded-2xl overflow-hidden"
+      className="fixed z-50"
       style={{
         bottom: position.y === 0 ? '80px' : 'auto',
         left: position.x === 0 ? '16px' : `${position.x}px`,
-        right: position.x === 0 ? '16px' : 'auto',
+        right: position.x === 0 && !isExpanded ? 'auto' : (position.x === 0 ? '16px' : 'auto'),
         top: position.y !== 0 ? `${position.y}px` : 'auto',
         cursor: isDragging ? 'grabbing' : 'default',
-        maxWidth: '400px'
+        maxWidth: isExpanded ? '400px' : 'auto'
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      <div className="flex items-center gap-3 p-4">
-        <div className="drag-handle cursor-grab active:cursor-grabbing p-1 hover:bg-accent/50 rounded">
-          <GripVertical className="h-5 w-5 text-muted-foreground" />
-        </div>
-        <div className="bg-primary/10 p-2 rounded-full">
-          <Package className="h-5 w-5 text-primary" />
-        </div>
+      {!isExpanded ? (
+        // Collapsed: Just a circle icon
         <button
-          onClick={onClick}
-          className="flex-1 text-left hover:opacity-80 transition-opacity"
+          onClick={handleCircleClick}
+          className="bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:scale-110 transition-transform animate-pulse"
         >
-          <div className="flex items-center justify-between mb-1">
-            <p className="font-semibold text-sm">{getStatusText(activeOrder.status)}</p>
-            <ChevronUp className="h-4 w-4" />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {activeOrder.seller_name} • {items.length} {items.length === 1 ? 'item' : 'items'}
-          </p>
-          <p className="text-xs text-orange-600 font-medium mt-1">
-            {activeOrder.status === 'delivered' ? 'Delivered: ' : 'Est. delivery: '}{getEstimatedDeliveryTime()}
-          </p>
+          <Package className="h-6 w-6" />
         </button>
-      </div>
+      ) : (
+        // Expanded: Show full details
+        <div className="bg-background border shadow-lg rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-3 p-4">
+            <button
+              onClick={handleCircleClick}
+              className="drag-handle cursor-pointer p-1 hover:bg-accent/50 rounded"
+            >
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <div className="bg-primary/10 p-2 rounded-full">
+              <Package className="h-5 w-5 text-primary" />
+            </div>
+            <button
+              onClick={handleExpandedClick}
+              className="flex-1 text-left hover:opacity-80 transition-opacity"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold text-sm">{getStatusText(activeOrder.status)}</p>
+                <ChevronUp className="h-4 w-4" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {activeOrder.seller_name} • {items.length} {items.length === 1 ? 'item' : 'items'}
+              </p>
+              <p className="text-xs text-orange-600 font-medium mt-1">
+                {activeOrder.status === 'delivered' ? 'Delivered: ' : 'Est. delivery: '}{getEstimatedDeliveryTime()}
+              </p>
+            </button>
+            <button onClick={handleCircleClick} className="p-1">
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
