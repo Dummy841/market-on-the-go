@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useSellerAuth } from "@/contexts/SellerAuthContext";
 import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, User, MapPin, Eye, Filter, Volume2 } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, AlertCircle, User, Eye, Filter, Volume2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 interface Order {
   id: string;
@@ -679,11 +679,8 @@ export const SellerOrderManagement = () => {
               <Separator />
               
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span className="font-medium">Delivery Address:</span>
-                </div>
-                <p className="text-sm">{selectedOrder.delivery_address}</p>
+                
+                
               </div>
               
               {selectedOrder.instructions && <div className="space-y-2">
