@@ -263,10 +263,12 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
                 <Input
                   id="otp"
                   type="text"
+                  inputMode="numeric"
                   placeholder="Enter 6-digit OTP"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   maxLength={6}
+                  className="text-center text-2xl font-bold tracking-[0.5em] h-14 border-2 border-primary/30 focus:border-primary"
                 />
               </div>
               <div className="flex space-x-2">
