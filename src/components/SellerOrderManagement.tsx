@@ -35,72 +35,52 @@ interface Order {
   delivered_at: string | null;
 }
 
-// Notification sound - using Web Audio API to generate a tone
+// Notification sound - Rapido-style alert tone (2 seconds)
 const playNotificationSound = () => {
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     
-    // Create oscillator for the main tone
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    // Rapido-style notification: ascending tones with rhythm pattern
+    const playTone = (frequency: number, startTime: number, duration: number, volume: number = 0.6) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      oscillator.type = 'sine';
+      
+      // Smooth envelope
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.03);
+      gainNode.gain.setValueAtTime(volume, startTime + duration - 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+      
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+
+    const now = audioContext.currentTime;
     
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    // First burst: rapid ascending beeps (like Rapido ride alert)
+    playTone(784, now, 0.15);           // G5
+    playTone(880, now + 0.15, 0.15);    // A5
+    playTone(988, now + 0.3, 0.15);     // B5
+    playTone(1047, now + 0.45, 0.2);    // C6 - slightly longer
     
-    // Set up the tone (similar to Rapido notification)
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
-    oscillator.type = 'sine';
+    // Short pause, then repeat pattern with higher pitch
+    playTone(988, now + 0.75, 0.12);    // B5
+    playTone(1047, now + 0.87, 0.12);   // C6
+    playTone(1175, now + 0.99, 0.12);   // D6
+    playTone(1319, now + 1.11, 0.25);   // E6 - emphasis
     
-    // Gain envelope for smooth start/end
-    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime + 0.3);
-    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+    // Final attention-grabbing notes
+    playTone(1047, now + 1.45, 0.12);   // C6
+    playTone(1319, now + 1.57, 0.12);   // E6
+    playTone(1568, now + 1.69, 0.3);    // G6 - final high note
     
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
-    
-    // Second beep after a short pause
-    setTimeout(() => {
-      const oscillator2 = audioContext.createOscillator();
-      const gainNode2 = audioContext.createGain();
-      
-      oscillator2.connect(gainNode2);
-      gainNode2.connect(audioContext.destination);
-      
-      oscillator2.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6 note
-      oscillator2.type = 'sine';
-      
-      gainNode2.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode2.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
-      gainNode2.gain.setValueAtTime(0.5, audioContext.currentTime + 0.3);
-      gainNode2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-      
-      oscillator2.start(audioContext.currentTime);
-      oscillator2.stop(audioContext.currentTime + 0.5);
-    }, 600);
-    
-    // Third beep for emphasis
-    setTimeout(() => {
-      const oscillator3 = audioContext.createOscillator();
-      const gainNode3 = audioContext.createGain();
-      
-      oscillator3.connect(gainNode3);
-      gainNode3.connect(audioContext.destination);
-      
-      oscillator3.frequency.setValueAtTime(1318.5, audioContext.currentTime); // E6 note
-      oscillator3.type = 'sine';
-      
-      gainNode3.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode3.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
-      gainNode3.gain.setValueAtTime(0.5, audioContext.currentTime + 0.5);
-      gainNode3.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.8);
-      
-      oscillator3.start(audioContext.currentTime);
-      oscillator3.stop(audioContext.currentTime + 0.8);
-    }, 1200);
-    
-    console.log('Notification sound played');
+    console.log('Rapido-style notification sound played (2 sec)');
   } catch (error) {
     console.error('Error playing notification sound:', error);
   }
