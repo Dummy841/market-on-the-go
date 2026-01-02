@@ -1,261 +1,114 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useOrderTracking } from '@/contexts/OrderTrackingContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, Clock, Package, Truck, Phone, Star } from 'lucide-react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { CheckCircle2, Package, Truck, Phone, Star } from 'lucide-react';
+import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
+import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const containerStyle = {
+  width: '100%',
+  height: '256px'
+};
+
 const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
   const { activeOrder } = useOrderTracking();
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const deliveryPartnerMarker = useRef<mapboxgl.Marker | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string>('');
+  const { isLoaded } = useGoogleMaps();
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [deliveryPartnerLocation, setDeliveryPartnerLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
 
+  // Fetch delivery partner location and set up real-time tracking
   useEffect(() => {
-    const fetchMapboxToken = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (data?.token) {
-          setMapboxToken(data.token);
-        }
-      } catch (error) {
-        console.error('Error fetching Mapbox token:', error);
+    if (!activeOrder || !activeOrder.assigned_delivery_partner_id) return;
+    
+    const isTrackingStatus = ['picked_up', 'going_for_delivery', 'going_for_pickup'].includes(activeOrder.status);
+    if (!isTrackingStatus) return;
+
+    // Fetch initial delivery partner location
+    const fetchPartnerLocation = async () => {
+      const { data: partnerData } = await supabase
+        .from('delivery_partners')
+        .select('latitude, longitude')
+        .eq('id', activeOrder.assigned_delivery_partner_id)
+        .single();
+
+      if (partnerData?.latitude && partnerData?.longitude) {
+        setDeliveryPartnerLocation({
+          lat: partnerData.latitude,
+          lng: partnerData.longitude
+        });
       }
     };
-    fetchMapboxToken();
-  }, []);
 
-  useEffect(() => {
-    if (!mapContainer.current || !activeOrder || !mapboxToken) return;
+    fetchPartnerLocation();
 
-    mapboxgl.accessToken = mapboxToken;
-
-    // Initialize map
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [activeOrder.delivery_longitude || 83.3150, activeOrder.delivery_latitude || 17.7172],
-      zoom: 14,
-    });
-
-    // Add markers for restaurant and delivery location
-    if (activeOrder.sellers?.seller_latitude && activeOrder.sellers?.seller_longitude) {
-      new mapboxgl.Marker({ color: '#FF6B6B' })
-        .setLngLat([activeOrder.sellers.seller_longitude, activeOrder.sellers.seller_latitude])
-        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${activeOrder.seller_name}</strong>`))
-        .addTo(map.current);
-    }
-
-    if (activeOrder.delivery_longitude && activeOrder.delivery_latitude) {
-      new mapboxgl.Marker({ color: '#4CAF50' })
-        .setLngLat([activeOrder.delivery_longitude, activeOrder.delivery_latitude])
-        .setPopup(new mapboxgl.Popup().setHTML('<strong>Delivery Location</strong>'))
-        .addTo(map.current);
-    }
-
-    // If order is picked up or out for delivery, show route and track delivery partner
-    if (activeOrder.status === 'picked_up' || activeOrder.status === 'going_for_delivery' || activeOrder.status === 'going_for_pickup') {
-      // Initialize delivery partner marker
-      const initializeDeliveryPartnerTracking = async () => {
-        // Fetch initial delivery partner location
-        const { data: partnerData } = await supabase
-          .from('delivery_partners')
-          .select('latitude, longitude, name')
-          .eq('id', activeOrder.assigned_delivery_partner_id)
-          .single();
-
-        if (partnerData?.latitude && partnerData?.longitude) {
-          // Create delivery partner marker
-          deliveryPartnerMarker.current = new mapboxgl.Marker({ 
-            color: '#FF8C42',
-            scale: 1.2 
-          })
-            .setLngLat([partnerData.longitude, partnerData.latitude])
-            .setPopup(new mapboxgl.Popup().setHTML(`<strong>${partnerData.name}</strong><br>Delivery Partner`))
-            .addTo(map.current!);
-
-          // Fetch route from delivery partner to customer
-          await fetchRouteFromPartner(partnerData.longitude, partnerData.latitude);
-        } else {
-          // Fallback to restaurant location if partner location not available
-          fetchRoute();
-        }
-      };
-
-      initializeDeliveryPartnerTracking();
-      
-      // Set up real-time tracking for delivery partner location
-      const channel = supabase
-        .channel('delivery-partner-location-tracking')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'delivery_partners',
-            filter: `id=eq.${activeOrder.assigned_delivery_partner_id}`,
-          },
-          async (payload) => {
-            const newData = payload.new as any;
-            console.log('Delivery partner location updated:', newData);
-            
-            if (newData.latitude && newData.longitude && deliveryPartnerMarker.current) {
-              // Update marker position
-              deliveryPartnerMarker.current.setLngLat([newData.longitude, newData.latitude]);
-              
-              // Update route from new location to customer
-              await fetchRouteFromPartner(newData.longitude, newData.latitude);
-            }
+    // Set up real-time tracking
+    const channel = supabase
+      .channel('delivery-partner-location-tracking')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'delivery_partners',
+          filter: `id=eq.${activeOrder.assigned_delivery_partner_id}`,
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          console.log('Delivery partner location updated:', newData);
+          
+          if (newData.latitude && newData.longitude) {
+            setDeliveryPartnerLocation({
+              lat: newData.latitude,
+              lng: newData.longitude
+            });
           }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-        deliveryPartnerMarker.current?.remove();
-        map.current?.remove();
-      };
-    }
+        }
+      )
+      .subscribe();
 
     return () => {
-      map.current?.remove();
+      supabase.removeChannel(channel);
     };
-  }, [activeOrder, mapboxToken, isOpen]);
+  }, [activeOrder]);
 
-  const fetchRoute = async () => {
-    if (!activeOrder || !map.current) return;
-
-    const start = [activeOrder.sellers.seller_longitude, activeOrder.sellers.seller_latitude];
-    const end = [activeOrder.delivery_longitude, activeOrder.delivery_latitude];
-
-    try {
-      const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxToken}`
-      );
-      const data = await response.json();
-
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0].geometry;
-
-        if (map.current.getSource('route')) {
-          (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
-            type: 'Feature',
-            properties: {},
-            geometry: route,
-          });
-        } else {
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: route,
-            },
-          });
-
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#FF6B35',
-              'line-width': 5,
-            },
-          });
-        }
-
-        // Fit map to show the route
-        const coordinates = route.coordinates;
-        const bounds = coordinates.reduce(
-          (bounds: mapboxgl.LngLatBounds, coord: [number, number]) => {
-            return bounds.extend(coord as [number, number]);
-          },
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
-        );
-        map.current.fitBounds(bounds, { padding: 50 });
-      }
-    } catch (error) {
-      console.error('Error fetching route:', error);
+  // Calculate directions when partner location changes
+  useEffect(() => {
+    if (!isLoaded || !deliveryPartnerLocation || !activeOrder?.delivery_latitude || !activeOrder?.delivery_longitude) {
+      return;
     }
-  };
 
-  const fetchRouteFromPartner = async (partnerLng: number, partnerLat: number) => {
-    if (!activeOrder || !map.current) return;
-
-    const start = [partnerLng, partnerLat];
-    const end = [activeOrder.delivery_longitude, activeOrder.delivery_latitude];
-
-    try {
-      const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&access_token=${mapboxToken}`
-      );
-      const data = await response.json();
-
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0].geometry;
-
-        if (map.current.getSource('route')) {
-          (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
-            type: 'Feature',
-            properties: {},
-            geometry: route,
-          });
+    const directionsService = new google.maps.DirectionsService();
+    
+    directionsService.route(
+      {
+        origin: deliveryPartnerLocation,
+        destination: {
+          lat: Number(activeOrder.delivery_latitude),
+          lng: Number(activeOrder.delivery_longitude)
+        },
+        travelMode: google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result) {
+          setDirections(result);
         } else {
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: route,
-            },
-          });
-
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#FF6B35',
-              'line-width': 5,
-            },
-          });
+          console.error('Directions request failed:', status);
         }
-
-        // Fit map to show the route
-        const coordinates = route.coordinates;
-        const bounds = coordinates.reduce(
-          (bounds: mapboxgl.LngLatBounds, coord: [number, number]) => {
-            return bounds.extend(coord as [number, number]);
-          },
-          new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
-        );
-        map.current.fitBounds(bounds, { padding: 50 });
       }
-    } catch (error) {
-      console.error('Error fetching route from partner:', error);
-    }
-  };
+    );
+  }, [isLoaded, deliveryPartnerLocation, activeOrder?.delivery_latitude, activeOrder?.delivery_longitude]);
 
   if (!activeOrder) return null;
 
@@ -269,12 +122,10 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
       { key: 'delivered', label: 'Delivered', icon: CheckCircle2, color: 'green' },
     ];
 
-    // Use seller_status for tracking seller-related steps
     const sellerStatus = (activeOrder as any).seller_status || 'pending';
     const pickupStatus = (activeOrder as any).pickup_status;
     const mainStatus = activeOrder.status;
     
-    // Define order progression
     const sellerStatusOrder = ['pending', 'accepted', 'preparing', 'packed'];
     const currentSellerIndex = sellerStatusOrder.indexOf(sellerStatus);
 
@@ -282,26 +133,23 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
       let completed = false;
       let color = 'gray';
       
-      // Check completion based on step type
       if (step.key === 'pending') {
-        completed = true; // Always completed once order is placed
+        completed = true;
         color = step.color;
       } else if (step.key === 'accepted') {
         completed = currentSellerIndex >= sellerStatusOrder.indexOf('accepted');
         color = completed ? step.color : 'gray';
       } else if (step.key === 'preparing') {
         completed = currentSellerIndex >= sellerStatusOrder.indexOf('preparing');
-        // Show orange only when currently in preparing status
         if (sellerStatus === 'preparing') {
           color = 'orange';
         } else if (completed) {
-          color = 'green'; // Show green after preparing is done
+          color = 'green';
         }
       } else if (step.key === 'packed') {
         completed = currentSellerIndex >= sellerStatusOrder.indexOf('packed');
         color = completed ? step.color : 'gray';
       } else if (step.key === 'going_for_delivery') {
-        // Out for delivery is completed when pickup_status is 'picked_up' or main status is 'going_for_delivery'
         completed = pickupStatus === 'picked_up' || mainStatus === 'going_for_delivery' || mainStatus === 'delivered';
         color = completed ? step.color : 'gray';
       } else if (step.key === 'delivered') {
@@ -326,7 +174,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     }
     
     const createdAt = new Date(activeOrder.created_at);
-    const estimatedTime = new Date(createdAt.getTime() + 30 * 60000); // 30 minutes
+    const estimatedTime = new Date(createdAt.getTime() + 30 * 60000);
     
     if (activeOrder.status === 'picked_up' || activeOrder.status === 'going_for_delivery') {
       const now = new Date();
@@ -338,10 +186,17 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
   };
 
   const items = Array.isArray(activeOrder.items) ? activeOrder.items : [];
+  
+  const showMap = ['picked_up', 'going_for_delivery', 'going_for_pickup'].includes(activeOrder.status);
+  
+  const mapCenter = deliveryPartnerLocation || {
+    lat: Number(activeOrder.delivery_latitude) || 17.7172,
+    lng: Number(activeOrder.delivery_longitude) || 83.3150
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 z-50">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 bg-background">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle className="text-xl font-bold">
             {activeOrder.seller_name}
@@ -351,9 +206,84 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
           </p>
         </DialogHeader>
 
-        {/* Map - Show when picked up or out for delivery */}
-        {(activeOrder.status === 'picked_up' || activeOrder.status === 'going_for_delivery' || activeOrder.status === 'going_for_pickup') && (
-          <div ref={mapContainer} className="h-64 w-full" />
+        {/* Google Map - Show when picked up or out for delivery */}
+        {showMap && isLoaded && (
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={mapCenter}
+            zoom={14}
+            options={{
+              zoomControl: true,
+              streetViewControl: false,
+              mapTypeControl: false,
+              fullscreenControl: false,
+            }}
+          >
+            {/* Restaurant Marker */}
+            {activeOrder.sellers?.seller_latitude && activeOrder.sellers?.seller_longitude && (
+              <Marker
+                position={{
+                  lat: Number(activeOrder.sellers.seller_latitude),
+                  lng: Number(activeOrder.sellers.seller_longitude)
+                }}
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                  scaledSize: new google.maps.Size(40, 40)
+                }}
+                title={activeOrder.seller_name}
+              />
+            )}
+
+            {/* Customer Location Marker */}
+            {activeOrder.delivery_latitude && activeOrder.delivery_longitude && (
+              <Marker
+                position={{
+                  lat: Number(activeOrder.delivery_latitude),
+                  lng: Number(activeOrder.delivery_longitude)
+                }}
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                  scaledSize: new google.maps.Size(40, 40)
+                }}
+                title="Delivery Location"
+              />
+            )}
+
+            {/* Delivery Partner Marker */}
+            {deliveryPartnerLocation && (
+              <Marker
+                position={deliveryPartnerLocation}
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png',
+                  scaledSize: new google.maps.Size(45, 45)
+                }}
+                title="Delivery Partner"
+              />
+            )}
+
+            {/* Route */}
+            {directions && (
+              <DirectionsRenderer
+                directions={directions}
+                options={{
+                  suppressMarkers: true,
+                  polylineOptions: {
+                    strokeColor: '#FF6B35',
+                    strokeWeight: 5,
+                  }
+                }}
+              />
+            )}
+          </GoogleMap>
+        )}
+
+        {showMap && !isLoaded && (
+          <div className="h-64 w-full flex items-center justify-center bg-muted">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">Loading map...</p>
+            </div>
+          </div>
         )}
 
         <div className="p-6 space-y-6">

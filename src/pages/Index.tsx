@@ -6,19 +6,20 @@ import { BottomNav } from "@/components/BottomNav";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import NotificationPermissionBanner from "@/components/NotificationPermissionBanner";
+import { HomeBanner } from "@/components/HomeBanner";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
   const [showTrackingModal, setShowTrackingModal] = useState(false);
-
+  
   return (
     <div className="min-h-screen bg-background pb-16">
       <NotificationPermissionBanner />
       <Header />
       <main>
-        <UniversalSearchBar />
+        <HomeBanner />
         <ServiceCategories onFoodDeliveryClick={() => navigate('/restaurants')} />
       </main>
       <Footer />

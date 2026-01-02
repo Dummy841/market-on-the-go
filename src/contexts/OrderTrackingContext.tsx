@@ -69,13 +69,12 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
         .eq('user_id', user.id)
         .in('status', ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery'])
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (data && !error) {
-        console.log('Found active order:', data.id, data.status);
-        setActiveOrderState(data);
-        localStorage.setItem('activeOrderId', data.id);
+      if (data && data.length > 0 && !error) {
+        console.log('Found active order:', data[0].id, data[0].status);
+        setActiveOrderState(data[0]);
+        localStorage.setItem('activeOrderId', data[0].id);
       }
     } catch (error) {
       console.error('Error checking for active orders:', error);

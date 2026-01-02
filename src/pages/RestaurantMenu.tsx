@@ -34,6 +34,8 @@ interface MenuItem {
   franchise_price: number;
   item_photo_url: string | null;
   is_active: boolean;
+  average_rating?: number;
+  total_ratings?: number;
 }
 const RestaurantMenu = () => {
   const {
@@ -58,15 +60,54 @@ const RestaurantMenu = () => {
   } = useCart();
   useEffect(() => {
     getUserLocation();
+    
+    // Listen for address changes from the Header
+    const handleAddressChanged = (event: CustomEvent) => {
+      const { latitude, longitude } = event.detail;
+      console.log('Address changed event received:', { latitude, longitude });
+      if (latitude && longitude) {
+        const newLocation = {
+          lat: parseFloat(latitude.toString()),
+          lng: parseFloat(longitude.toString())
+        };
+        console.log('Setting new user location:', newLocation);
+        setUserLocation(newLocation);
+        setLoading(true); // Force loading state to show update
+      }
+    };
+    
+    window.addEventListener('addressChanged', handleAddressChanged as EventListener);
+    return () => {
+      window.removeEventListener('addressChanged', handleAddressChanged as EventListener);
+    };
   }, []);
+  
   useEffect(() => {
     if (restaurantId && userLocation) {
+      console.log('Fetching restaurant data with location:', userLocation);
       fetchRestaurantData();
     }
   }, [restaurantId, userLocation]);
   const getUserLocation = async () => {
     try {
-      // First, try to get user's saved default address
+      // First, check if there's a selected address in localStorage
+      const storedAddress = localStorage.getItem('selectedAddress');
+      if (storedAddress) {
+        try {
+          const parsed = JSON.parse(storedAddress);
+          if (parsed.latitude && parsed.longitude) {
+            setUserLocation({
+              lat: parseFloat(parsed.latitude.toString()),
+              lng: parseFloat(parsed.longitude.toString())
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing stored address:', error);
+        }
+      }
+      
+      // Fallback: try to get user's saved default address from DB
       const {
         data: addresses
       } = await supabase.from('user_addresses').select('latitude, longitude').eq('is_default', true).limit(1);
@@ -149,7 +190,55 @@ const RestaurantMenu = () => {
         error: itemsError
       } = await supabase.from('items').select('*').eq('seller_id', restaurantId);
       if (itemsError) throw itemsError;
-      setMenuItems(itemsData || []);
+      
+      // Fetch item ratings from orders
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('items, id')
+        .eq('seller_id', restaurantId)
+        .eq('is_rated', true);
+      
+      // Get ratings for items
+      const { data: ratingsData } = await supabase
+        .from('ratings')
+        .select('order_id, rating')
+        .eq('seller_id', restaurantId);
+      
+      // Build a map of order_id -> rating
+      const orderRatingMap = new Map<string, number>();
+      ratingsData?.forEach(r => {
+        orderRatingMap.set(r.order_id, r.rating);
+      });
+      
+      // Calculate average rating per item
+      const itemRatingsMap = new Map<string, { total: number; count: number }>();
+      ordersData?.forEach(order => {
+        const orderRating = orderRatingMap.get(order.id);
+        if (orderRating && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const itemId = item.id;
+            if (itemId) {
+              const existing = itemRatingsMap.get(itemId) || { total: 0, count: 0 };
+              itemRatingsMap.set(itemId, {
+                total: existing.total + orderRating,
+                count: existing.count + 1
+              });
+            }
+          });
+        }
+      });
+      
+      // Merge ratings into items
+      const itemsWithRatings = (itemsData || []).map(item => {
+        const ratingInfo = itemRatingsMap.get(item.id);
+        return {
+          ...item,
+          average_rating: ratingInfo ? Math.round((ratingInfo.total / ratingInfo.count) * 10) / 10 : 0,
+          total_ratings: ratingInfo?.count || 0
+        };
+      });
+      
+      setMenuItems(itemsWithRatings);
 
       // Fetch similar restaurants (other approved sellers)
       const {
@@ -290,10 +379,12 @@ const RestaurantMenu = () => {
                         <span className="text-muted-foreground">No image</span>
                       </div>}
                     {/* Rating Badge Overlay */}
-                    <div className="absolute top-2 left-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                      <span className="text-xs font-semibold">4.2</span>
-                    </div>
+                    {item.average_rating > 0 && (
+                      <div className="absolute top-2 left-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        <span className="text-xs font-semibold">{item.average_rating}</span>
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-3 space-y-2">
                     <div>

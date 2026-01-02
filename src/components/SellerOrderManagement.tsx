@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,77 @@ interface Order {
   delivered_at: string | null;
 }
 
+// Notification sound - using Web Audio API to generate a tone
+const playNotificationSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Create oscillator for the main tone
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Set up the tone (similar to Rapido notification)
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
+    oscillator.type = 'sine';
+    
+    // Gain envelope for smooth start/end
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
+    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime + 0.3);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+    
+    // Second beep after a short pause
+    setTimeout(() => {
+      const oscillator2 = audioContext.createOscillator();
+      const gainNode2 = audioContext.createGain();
+      
+      oscillator2.connect(gainNode2);
+      gainNode2.connect(audioContext.destination);
+      
+      oscillator2.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6 note
+      oscillator2.type = 'sine';
+      
+      gainNode2.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode2.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
+      gainNode2.gain.setValueAtTime(0.5, audioContext.currentTime + 0.3);
+      gainNode2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+      
+      oscillator2.start(audioContext.currentTime);
+      oscillator2.stop(audioContext.currentTime + 0.5);
+    }, 600);
+    
+    // Third beep for emphasis
+    setTimeout(() => {
+      const oscillator3 = audioContext.createOscillator();
+      const gainNode3 = audioContext.createGain();
+      
+      oscillator3.connect(gainNode3);
+      gainNode3.connect(audioContext.destination);
+      
+      oscillator3.frequency.setValueAtTime(1318.5, audioContext.currentTime); // E6 note
+      oscillator3.type = 'sine';
+      
+      gainNode3.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode3.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
+      gainNode3.gain.setValueAtTime(0.5, audioContext.currentTime + 0.5);
+      gainNode3.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.8);
+      
+      oscillator3.start(audioContext.currentTime);
+      oscillator3.stop(audioContext.currentTime + 0.8);
+    }, 1200);
+    
+    console.log('Notification sound played');
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
+  }
+};
+
 export const SellerOrderManagement = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +114,7 @@ export const SellerOrderManagement = () => {
   const [selectedStatus, setSelectedStatus] = useState("pending");
   const [dateFilter, setDateFilter] = useState("all");
   const { seller } = useSellerAuth();
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
 
   const dateOptions = [
     { value: "all", label: "All Time" },
@@ -84,7 +156,7 @@ export const SellerOrderManagement = () => {
     }
   ];
 
-  const fetchSellerOrders = async () => {
+  const fetchSellerOrders = useCallback(async () => {
     if (!seller) return;
     
     try {
@@ -96,7 +168,15 @@ export const SellerOrderManagement = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders((data || []) as any);
+      
+      const ordersData = (data || []) as any;
+      
+      // Store current order IDs for comparison
+      ordersData.forEach((order: Order) => {
+        previousOrderIdsRef.current.add(order.id);
+      });
+      
+      setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching seller orders:', error);
       toast({
@@ -107,10 +187,80 @@ export const SellerOrderManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [seller]);
 
+  // Initial fetch
   useEffect(() => {
     fetchSellerOrders();
+  }, [fetchSellerOrders]);
+
+  // Real-time subscription for new orders
+  useEffect(() => {
+    if (!seller) return;
+
+    console.log('Setting up real-time subscription for seller:', seller.id);
+
+    const channel = supabase
+      .channel('seller-orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `seller_id=eq.${seller.id}`
+        },
+        (payload) => {
+          console.log('New order received:', payload);
+          const newOrder = payload.new as Order;
+          
+          // Check if this is truly a new order we haven't seen
+          if (!previousOrderIdsRef.current.has(newOrder.id)) {
+            previousOrderIdsRef.current.add(newOrder.id);
+            
+            // Add new order to the list
+            setOrders(prev => [newOrder, ...prev]);
+            
+            // Play notification sound
+            playNotificationSound();
+            
+            // Show toast notification
+            toast({
+              title: "🔔 New Order Received!",
+              description: `Order #${newOrder.id.slice(-4)} - ₹${newOrder.total_amount}`,
+            });
+            
+            // Auto-switch to pending tab to show new order
+            setSelectedStatus("pending");
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `seller_id=eq.${seller.id}`
+        },
+        (payload) => {
+          console.log('Order updated:', payload);
+          const updatedOrder = payload.new as Order;
+          
+          // Update the order in the list
+          setOrders(prev => prev.map(order => 
+            order.id === updatedOrder.id ? updatedOrder : order
+          ));
+        }
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
   }, [seller]);
 
   const generatePickupPin = () => {

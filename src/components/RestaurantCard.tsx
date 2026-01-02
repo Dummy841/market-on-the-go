@@ -28,58 +28,40 @@ export const RestaurantCard = ({
   onClick,
   isOffline = false
 }: RestaurantCardProps) => {
-  return <div className={`group bg-card rounded-lg shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden ${isOffline ? 'opacity-75' : ''}`} onClick={onClick}>
-      {/* Image */}
-      <div className="relative h-48 overflow-hidden">
+  return <div className={`group bg-card rounded-xl shadow-card hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden ${isOffline ? 'opacity-75' : ''}`} onClick={onClick}>
+      {/* Square Image - 4:4 aspect ratio */}
+      <div className="relative aspect-square overflow-hidden">
         <img src={image} alt={name} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isOffline ? 'grayscale' : ''}`} />
         {isOffline && <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <Badge variant="destructive" className="text-white">Currently Offline</Badge>
-          </div>}
-        {offers.length > 0 && !isOffline && <div className="absolute top-3 left-3">
-            {offers.map((offer, index) => <Badge key={index} variant="secondary" className="mr-1">
-                {offer}
-              </Badge>)}
-          </div>}
-        {deliveryFee === 0 && !isOffline && <div className="absolute top-3 right-3">
-            
+            <Badge variant="destructive" className="text-white text-xs">Offline</Badge>
           </div>}
       </div>
 
-      {/* Content */}
-      <div className="p-4 space-y-3">
-        {/* Header */}
-        <div>
-          <h3 className="font-semibold text-lg text-card-foreground group-hover:text-primary transition-colors">
-            {name}
-          </h3>
-          
-        </div>
+      {/* Content - Compact */}
+      <div className="p-3 space-y-2">
+        {/* Name */}
+        <h3 className="font-semibold text-sm text-card-foreground group-hover:text-primary transition-colors line-clamp-2 leading-tight">
+          {name}
+        </h3>
 
-        {/* Rating and Time */}
-        <div className="flex items-center justify-between">
-          
-          
-          <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+        {/* Time and Distance in a row */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             <span>{deliveryTime}</span>
           </div>
-        </div>
-
-        {/* Location and Fee */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-1">
             <MapPin className="h-3 w-3" />
             <span>{distance}</span>
           </div>
-          
         </div>
 
-        {/* Action Button */}
-        <Button variant={isOffline ? "outline" : "food"} size="sm" className="w-full" onClick={e => {
+        {/* Action Button - 3:4 proportion */}
+        <Button variant={isOffline ? "outline" : "food"} size="sm" className="w-3/4 h-8 text-xs" onClick={e => {
         e.stopPropagation();
         onClick?.();
       }} disabled={isOffline}>
-          {isOffline ? "Currently Closed" : "View Menu"}
+          {isOffline ? "Closed" : "View Menu"}
         </Button>
       </div>
     </div>;

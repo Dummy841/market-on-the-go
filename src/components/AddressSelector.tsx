@@ -180,11 +180,20 @@ const AddressSelector = ({
   };
 
   const handleAddressSelect = (address: SavedAddress) => {
-    // Store in localStorage for persistence across pages
-    localStorage.setItem('selectedAddress', JSON.stringify({
+    const addressData = {
       label: address.label,
-      address: address.address
-    }));
+      address: address.address,
+      latitude: address.latitude,
+      longitude: address.longitude
+    };
+    
+    // Store in localStorage for persistence across pages (including coordinates)
+    localStorage.setItem('selectedAddress', JSON.stringify(addressData));
+    
+    // Dispatch custom event to notify other components about address change
+    console.log('AddressSelector dispatching addressChanged event:', addressData);
+    window.dispatchEvent(new CustomEvent('addressChanged', { detail: addressData }));
+    
     onAddressSelect(address);
     onOpenChange(false);
   };

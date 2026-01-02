@@ -1,4 +1,4 @@
-import { UtensilsCrossed, ShoppingBasket, Utensils, Gift } from "lucide-react";
+import { UtensilsCrossed, ShoppingBasket, Milk, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -23,14 +23,14 @@ export const BottomNav = () => {
       color: "text-green-600"
     },
     {
-      icon: Utensils,
-      label: "Dineout",
+      icon: Milk,
+      label: "Dairy",
       onClick: handleComingSoon,
       color: "text-blue-600"
     },
     {
-      icon: Gift,
-      label: "Giftables",
+      icon: Package,
+      label: "Services",
       onClick: handleComingSoon,
       color: "text-purple-600"
     }
