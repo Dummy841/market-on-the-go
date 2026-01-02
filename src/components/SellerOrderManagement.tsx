@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useSellerAuth } from "@/contexts/SellerAuthContext";
 import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, User, MapPin, Eye, Filter } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, AlertCircle, User, MapPin, Eye, Filter, Volume2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Order {
@@ -35,54 +35,150 @@ interface Order {
   delivered_at: string | null;
 }
 
-// Notification sound - Rapido-style alert tone (2 seconds)
-const playNotificationSound = () => {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Rapido-style notification: ascending tones with rhythm pattern
-    const playTone = (frequency: number, startTime: number, duration: number, volume: number = 0.6) => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(frequency, startTime);
-      oscillator.type = 'sine';
-      
-      // Smooth envelope
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.03);
-      gainNode.gain.setValueAtTime(volume, startTime + duration - 0.05);
-      gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-      
-      oscillator.start(startTime);
-      oscillator.stop(startTime + duration);
-    };
+// Create a persistent audio element for background tab support
+let notificationAudio: HTMLAudioElement | null = null;
+let audioIntervalId: NodeJS.Timeout | null = null;
+const ringingOrderIds = new Set<string>();
 
-    const now = audioContext.currentTime;
+// Generate notification sound as data URL (works in background tabs)
+const generateNotificationDataUrl = (): string => {
+  // Create audio context to generate sound
+  const sampleRate = 24000;
+  const duration = 2; // 2 seconds
+  const numSamples = sampleRate * duration;
+  
+  // Create buffer for WAV file
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  
+  // WAV header
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size
+  view.setUint16(20, 1, true); // AudioFormat (PCM)
+  view.setUint16(22, 1, true); // NumChannels
+  view.setUint32(24, sampleRate, true); // SampleRate
+  view.setUint32(28, sampleRate * 2, true); // ByteRate
+  view.setUint16(32, 2, true); // BlockAlign
+  view.setUint16(34, 16, true); // BitsPerSample
+  writeString(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+  
+  // Generate Rapido-style ringtone pattern
+  const frequencies = [
+    { freq: 784, start: 0, end: 0.15 },
+    { freq: 880, start: 0.15, end: 0.3 },
+    { freq: 988, start: 0.3, end: 0.45 },
+    { freq: 1047, start: 0.45, end: 0.65 },
+    { freq: 988, start: 0.75, end: 0.87 },
+    { freq: 1047, start: 0.87, end: 0.99 },
+    { freq: 1175, start: 0.99, end: 1.11 },
+    { freq: 1319, start: 1.11, end: 1.36 },
+    { freq: 1047, start: 1.45, end: 1.57 },
+    { freq: 1319, start: 1.57, end: 1.69 },
+    { freq: 1568, start: 1.69, end: 1.99 },
+  ];
+  
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    let sample = 0;
     
-    // First burst: rapid ascending beeps (like Rapido ride alert)
-    playTone(784, now, 0.15);           // G5
-    playTone(880, now + 0.15, 0.15);    // A5
-    playTone(988, now + 0.3, 0.15);     // B5
-    playTone(1047, now + 0.45, 0.2);    // C6 - slightly longer
+    for (const tone of frequencies) {
+      if (t >= tone.start && t < tone.end) {
+        const toneT = t - tone.start;
+        const toneDuration = tone.end - tone.start;
+        // Envelope: fade in and out
+        const envelope = Math.min(toneT / 0.02, 1) * Math.min((toneDuration - toneT) / 0.02, 1);
+        sample = Math.sin(2 * Math.PI * tone.freq * t) * 0.5 * envelope;
+        break;
+      }
+    }
     
-    // Short pause, then repeat pattern with higher pitch
-    playTone(988, now + 0.75, 0.12);    // B5
-    playTone(1047, now + 0.87, 0.12);   // C6
-    playTone(1175, now + 0.99, 0.12);   // D6
-    playTone(1319, now + 1.11, 0.25);   // E6 - emphasis
+    const int16Sample = Math.max(-32768, Math.min(32767, Math.round(sample * 32767)));
+    view.setInt16(44 + i * 2, int16Sample, true);
+  }
+  
+  // Convert to base64 data URL
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return 'data:audio/wav;base64,' + btoa(binary);
+};
+
+// Initialize audio element once
+const getNotificationAudio = (): HTMLAudioElement => {
+  if (!notificationAudio) {
+    notificationAudio = new Audio(generateNotificationDataUrl());
+    notificationAudio.volume = 1;
+  }
+  return notificationAudio;
+};
+
+// Start continuous ringing for an order
+const startRinging = (orderId: string) => {
+  ringingOrderIds.add(orderId);
+  console.log('Started ringing for order:', orderId, 'Total ringing:', ringingOrderIds.size);
+  
+  if (audioIntervalId) return; // Already ringing
+  
+  const audio = getNotificationAudio();
+  
+  const playSound = () => {
+    if (ringingOrderIds.size === 0) {
+      if (audioIntervalId) {
+        clearInterval(audioIntervalId);
+        audioIntervalId = null;
+      }
+      return;
+    }
     
-    // Final attention-grabbing notes
-    playTone(1047, now + 1.45, 0.12);   // C6
-    playTone(1319, now + 1.57, 0.12);   // E6
-    playTone(1568, now + 1.69, 0.3);    // G6 - final high note
-    
-    console.log('Rapido-style notification sound played (2 sec)');
-  } catch (error) {
-    console.error('Error playing notification sound:', error);
+    audio.currentTime = 0;
+    audio.play().catch(err => console.log('Audio play error:', err));
+  };
+  
+  // Play immediately
+  playSound();
+  
+  // Repeat every 3 seconds (2 sec sound + 1 sec pause)
+  audioIntervalId = setInterval(playSound, 3000);
+};
+
+// Stop ringing for an order
+const stopRinging = (orderId: string) => {
+  ringingOrderIds.delete(orderId);
+  console.log('Stopped ringing for order:', orderId, 'Remaining:', ringingOrderIds.size);
+  
+  if (ringingOrderIds.size === 0 && audioIntervalId) {
+    clearInterval(audioIntervalId);
+    audioIntervalId = null;
+    if (notificationAudio) {
+      notificationAudio.pause();
+      notificationAudio.currentTime = 0;
+    }
+    console.log('All ringing stopped');
+  }
+};
+
+// Stop all ringing
+const stopAllRinging = () => {
+  ringingOrderIds.clear();
+  if (audioIntervalId) {
+    clearInterval(audioIntervalId);
+    audioIntervalId = null;
+  }
+  if (notificationAudio) {
+    notificationAudio.pause();
+    notificationAudio.currentTime = 0;
   }
 };
 
@@ -95,6 +191,7 @@ export const SellerOrderManagement = () => {
   const [dateFilter, setDateFilter] = useState("all");
   const { seller } = useSellerAuth();
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const processedOrderIdsRef = useRef<Set<string>>(new Set());
 
   const dateOptions = [
     { value: "all", label: "All Time" },
@@ -174,6 +271,24 @@ export const SellerOrderManagement = () => {
     fetchSellerOrders();
   }, [fetchSellerOrders]);
 
+  // Start ringing for existing pending orders on load
+  useEffect(() => {
+    orders.forEach(order => {
+      const sellerStatus = (order as any).seller_status || 'pending';
+      if (sellerStatus === 'pending' && !processedOrderIdsRef.current.has(order.id)) {
+        processedOrderIdsRef.current.add(order.id);
+        startRinging(order.id);
+      }
+    });
+  }, [orders]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAllRinging();
+    };
+  }, []);
+
   // Real-time subscription for new orders
   useEffect(() => {
     if (!seller) return;
@@ -201,8 +316,11 @@ export const SellerOrderManagement = () => {
             // Add new order to the list
             setOrders(prev => [newOrder, ...prev]);
             
-            // Play notification sound
-            playNotificationSound();
+            // Start continuous ringing for pending order
+            const sellerStatus = (newOrder as any).seller_status || 'pending';
+            if (sellerStatus === 'pending') {
+              startRinging(newOrder.id);
+            }
             
             // Show toast notification
             toast({
@@ -226,6 +344,12 @@ export const SellerOrderManagement = () => {
         (payload) => {
           console.log('Order updated:', payload);
           const updatedOrder = payload.new as Order;
+          const sellerStatus = (updatedOrder as any).seller_status || 'pending';
+          
+          // Stop ringing if order is no longer pending
+          if (sellerStatus !== 'pending') {
+            stopRinging(updatedOrder.id);
+          }
           
           // Update the order in the list
           setOrders(prev => prev.map(order => 
@@ -249,6 +373,11 @@ export const SellerOrderManagement = () => {
 
   const updateOrderStatus = async (orderId: string, newStatus: string, timestampField?: string) => {
     try {
+      // Stop ringing immediately when accepting or rejecting
+      if (newStatus === 'accepted' || newStatus === 'rejected') {
+        stopRinging(orderId);
+      }
+
       const updateData: any = { seller_status: newStatus };
       if (timestampField) {
         updateData[timestampField] = new Date().toISOString();
