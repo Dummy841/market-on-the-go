@@ -610,7 +610,7 @@ export const SellerOrderManagement = () => {
                     {(order as any).seller_status === 'packed' && !(order as any).pickup_pin && <Button size="sm" variant="outline" onClick={() => updateOrderStatus(order.id, 'packed')}>
                         Generate PIN
                       </Button>}
-                    <p className="font-semibold text-lg">₹{order.total_amount}</p>
+                    
                     <p className="text-xs text-muted-foreground">
                       {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                     </p>
