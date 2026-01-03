@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, X } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, AlertCircle, X, RotateCcw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import DeliveryPartnerAssignModal from "@/components/DeliveryPartnerAssignModal";
+
 interface Order {
   id: string;
   user_id: string;
@@ -36,12 +37,15 @@ interface Order {
     mobile: string;
   };
 }
+
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
+
   const statusOptions = [{
     label: "All",
     value: "All",
@@ -63,6 +67,7 @@ const Orders = () => {
     icon: CheckCircle,
     color: "bg-green-100 text-green-800"
   }];
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -91,6 +96,7 @@ const Orders = () => {
       setLoading(false);
     }
   };
+
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const {
@@ -113,6 +119,47 @@ const Orders = () => {
       });
     }
   };
+
+  const processRefund = async (order: Order) => {
+    try {
+      setRefundingOrderId(order.id);
+      
+      const response = await supabase.functions.invoke('process-razorpay-refund', {
+        body: {
+          order_id: order.id,
+          amount: order.total_amount
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Refund failed');
+      }
+
+      const data = response.data;
+      
+      if (data.success) {
+        toast({
+          title: "Refund Processed",
+          description: data.refund_id 
+            ? `Refund ID: ${data.refund_id} - ₹${data.amount} refunded`
+            : "Order marked as refunded"
+        });
+        await fetchOrders();
+      } else {
+        throw new Error(data.error || 'Refund failed');
+      }
+    } catch (error) {
+      console.error('Error processing refund:', error);
+      toast({
+        title: "Refund Failed",
+        description: error instanceof Error ? error.message : "Failed to process refund",
+        variant: "destructive"
+      });
+    } finally {
+      setRefundingOrderId(null);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -250,6 +297,23 @@ const Orders = () => {
                         {order.seller_status === 'packed' && order.status === 'pending' && <Button size="sm" onClick={() => openAssignModal(order.id)}>
                             Assign Order
                           </Button>}
+                        {order.seller_status === 'rejected' && order.status !== 'refunded' && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                            onClick={() => processRefund(order)}
+                            disabled={refundingOrderId === order.id}
+                          >
+                            <RotateCcw className="w-4 h-4 mr-1" />
+                            {refundingOrderId === order.id ? 'Processing...' : 'Refund'}
+                          </Button>
+                        )}
+                        {order.status === 'refunded' && (
+                          <Badge className="bg-orange-100 text-orange-800">
+                            Refunded
+                          </Badge>
+                        )}
                         {order.status === 'assigned' || order.status === 'out_for_delivery'}
                         <Button variant="outline" size="sm" onClick={() => {
                     toast({
