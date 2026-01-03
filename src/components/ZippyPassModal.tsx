@@ -350,15 +350,7 @@ Order above 499 to get Free Delivary</p>
                       <p className="text-sm text-green-600">₹0 delivery fee on all orders</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="bg-blue-500 rounded-full p-1">
-                      <Truck className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-blue-800">No Small Order Fee</p>
-                      <p className="text-sm text-blue-600">Order any amount, no extra charges</p>
-                    </div>
-                  </div>
+                  
                 </div>
               </div>
 
