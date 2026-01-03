@@ -139,11 +139,10 @@ export const Checkout = () => {
 
   const itemTotal = getTotalPrice();
   
-  // Calculate fees based on Zippy Pass status
-  const smallOrderFee = (!hasActivePass && itemTotal < 100) ? 10 : 0;
+  // Calculate fees - Zippy Pass only waives delivery fee, small order fee is separate
+  const smallOrderFee = itemTotal < 100 ? 10 : 0;
   const deliveryFee = hasActivePass ? 0 : (itemTotal >= 499 ? 0 : 19);
-  const platformFee = Math.round(itemTotal * 0.05);
-  const totalAmount = itemTotal + deliveryFee + platformFee + smallOrderFee;
+  const totalAmount = itemTotal + deliveryFee + smallOrderFee;
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -200,7 +199,7 @@ export const Checkout = () => {
         })),
         total_amount: totalAmount,
         delivery_fee: deliveryFee,
-        platform_fee: platformFee,
+        platform_fee: 0,
         delivery_address: `${selectedAddress.address}, Location: ${selectedAddress.latitude}, ${selectedAddress.longitude}`,
         delivery_latitude: selectedAddress.latitude || userLocation?.lat,
         delivery_longitude: selectedAddress.longitude || userLocation?.lng,
@@ -400,26 +399,22 @@ export const Checkout = () => {
                   <span>₹{smallOrderFee}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm items-center">
-                <div className="flex items-center gap-2">
-                  <span>Delivery Fee</span>
-                  {!hasActivePass && deliveryFee > 0 && (
-                    <button 
-                      onClick={() => setShowZippyPassModal(true)}
-                      className="text-xs text-orange-500 font-medium hover:underline"
-                    >
-                      Remove
-                    </button>
-                  )}
+              {deliveryFee > 0 && (
+                <div className="flex justify-between text-sm items-center">
+                  <div className="flex items-center gap-2">
+                    <span>Delivery Fee</span>
+                    {!hasActivePass && (
+                      <button 
+                        onClick={() => setShowZippyPassModal(true)}
+                        className="text-xs text-orange-500 font-medium hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <span>₹{deliveryFee}</span>
                 </div>
-                <span className={hasActivePass ? 'text-green-600' : ''}>
-                  {deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Platform Fee</span>
-                <span>₹{platformFee}</span>
-              </div>
+              )}
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>TO PAY</span>
