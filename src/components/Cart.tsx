@@ -44,10 +44,6 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
   };
 
   const itemTotal = getTotalPrice();
-  
-  // Cart page only shows item total + small order fee (no delivery/platform fee)
-  const smallOrderFee = itemTotal < 100 ? 10 : 0;
-  const totalAmount = itemTotal + smallOrderFee;
 
   if (!isOpen) {
     return null;
@@ -100,7 +96,7 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
             className="w-full mb-6 bg-green-600 hover:bg-green-700 text-white" 
             size="lg"
           >
-            Proceed to Checkout • ₹{totalAmount}
+            Proceed to Checkout • ₹{itemTotal}
           </Button>
 
           {/* Cart Items */}
@@ -149,19 +145,9 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
 
           {/* Bill Summary */}
           <div className="border rounded-lg p-4 space-y-2 mb-4">
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between font-medium">
               <span>Item Total</span>
               <span>₹{itemTotal}</span>
-            </div>
-            {smallOrderFee > 0 && (
-              <div className="flex justify-between text-sm">
-                <span>Small Order Fee</span>
-                <span>₹{smallOrderFee}</span>
-              </div>
-            )}
-            <div className="border-t pt-2 flex justify-between font-medium">
-              <span>TO PAY</span>
-              <span>₹{totalAmount}</span>
             </div>
           </div>
         </div>
