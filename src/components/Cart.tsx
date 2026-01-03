@@ -45,11 +45,10 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
 
   const itemTotal = getTotalPrice();
   
-  // Calculate fees - Zippy Pass only waives delivery fee, not small order fee
+  // Calculate fees - Zippy Pass only waives delivery fee, small order fee is separate
   const smallOrderFee = itemTotal < 100 ? 10 : 0;
   const deliveryFee = hasActivePass ? 0 : (itemTotal >= 499 ? 0 : 19);
-  const platformFee = Math.round(itemTotal * 0.05);
-  const totalAmount = itemTotal + deliveryFee + platformFee + smallOrderFee;
+  const totalAmount = itemTotal + deliveryFee + smallOrderFee;
 
   if (!isOpen) {
     return null;
@@ -176,10 +175,6 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
               <span className={hasActivePass ? 'text-green-600' : ''}>
                 {deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}
               </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Platform Fee</span>
-              <span>₹{platformFee}</span>
             </div>
             <div className="border-t pt-2 flex justify-between font-medium">
               <span>TO PAY</span>
