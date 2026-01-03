@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,132 @@ import { SellerOrderManagement } from '@/components/SellerOrderManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+
+// Create a persistent audio element for background tab support
+let dashboardNotificationAudio: HTMLAudioElement | null = null;
+let dashboardAudioIntervalId: NodeJS.Timeout | null = null;
+const dashboardRingingOrderIds = new Set<string>();
+
+// Generate notification sound as data URL (works in background tabs)
+const generateNotificationDataUrl = (): string => {
+  const sampleRate = 24000;
+  const duration = 2;
+  const numSamples = sampleRate * duration;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  const frequencies = [
+    { freq: 784, start: 0, end: 0.15 },
+    { freq: 880, start: 0.15, end: 0.3 },
+    { freq: 988, start: 0.3, end: 0.45 },
+    { freq: 1047, start: 0.45, end: 0.65 },
+    { freq: 988, start: 0.75, end: 0.87 },
+    { freq: 1047, start: 0.87, end: 0.99 },
+    { freq: 1175, start: 0.99, end: 1.11 },
+    { freq: 1319, start: 1.11, end: 1.36 },
+    { freq: 1047, start: 1.45, end: 1.57 },
+    { freq: 1319, start: 1.57, end: 1.69 },
+    { freq: 1568, start: 1.69, end: 1.99 }
+  ];
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    let sample = 0;
+    for (const tone of frequencies) {
+      if (t >= tone.start && t < tone.end) {
+        const toneT = t - tone.start;
+        const toneDuration = tone.end - tone.start;
+        const envelope = Math.min(toneT / 0.02, 1) * Math.min((toneDuration - toneT) / 0.02, 1);
+        sample = Math.sin(2 * Math.PI * tone.freq * t) * 0.5 * envelope;
+        break;
+      }
+    }
+    const int16Sample = Math.max(-32768, Math.min(32767, Math.round(sample * 32767)));
+    view.setInt16(44 + i * 2, int16Sample, true);
+  }
+
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return 'data:audio/wav;base64,' + btoa(binary);
+};
+
+const getDashboardNotificationAudio = (): HTMLAudioElement => {
+  if (!dashboardNotificationAudio) {
+    dashboardNotificationAudio = new Audio(generateNotificationDataUrl());
+    dashboardNotificationAudio.volume = 1;
+  }
+  return dashboardNotificationAudio;
+};
+
+const startDashboardRinging = (orderId: string) => {
+  dashboardRingingOrderIds.add(orderId);
+  console.log('Dashboard: Started ringing for order:', orderId);
+  if (dashboardAudioIntervalId) return;
+
+  const audio = getDashboardNotificationAudio();
+  const playSound = () => {
+    if (dashboardRingingOrderIds.size === 0) {
+      if (dashboardAudioIntervalId) {
+        clearInterval(dashboardAudioIntervalId);
+        dashboardAudioIntervalId = null;
+      }
+      return;
+    }
+    audio.currentTime = 0;
+    audio.play().catch(err => console.log('Audio play error:', err));
+  };
+
+  playSound();
+  dashboardAudioIntervalId = setInterval(playSound, 3000);
+};
+
+const stopDashboardRinging = (orderId: string) => {
+  dashboardRingingOrderIds.delete(orderId);
+  console.log('Dashboard: Stopped ringing for order:', orderId);
+  if (dashboardRingingOrderIds.size === 0 && dashboardAudioIntervalId) {
+    clearInterval(dashboardAudioIntervalId);
+    dashboardAudioIntervalId = null;
+    if (dashboardNotificationAudio) {
+      dashboardNotificationAudio.pause();
+      dashboardNotificationAudio.currentTime = 0;
+    }
+  }
+};
+
+const stopAllDashboardRinging = () => {
+  dashboardRingingOrderIds.clear();
+  if (dashboardAudioIntervalId) {
+    clearInterval(dashboardAudioIntervalId);
+    dashboardAudioIntervalId = null;
+  }
+  if (dashboardNotificationAudio) {
+    dashboardNotificationAudio.pause();
+    dashboardNotificationAudio.currentTime = 0;
+  }
+};
+
 const SellerDashboard = () => {
   const {
     seller,
@@ -25,35 +151,121 @@ const SellerDashboard = () => {
   const [isOnline, setIsOnline] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const processedOrderIdsRef = useRef<Set<string>>(new Set());
   const {
     toast
   } = useToast();
+
   useEffect(() => {
     if (!loading && !seller) {
       navigate('/seller-login');
     }
   }, [seller, loading, navigate]);
+
   useEffect(() => {
     if (seller) {
-      // Set initial online status from database (default to offline)
       setIsOnline(seller.is_online === true);
-      // Fetch pending orders count
       fetchPendingOrdersCount();
     }
   }, [seller]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAllDashboardRinging();
+    };
+  }, []);
+
   const fetchPendingOrdersCount = async () => {
     if (!seller) return;
     try {
-        const {
-          data,
-          error
-        } = await supabase.from('orders').select('id').eq('seller_id', seller.id).in('seller_status', ['pending', 'accepted']);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, seller_status')
+        .eq('seller_id', seller.id)
+        .in('seller_status', ['pending', 'accepted']);
+      
       if (error) throw error;
       setOrderCount(data?.length || 0);
+
+      // Start ringing for existing pending orders
+      data?.forEach(order => {
+        if (order.seller_status === 'pending' && !processedOrderIdsRef.current.has(order.id)) {
+          processedOrderIdsRef.current.add(order.id);
+          previousOrderIdsRef.current.add(order.id);
+          startDashboardRinging(order.id);
+        } else {
+          previousOrderIdsRef.current.add(order.id);
+        }
+      });
     } catch (error) {
       console.error('Error fetching pending orders count:', error);
     }
   };
+
+  // Real-time subscription for new orders on main dashboard
+  useEffect(() => {
+    if (!seller) return;
+
+    console.log('Dashboard: Setting up real-time subscription for seller:', seller.id);
+    
+    const channel = supabase
+      .channel('dashboard-orders-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'orders',
+        filter: `seller_id=eq.${seller.id}`
+      }, payload => {
+        console.log('Dashboard: New order received:', payload);
+        const newOrder = payload.new as any;
+
+        if (!previousOrderIdsRef.current.has(newOrder.id)) {
+          previousOrderIdsRef.current.add(newOrder.id);
+          
+          // Update order count
+          setOrderCount(prev => prev + 1);
+
+          // Start ringing for pending order
+          if (newOrder.seller_status === 'pending') {
+            processedOrderIdsRef.current.add(newOrder.id);
+            startDashboardRinging(newOrder.id);
+          }
+
+          // Show toast notification
+          toast({
+            title: "🔔 New Order Received!",
+            description: `Order #${newOrder.id.slice(-4)} - ₹${newOrder.total_amount}. Go to My Orders to accept.`,
+          });
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `seller_id=eq.${seller.id}`
+      }, payload => {
+        console.log('Dashboard: Order updated:', payload);
+        const updatedOrder = payload.new as any;
+
+        // Stop ringing if order is no longer pending
+        if (updatedOrder.seller_status !== 'pending') {
+          stopDashboardRinging(updatedOrder.id);
+        }
+
+        // Update order count
+        fetchPendingOrdersCount();
+      })
+      .subscribe(status => {
+        console.log('Dashboard: Subscription status:', status);
+      });
+
+    return () => {
+      console.log('Dashboard: Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [seller, toast]);
   const handleLogout = async () => {
     await logout();
     navigate('/seller-login');

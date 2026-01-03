@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.verify-zippy-pass-payment]
 verify_jwt = false
+
+[functions.process-razorpay-refund]
+verify_jwt = false
