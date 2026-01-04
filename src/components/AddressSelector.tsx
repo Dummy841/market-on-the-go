@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserAuth } from '@/contexts/UserAuthContext';
-import LocationPicker from '@/components/LocationPicker';
+import FullScreenLocationPicker from '@/components/FullScreenLocationPicker';
 import AddressDetailsForm from '@/components/AddressDetailsForm';
 import {
   DropdownMenu,
@@ -117,10 +117,7 @@ const AddressSelector = ({
     setShowLocationPicker(true);
   };
 
-  const handleLocationSelect = (lat: number, lng: number) => {
-    // Create a reverse geocoded address (simplified)
-    const address = `Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    
+  const handleLocationSelect = (lat: number, lng: number, address: string) => {
     setSelectedLocation({
       latitude: lat,
       longitude: lng,
@@ -362,10 +359,10 @@ const AddressSelector = ({
         </div>
       </DialogContent>
 
-      {/* Location Picker Modal */}
-      <LocationPicker
+      {/* Full Screen Location Picker */}
+      <FullScreenLocationPicker
         open={showLocationPicker}
-        onOpenChange={setShowLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
         onLocationSelect={handleLocationSelect}
       />
 

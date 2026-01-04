@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const { toast } = useToast();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -30,6 +31,45 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     }
     return () => clearInterval(interval);
   }, [resendTimer]);
+
+  // Web OTP API - Auto-read SMS OTP
+  useEffect(() => {
+    if (step === 'verify' && 'OTPCredential' in window) {
+      // Abort any previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
+      // Request OTP from SMS
+      navigator.credentials.get({
+        // @ts-ignore - OTPCredential is not in TypeScript types yet
+        otp: { transport: ['sms'] },
+        signal
+      }).then((otpCredential: any) => {
+        if (otpCredential && otpCredential.code) {
+          setOtp(otpCredential.code);
+          toast({
+            title: "OTP Auto-filled",
+            description: "OTP was automatically read from SMS",
+          });
+        }
+      }).catch((err: any) => {
+        // Ignore abort errors
+        if (err.name !== 'AbortError') {
+          console.log('OTP auto-read not available:', err.message);
+        }
+      });
+    }
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [step, toast]);
 
   const handleSendOtp = async () => {
     if (!mobile.trim()) {
