@@ -1,29 +1,51 @@
-import { Package, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Package } from 'lucide-react';
 import { useOrderTracking } from '@/contexts/OrderTrackingContext';
 import { useState, useRef, useEffect } from 'react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface OrderTrackingButtonProps {
   onClick: () => void;
 }
 
 const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
-  const { activeOrder } = useOrderTracking();
+  const { activeOrder, clearActiveOrder } = useOrderTracking();
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [shouldHide, setShouldHide] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-hide after 1 minute for delivered or rejected orders
+  useEffect(() => {
+    if (activeOrder) {
+      const isDelivered = activeOrder.status === 'delivered';
+      const isRejected = activeOrder.seller_status === 'rejected';
+      
+      if (isDelivered || isRejected) {
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+        }
+        
+        hideTimerRef.current = setTimeout(() => {
+          setShouldHide(true);
+          clearActiveOrder();
+        }, 60000); // 1 minute
+      }
+    }
+
+    return () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+    };
+  }, [activeOrder?.status, activeOrder?.seller_status, clearActiveOrder]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('.drag-handle')) {
-      setIsDragging(true);
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y
-      });
-    }
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    });
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -31,7 +53,6 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
       const newX = e.clientX - dragStart.x;
       const newY = e.clientY - dragStart.y;
       
-      // Keep within viewport bounds
       const maxX = window.innerWidth - (buttonRef.current?.offsetWidth || 0);
       const maxY = window.innerHeight - (buttonRef.current?.offsetHeight || 0);
       
@@ -59,13 +80,11 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
 
   // Touch events for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('.drag-handle')) {
-      setIsDragging(true);
-      setDragStart({
-        x: e.touches[0].clientX - position.x,
-        y: e.touches[0].clientY - position.y
-      });
-    }
+    setIsDragging(true);
+    setDragStart({
+      x: e.touches[0].clientX - position.x,
+      y: e.touches[0].clientY - position.y
+    });
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -100,51 +119,26 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
   }, [isDragging, dragStart]);
 
   // Early return after all hooks
-  if (!activeOrder) return null;
+  if (!activeOrder || shouldHide) return null;
 
-  // Helper functions that use activeOrder - moved here after null check
+  // Get short status text
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
-      pending: 'Order Placed',
-      accepted: 'Order Accepted',
-      preparing: 'Preparing Order',
-      packed: 'Order Packed',
-      assigned: 'Partner Assigned',
-      going_for_pickup: 'Going for Pickup',
-      picked_up: 'Order Picked Up',
-      going_for_delivery: 'Out for Delivery',
+      pending: 'Placed',
+      accepted: 'Accepted',
+      preparing: 'Preparing',
+      packed: 'Packed',
+      assigned: 'Assigned',
+      going_for_pickup: 'Pickup',
+      picked_up: 'Picked',
+      going_for_delivery: 'On Way',
       delivered: 'Delivered'
     };
     return statusMap[status] || status;
   };
 
-  const getEstimatedDeliveryTime = () => {
-    if (activeOrder.status === 'delivered' && activeOrder.delivered_at) {
-      const deliveredAt = new Date(activeOrder.delivered_at);
-      const now = new Date();
-      const diffInMinutes = Math.ceil((now.getTime() - deliveredAt.getTime()) / 60000);
-      return `${diffInMinutes} min ago`;
-    }
-    
-    const createdAt = new Date(activeOrder.created_at);
-    const estimatedTime = new Date(createdAt.getTime() + 30 * 60000); // 30 minutes
-    const now = new Date();
-    const diffInMinutes = Math.ceil((estimatedTime.getTime() - now.getTime()) / 60000);
-    
-    if (diffInMinutes <= 0) {
-      return 'Arriving soon';
-    }
-    return `${diffInMinutes} min`;
-  };
-
-  const items = Array.isArray(activeOrder.items) ? activeOrder.items : [];
-
-  const handleCircleClick = () => {
-    setIsExpanded(!isExpanded);
-  };
-
-  const handleExpandedClick = () => {
-    onClick();
+  const handleButtonClick = () => {
+    onClick(); // Directly open the modal
   };
 
   return (
@@ -152,58 +146,27 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
       ref={buttonRef}
       className="fixed z-50"
       style={{
-        bottom: position.y === 0 ? '80px' : 'auto',
+        bottom: position.y === 0 ? '100px' : 'auto',
         left: position.x === 0 ? '16px' : `${position.x}px`,
-        right: position.x === 0 && !isExpanded ? 'auto' : (position.x === 0 ? '16px' : 'auto'),
         top: position.y !== 0 ? `${position.y}px` : 'auto',
-        cursor: isDragging ? 'grabbing' : 'default',
-        maxWidth: isExpanded ? '400px' : 'auto'
+        cursor: isDragging ? 'grabbing' : 'pointer',
       }}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      {!isExpanded ? (
-        // Collapsed: Just a circle icon
-        <button
-          onClick={handleCircleClick}
-          className="bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:scale-110 transition-transform animate-pulse"
-        >
-          <Package className="h-6 w-6" />
-        </button>
-      ) : (
-        // Expanded: Show full details
-        <div className="bg-background border shadow-lg rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-3 p-4">
-            <button
-              onClick={handleCircleClick}
-              className="drag-handle cursor-pointer p-1 hover:bg-accent/50 rounded"
-            >
-              <GripVertical className="h-5 w-5 text-muted-foreground" />
-            </button>
-            <div className="bg-primary/10 p-2 rounded-full">
-              <Package className="h-5 w-5 text-primary" />
-            </div>
-            <button
-              onClick={handleExpandedClick}
-              className="flex-1 text-left hover:opacity-80 transition-opacity"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-semibold text-sm">{getStatusText(activeOrder.status)}</p>
-                <ChevronUp className="h-4 w-4" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {activeOrder.seller_name} • {items.length} {items.length === 1 ? 'item' : 'items'}
-              </p>
-              <p className="text-xs text-orange-600 font-medium mt-1">
-                {activeOrder.status === 'delivered' ? 'Delivered: ' : 'Est. delivery: '}{getEstimatedDeliveryTime()}
-              </p>
-            </button>
-            <button onClick={handleCircleClick} className="p-1">
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Large circular button with status text */}
+      <button
+        onClick={handleButtonClick}
+        className="bg-primary text-primary-foreground w-16 h-16 rounded-full shadow-xl hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 border-4 border-primary/20"
+        style={{
+          boxShadow: '0 4px 20px rgba(249, 115, 22, 0.4)'
+        }}
+      >
+        <Package className="h-5 w-5" />
+        <span className="text-[10px] font-semibold leading-tight text-center">
+          {getStatusText(activeOrder.status)}
+        </span>
+      </button>
     </div>
   );
 };

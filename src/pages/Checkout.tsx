@@ -16,6 +16,8 @@ import AddressSelector from "@/components/AddressSelector";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { ZippyPassModal } from "@/components/ZippyPassModal";
 import { AddMoreItemsModal } from "@/components/AddMoreItemsModal";
+import { DeliveryNotAvailableModal } from "@/components/DeliveryNotAvailableModal";
+import { calculateDistance } from "@/lib/distanceUtils";
 
 declare global {
   interface Window {
@@ -29,6 +31,8 @@ export const Checkout = () => {
     updateQuantity,
     getTotalPrice,
     cartRestaurantName,
+    cartRestaurantLatitude,
+    cartRestaurantLongitude,
     clearCart
   } = useCart();
   const {
@@ -51,6 +55,7 @@ export const Checkout = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showZippyPassModal, setShowZippyPassModal] = useState(false);
   const [showAddMoreItemsModal, setShowAddMoreItemsModal] = useState(false);
+  const [showDeliveryNotAvailableModal, setShowDeliveryNotAvailableModal] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
     id: string;
@@ -437,6 +442,24 @@ export const Checkout = () => {
 
       {/* Address Selector Modal */}
       <AddressSelector open={showAddressSelector} onOpenChange={setShowAddressSelector} onAddressSelect={address => {
+        // Check if address is within 10km of restaurant
+        if (cartRestaurantLatitude && cartRestaurantLongitude && address.latitude && address.longitude) {
+          const distance = calculateDistance(
+            address.latitude,
+            address.longitude,
+            cartRestaurantLatitude,
+            cartRestaurantLongitude
+          );
+          
+          if (distance > 10) {
+            // Show modal that restaurant doesn't deliver to this location
+            setShowDeliveryNotAvailableModal(true);
+            setShowAddressSelector(false);
+            return;
+          }
+        }
+        
+        // Address is valid, update it
         setSelectedAddress(address);
         if (address.latitude && address.longitude) {
           setUserLocation({
@@ -476,6 +499,18 @@ export const Checkout = () => {
         sellerName={cartRestaurantName || ''}
         targetAmount={100}
         currentTotal={itemTotal}
+      />
+
+      {/* Delivery Not Available Modal */}
+      <DeliveryNotAvailableModal
+        isOpen={showDeliveryNotAvailableModal}
+        onClose={() => setShowDeliveryNotAvailableModal(false)}
+        restaurantName={cartRestaurantName || undefined}
+        onViewRestaurants={() => {
+          setShowDeliveryNotAvailableModal(false);
+          // Navigate to restaurants page - the FeaturedRestaurants will filter by current location
+          navigate('/restaurants');
+        }}
       />
     </div>
   );

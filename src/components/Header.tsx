@@ -148,7 +148,47 @@ export const Header = () => {
     try {
       setCurrentLocation("Detecting...");
       
-      // Use Nominatim API with max zoom for village-level precision
+      // First try Google Maps Geocoding API for more accurate results
+      try {
+        const { data: keyData } = await supabase.functions.invoke('get-google-maps-key');
+        if (keyData?.apiKey) {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${keyData.apiKey}`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+              // Find the locality/sublocality from address components
+              const addressComponents = data.results[0].address_components;
+              const locality = addressComponents?.find((c: any) => 
+                c.types.includes('locality') || c.types.includes('sublocality') || c.types.includes('sublocality_level_1')
+              );
+              const area = addressComponents?.find((c: any) => 
+                c.types.includes('neighborhood') || c.types.includes('sublocality_level_2')
+              );
+              const state = addressComponents?.find((c: any) => c.types.includes('administrative_area_level_1'));
+              const country = addressComponents?.find((c: any) => c.types.includes('country'));
+              const postalCode = addressComponents?.find((c: any) => c.types.includes('postal_code'));
+              
+              // Get detailed formatted address
+              const areaName = area?.long_name || locality?.long_name || "Current Location";
+              const fullLocation = `${areaName}, ${state?.short_name || ''} ${postalCode?.long_name || ''}, ${country?.long_name || ''}`.replace(/,\s*,/g, ',').trim();
+              
+              setCurrentLocation(areaName);
+              localStorage.setItem('currentLocationName', areaName);
+              localStorage.setItem('currentFullLocation', fullLocation);
+              localStorage.setItem('currentLat', lat.toString());
+              localStorage.setItem('currentLng', lng.toString());
+              return;
+            }
+          }
+        }
+      } catch (gmError) {
+        console.log('Google Maps geocoding failed, falling back to Nominatim:', gmError);
+      }
+      
+      // Fallback to Nominatim API with better address formatting
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         { headers: { 'Accept-Language': 'en' } }
@@ -157,11 +197,8 @@ export const Header = () => {
       if (response.ok) {
         const data = await response.json();
         const address = data.address;
-        // Get the first part of display_name which is usually the most specific location
-        const displayParts = data.display_name?.split(',');
-        const firstPart = displayParts?.[0]?.trim();
         
-        // Prioritize village/hamlet/locality, then county (mandal), then city
+        // Build Swiggy-like address format: "Area, State Postcode, Country"
         const areaName = address?.village || 
                          address?.hamlet || 
                          address?.locality ||
@@ -169,12 +206,29 @@ export const Header = () => {
                          address?.suburb || 
                          address?.town ||
                          address?.county ||
-                         firstPart ||
                          address?.city ||
                          address?.state_district ||
                          "Select Location";
+        
+        const stateName = address?.state || '';
+        const postcode = address?.postcode || '';
+        const countryName = address?.country || '';
+        
+        // Format full location like Swiggy: "Dudyala, Andhra Pradesh 518422, India"
+        const fullLocationParts = [areaName];
+        if (stateName || postcode) {
+          fullLocationParts.push(`${stateName} ${postcode}`.trim());
+        }
+        if (countryName) {
+          fullLocationParts.push(countryName);
+        }
+        const fullLocation = fullLocationParts.filter(Boolean).join(', ');
+        
         setCurrentLocation(areaName);
         localStorage.setItem('currentLocationName', areaName);
+        localStorage.setItem('currentFullLocation', fullLocation);
+        localStorage.setItem('currentLat', lat.toString());
+        localStorage.setItem('currentLng', lng.toString());
       } else {
         setCurrentLocation("Select Location");
       }
@@ -209,17 +263,17 @@ export const Header = () => {
           >
             <MapPin className="h-5 w-5 text-orange-500" />
             <div className="flex flex-col items-start">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <span className="font-semibold text-sm">
                   {isAuthenticated && selectedAddress ? selectedAddress.label : currentLocation}
                 </span>
-                {isAuthenticated && <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </div>
-              {isAuthenticated && selectedAddress && (
-                <span className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">
-                  {selectedAddress.address}
-                </span>
-              )}
+              <span className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">
+                {isAuthenticated && selectedAddress 
+                  ? selectedAddress.address 
+                  : localStorage.getItem('currentFullLocation') || 'Tap to set location'}
+              </span>
             </div>
           </button>
 

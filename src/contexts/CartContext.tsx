@@ -9,12 +9,16 @@ interface CartItem {
   quantity: number;
   seller_id: string;
   seller_name: string;
+  seller_latitude?: number;
+  seller_longitude?: number;
 }
 
 interface CartContextType {
   cartItems: CartItem[];
   cartRestaurant: string | null;
   cartRestaurantName: string | null;
+  cartRestaurantLatitude: number | null;
+  cartRestaurantLongitude: number | null;
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
@@ -29,12 +33,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [cartRestaurant, setCartRestaurant] = useState<string | null>(null);
   const [cartRestaurantName, setCartRestaurantName] = useState<string | null>(null);
+  const [cartRestaurantLatitude, setCartRestaurantLatitude] = useState<number | null>(null);
+  const [cartRestaurantLongitude, setCartRestaurantLongitude] = useState<number | null>(null);
 
   useEffect(() => {
     // Load cart from localStorage
     const storedCart = localStorage.getItem('cart');
     const storedRestaurant = localStorage.getItem('cartRestaurant');
     const storedRestaurantName = localStorage.getItem('cartRestaurantName');
+    const storedRestaurantLat = localStorage.getItem('cartRestaurantLatitude');
+    const storedRestaurantLng = localStorage.getItem('cartRestaurantLongitude');
     
     if (storedCart) {
       try {
@@ -51,6 +59,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (storedRestaurantName) {
       setCartRestaurantName(storedRestaurantName);
     }
+    
+    if (storedRestaurantLat) {
+      setCartRestaurantLatitude(parseFloat(storedRestaurantLat));
+    }
+    
+    if (storedRestaurantLng) {
+      setCartRestaurantLongitude(parseFloat(storedRestaurantLng));
+    }
   }, []);
 
   useEffect(() => {
@@ -66,7 +82,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       localStorage.removeItem('cartRestaurantName');
     }
-  }, [cartItems, cartRestaurant, cartRestaurantName]);
+    if (cartRestaurantLatitude !== null) {
+      localStorage.setItem('cartRestaurantLatitude', cartRestaurantLatitude.toString());
+    } else {
+      localStorage.removeItem('cartRestaurantLatitude');
+    }
+    if (cartRestaurantLongitude !== null) {
+      localStorage.setItem('cartRestaurantLongitude', cartRestaurantLongitude.toString());
+    } else {
+      localStorage.removeItem('cartRestaurantLongitude');
+    }
+  }, [cartItems, cartRestaurant, cartRestaurantName, cartRestaurantLatitude, cartRestaurantLongitude]);
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     // Check if cart is empty or item is from same restaurant
@@ -97,6 +123,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!cartRestaurant) {
       setCartRestaurant(item.seller_id);
       setCartRestaurantName(item.seller_name);
+      if (item.seller_latitude) setCartRestaurantLatitude(item.seller_latitude);
+      if (item.seller_longitude) setCartRestaurantLongitude(item.seller_longitude);
     }
 
     toast({
@@ -113,6 +141,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (newItems.length === 0) {
         setCartRestaurant(null);
         setCartRestaurantName(null);
+        setCartRestaurantLatitude(null);
+        setCartRestaurantLongitude(null);
       }
       
       return newItems;
@@ -136,6 +166,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCartItems([]);
     setCartRestaurant(null);
     setCartRestaurantName(null);
+    setCartRestaurantLatitude(null);
+    setCartRestaurantLongitude(null);
   };
 
   const getTotalPrice = () => {
@@ -150,6 +182,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     cartItems,
     cartRestaurant,
     cartRestaurantName,
+    cartRestaurantLatitude,
+    cartRestaurantLongitude,
     addToCart,
     removeFromCart,
     updateQuantity,

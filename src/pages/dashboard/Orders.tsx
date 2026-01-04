@@ -162,6 +162,42 @@ const Orders = () => {
 
   useEffect(() => {
     fetchOrders();
+    
+    // Set up real-time subscription for orders
+    const channel = supabase
+      .channel('admin-orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          console.log('Admin order update:', payload);
+          if (payload.eventType === 'INSERT') {
+            // Add new order to the list
+            fetchOrders();
+            toast({
+              title: "New Order",
+              description: `New order received from ${(payload.new as any).seller_name}`,
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            // Update existing order in the list
+            setOrders(prev => prev.map(order => 
+              order.id === (payload.new as any).id ? { ...order, ...payload.new as any } : order
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            // Remove deleted order from the list
+            setOrders(prev => prev.filter(order => order.id !== (payload.old as any).id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
   const filteredOrders = selectedStatus === "All" ? orders : orders.filter(order => order.status === selectedStatus);
   const getStatusBadgeColor = (status: string) => {

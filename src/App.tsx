@@ -11,6 +11,7 @@ import Users from "./pages/dashboard/Users";
 import Sellers from "./pages/dashboard/Sellers";
 import DeliveryPartners from "./pages/dashboard/DeliveryPartners";
 import Orders from "./pages/dashboard/Orders";
+import Refunds from "./pages/dashboard/Refunds";
 import Banners from "./pages/dashboard/Banners";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -54,6 +55,7 @@ const App = () => (
                       <Route path="users" element={<Users />} />
                       <Route path="sellers" element={<Sellers />} />
                       <Route path="orders" element={<Orders />} />
+                      <Route path="refunds" element={<Refunds />} />
                       <Route path="delivery-partners" element={<DeliveryPartners />} />
                       <Route path="banners" element={<Banners />} />
                     </Route>

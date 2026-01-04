@@ -286,7 +286,9 @@ const RestaurantMenu = () => {
       seller_price: item.seller_price,
       item_photo_url: item.item_photo_url,
       seller_id: restaurantId!,
-      seller_name: restaurant.seller_name
+      seller_name: restaurant.seller_name,
+      seller_latitude: restaurant.seller_latitude,
+      seller_longitude: restaurant.seller_longitude
     });
   };
   if (loading) {

@@ -112,7 +112,25 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
 
   if (!activeOrder) return null;
 
+  const isRejected = (activeOrder as any).seller_status === 'rejected';
+  const isRefunded = activeOrder.status === 'refunded';
+
   const getStatusSteps = () => {
+    // Show different steps for rejected orders
+    if (isRejected) {
+      return [
+        { key: 'pending', label: 'Order Placed', icon: CheckCircle2, color: 'green', completed: true },
+        { key: 'rejected', label: 'Order Rejected', icon: CheckCircle2, color: 'red', completed: true },
+        { 
+          key: 'refund', 
+          label: isRefunded ? 'Refund Processed' : 'Refund Pending', 
+          icon: CheckCircle2, 
+          color: isRefunded ? 'green' : 'orange', 
+          completed: true 
+        },
+      ];
+    }
+
     const steps = [
       { key: 'pending', label: 'Order Placed', icon: CheckCircle2, color: 'green' },
       { key: 'accepted', label: 'Accepted', icon: CheckCircle2, color: 'green' },
@@ -287,8 +305,24 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
         )}
 
         <div className="p-6 space-y-6">
-          {/* Delivery Status Card */}
-          {activeOrder.status === 'delivered' ? (
+          {/* Rejected Order Status Card */}
+          {isRejected ? (
+            <Card className={`p-4 ${isRefunded ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className={`h-5 w-5 ${isRefunded ? 'text-green-600' : 'text-orange-600'}`} />
+                <div>
+                  <p className={`font-semibold ${isRefunded ? 'text-green-900' : 'text-orange-900'}`}>
+                    {isRefunded ? 'Refund Processed' : 'Refund Pending'}
+                  </p>
+                  <p className={`text-sm ${isRefunded ? 'text-green-700' : 'text-orange-700'}`}>
+                    {isRefunded 
+                      ? 'Your refund has been processed successfully' 
+                      : 'Your order was rejected. Refund will be processed within 24-48 hours'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          ) : activeOrder.status === 'delivered' ? (
             <Card className="bg-green-50 border-green-200 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -332,14 +366,26 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
           {/* Order Status */}
           <div>
             <h3 className="font-semibold text-lg mb-2">
-              {((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') ? 'Preparing your order' : 
-               ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') ? 'Out for delivery' :
-               activeOrder.status === 'delivered' ? 'Delivered' : 'Processing order'}
+              {isRejected 
+                ? 'Order Rejected' 
+                : ((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') 
+                  ? 'Preparing your order' 
+                  : ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') 
+                    ? 'Out for delivery' 
+                    : activeOrder.status === 'delivered' 
+                      ? 'Delivered' 
+                      : 'Processing order'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') ? 'Restaurant needs a few more minutes, partner will pick up soon' :
-               ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') ? 'Your order is on the way' :
-               'Your order is being processed'}
+              {isRejected
+                ? isRefunded 
+                  ? 'Your refund has been processed to your original payment method' 
+                  : 'Restaurant was unable to accept your order. Refund will be processed shortly.'
+                : ((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') 
+                  ? 'Restaurant needs a few more minutes, partner will pick up soon' 
+                  : ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') 
+                    ? 'Your order is on the way' 
+                    : 'Your order is being processed'}
             </p>
 
             {/* Status Timeline */}
@@ -349,6 +395,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                   <div className={`mt-1 ${
                     step.color === 'green' ? 'text-green-600' : 
                     step.color === 'orange' ? 'text-orange-600' : 
+                    step.color === 'red' ? 'text-red-600' :
                     'text-gray-300'
                   }`}>
                     <step.icon className="h-5 w-5" />
@@ -362,7 +409,8 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                     <Badge 
                       variant="secondary" 
                       className={`text-xs ${
-                        step.color === 'green' ? 'bg-green-100 text-green-700' : 
+                        step.color === 'green' ? 'bg-green-100 text-green-700' :
+                        step.color === 'red' ? 'bg-red-100 text-red-700' :
                         step.color === 'orange' ? 'bg-orange-100 text-orange-700' : 
                         ''
                       }`}
@@ -389,7 +437,16 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                     <p className="text-sm text-muted-foreground">Delivery Partner</p>
                   </div>
                 </div>
-                <Button size="icon" variant="outline">
+                <Button 
+                  size="icon" 
+                  variant="outline"
+                  onClick={() => {
+                    const mobile = activeOrder.delivery_partners?.mobile;
+                    if (mobile) {
+                      window.location.href = `tel:${mobile}`;
+                    }
+                  }}
+                >
                   <Phone className="h-4 w-4" />
                 </Button>
               </div>
