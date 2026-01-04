@@ -198,14 +198,14 @@ export const Header = () => {
         const data = await response.json();
         const address = data.address;
         
-        // Build Swiggy-like address format: "Area, State Postcode, Country"
-        const areaName = address?.village || 
-                         address?.hamlet || 
+        // Priority order: hamlet > village > locality > neighbourhood > suburb > town > city
+        // This matches Swiggy-style location naming for accurate village/hamlet detection
+        const areaName = address?.hamlet || 
+                         address?.village || 
                          address?.locality ||
                          address?.neighbourhood ||
                          address?.suburb || 
                          address?.town ||
-                         address?.county ||
                          address?.city ||
                          address?.state_district ||
                          "Select Location";
