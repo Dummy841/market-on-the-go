@@ -57,6 +57,12 @@ export const Checkout = () => {
   const [showAddMoreItemsModal, setShowAddMoreItemsModal] = useState(false);
   const [showDeliveryNotAvailableModal, setShowDeliveryNotAvailableModal] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [attemptedAddress, setAttemptedAddress] = useState<{
+    label: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<{
     id: string;
     label: string;
@@ -452,6 +458,13 @@ export const Checkout = () => {
           );
           
           if (distance > 10) {
+            // Store the attempted address for use in "View Another Restaurant"
+            setAttemptedAddress({
+              label: address.label,
+              address: address.address,
+              latitude: address.latitude,
+              longitude: address.longitude
+            });
             // Show modal that restaurant doesn't deliver to this location
             setShowDeliveryNotAvailableModal(true);
             setShowAddressSelector(false);
@@ -507,8 +520,31 @@ export const Checkout = () => {
         onClose={() => setShowDeliveryNotAvailableModal(false)}
         restaurantName={cartRestaurantName || undefined}
         onViewRestaurants={() => {
+          // Update location to the attempted address before navigating
+          if (attemptedAddress) {
+            // Update localStorage with new address location
+            localStorage.setItem('currentLat', attemptedAddress.latitude.toString());
+            localStorage.setItem('currentLng', attemptedAddress.longitude.toString());
+            localStorage.setItem('currentLocationName', attemptedAddress.label);
+            localStorage.setItem('currentFullLocation', attemptedAddress.address);
+            localStorage.setItem('selectedAddress', JSON.stringify({
+              label: attemptedAddress.label,
+              address: attemptedAddress.address,
+              latitude: attemptedAddress.latitude,
+              longitude: attemptedAddress.longitude
+            }));
+            
+            // Dispatch addressChanged event so FeaturedRestaurants refetches with new location
+            window.dispatchEvent(new CustomEvent('addressChanged', {
+              detail: {
+                latitude: attemptedAddress.latitude,
+                longitude: attemptedAddress.longitude
+              }
+            }));
+          }
+          
           setShowDeliveryNotAvailableModal(false);
-          // Navigate to restaurants page - the FeaturedRestaurants will filter by current location
+          // Navigate to restaurants page - FeaturedRestaurants will filter by the new location
           navigate('/restaurants');
         }}
       />
