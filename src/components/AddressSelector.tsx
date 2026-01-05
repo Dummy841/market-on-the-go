@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
   Search, 
@@ -207,164 +208,169 @@ const AddressSelector = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md h-[90vh] p-0 gap-0">
-        {/* Header */}
-        <DialogHeader className="p-4 pb-0 border-b">
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => onOpenChange(false)}
-              className="p-0 h-auto"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <DialogTitle className="text-lg font-semibold">Select Your Location</DialogTitle>
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto">
-          {/* Search Bar */}
-          <div className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search an area or address"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-12 rounded-xl bg-muted/50"
-              />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md h-[90vh] p-0 gap-0">
+          {/* Header */}
+          <DialogHeader className="p-4 pb-0 border-b">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => onOpenChange(false)}
+                className="p-0 h-auto"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <DialogTitle className="text-lg font-semibold">Select Your Location</DialogTitle>
             </div>
-          </div>
+          </DialogHeader>
 
-          {/* Action Buttons */}
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-3 gap-3">
-              <Button
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
-                onClick={handleUseCurrentLocation}
-                disabled={isGettingLocation}
-              >
-                <div className="p-2 bg-orange-100 rounded-full">
-                  <MapPin className="h-5 w-5 text-orange-600" />
-                </div>
-                <span className="text-xs font-medium text-center">
-                  {isGettingLocation ? 'Getting...' : 'Use Current Location'}
-                </span>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
-                onClick={handleAddNewAddress}
-              >
-                <div className="p-2 bg-gray-100 rounded-full">
-                  <Plus className="h-5 w-5 text-gray-600" />
-                </div>
-                <span className="text-xs font-medium text-center">
-                  Add New Address
-                </span>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
-              >
-                <div className="p-2 bg-green-100 rounded-full">
-                  <MessageSquare className="h-5 w-5 text-green-600" />
-                </div>
-                <span className="text-xs font-medium text-center">
-                  Request Address
-                </span>
-              </Button>
+          <div className="flex-1 overflow-y-auto">
+            {/* Search Bar */}
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search an area or address"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-12 rounded-xl bg-muted/50"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Saved Addresses */}
-          <div className="px-4 pb-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">
-              SAVED ADDRESSES
-            </h3>
-            
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            {/* Action Buttons */}
+            <div className="px-4 pb-4">
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
+                  onClick={handleUseCurrentLocation}
+                  disabled={isGettingLocation}
+                >
+                  <div className="p-2 bg-orange-100 rounded-full">
+                    <MapPin className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <span className="text-xs font-medium text-center">
+                    {isGettingLocation ? 'Getting...' : 'Use Current Location'}
+                  </span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
+                  onClick={handleAddNewAddress}
+                >
+                  <div className="p-2 bg-gray-100 rounded-full">
+                    <Plus className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <span className="text-xs font-medium text-center">
+                    Add New Address
+                  </span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
+                >
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <MessageSquare className="h-5 w-5 text-green-600" />
+                  </div>
+                  <span className="text-xs font-medium text-center">
+                    Request Address
+                  </span>
+                </Button>
               </div>
-            ) : savedAddresses.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No saved addresses yet</p>
-                <p className="text-xs">Add your first address to get started</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {savedAddresses.map((address) => (
-                  <Card
-                    key={address.id}
-                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                      selectedAddress?.id === address.id ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => handleAddressSelect(address)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-muted rounded-full mt-1">
-                          {getAddressIcon(address.label)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium">{address.label}</span>
-                            {selectedAddress?.id === address.id && (
-                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                                SELECTED
-                              </Badge>
-                            )}
+            </div>
+
+            {/* Saved Addresses */}
+            <div className="px-4 pb-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">
+                SAVED ADDRESSES
+              </h3>
+              
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : savedAddresses.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No saved addresses yet</p>
+                  <p className="text-xs">Add your first address to get started</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {savedAddresses.map((address) => (
+                    <Card
+                      key={address.id}
+                      className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+                        selectedAddress?.id === address.id ? 'ring-2 ring-primary' : ''
+                      }`}
+                      onClick={() => handleAddressSelect(address)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-muted rounded-full mt-1">
+                            {getAddressIcon(address.label)}
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {address.address}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium">{address.label}</span>
+                              {selectedAddress?.id === address.id && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                  SELECTED
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {address.address}
+                            </p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="p-0 h-auto">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => handleEditAddress(address, e)}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Address
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => handleDeleteAddress(address.id, e)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Address
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="p-0 h-auto">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => handleEditAddress(address, e)}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Address
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => handleDeleteAddress(address.id, e)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Address
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
+        </DialogContent>
+      </Dialog>
 
-        </div>
-      </DialogContent>
-
-      {/* Full Screen Location Picker */}
-      <FullScreenLocationPicker
-        open={showLocationPicker}
-        onClose={() => setShowLocationPicker(false)}
-        onLocationSelect={handleLocationSelect}
-      />
+      {/* Full Screen Location Picker - Rendered via Portal to ensure it's on top */}
+      {showLocationPicker && createPortal(
+        <FullScreenLocationPicker
+          open={showLocationPicker}
+          onClose={() => setShowLocationPicker(false)}
+          onLocationSelect={handleLocationSelect}
+        />,
+        document.body
+      )}
 
       {/* Address Details Form Modal */}
       <AddressDetailsForm
@@ -377,7 +383,7 @@ const AddressSelector = ({
         selectedLocation={selectedLocation}
         editingAddress={editingAddress}
       />
-    </Dialog>
+    </>
   );
 };
 

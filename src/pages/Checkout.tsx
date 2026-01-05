@@ -448,6 +448,9 @@ export const Checkout = () => {
 
       {/* Address Selector Modal */}
       <AddressSelector open={showAddressSelector} onOpenChange={setShowAddressSelector} onAddressSelect={address => {
+        console.log('Address selected:', address);
+        console.log('Restaurant location:', { lat: cartRestaurantLatitude, lng: cartRestaurantLongitude });
+        
         // Check if address is within 10km of restaurant
         if (cartRestaurantLatitude && cartRestaurantLongitude && address.latitude && address.longitude) {
           const distance = calculateDistance(
@@ -457,7 +460,10 @@ export const Checkout = () => {
             cartRestaurantLongitude
           );
           
+          console.log('Calculated distance:', distance, 'km');
+          
           if (distance > 10) {
+            console.log('Distance exceeds 10km, showing modal');
             // Store the attempted address for use in "View Another Restaurant"
             setAttemptedAddress({
               label: address.label,
@@ -470,6 +476,8 @@ export const Checkout = () => {
             setShowAddressSelector(false);
             return;
           }
+        } else {
+          console.log('Missing coordinates - Restaurant:', cartRestaurantLatitude, cartRestaurantLongitude, 'Address:', address.latitude, address.longitude);
         }
         
         // Address is valid, update it
