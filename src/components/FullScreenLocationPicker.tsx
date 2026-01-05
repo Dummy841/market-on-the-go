@@ -189,7 +189,7 @@ const FullScreenLocationPicker = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
       {/* Header with Search */}
       <div className="bg-background p-4 flex items-center gap-3 border-b">
         <Button 
