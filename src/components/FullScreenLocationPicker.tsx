@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, MapPin, Search, Crosshair } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FullScreenLocationPickerProps {
   open: boolean;
@@ -52,7 +53,44 @@ const FullScreenLocationPicker = ({
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      // Try Nominatim for reverse geocoding
+      // First try Google Maps Geocoding API for more accurate results
+      try {
+        const { data: keyData } = await supabase.functions.invoke('get-google-maps-key');
+        if (keyData?.apiKey) {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${keyData.apiKey}`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+              // Find the locality/sublocality from address components
+              const addressComponents = data.results[0].address_components;
+              const locality = addressComponents?.find((c: any) => 
+                c.types.includes('locality') || c.types.includes('sublocality') || c.types.includes('sublocality_level_1')
+              );
+              const area = addressComponents?.find((c: any) => 
+                c.types.includes('neighborhood') || c.types.includes('sublocality_level_2')
+              );
+              const state = addressComponents?.find((c: any) => c.types.includes('administrative_area_level_1'));
+              const country = addressComponents?.find((c: any) => c.types.includes('country'));
+              const postalCode = addressComponents?.find((c: any) => c.types.includes('postal_code'));
+              
+              // Get detailed area name
+              const areaName = area?.long_name || locality?.long_name || "Selected Location";
+              const fullAddress = `${areaName}, ${state?.short_name || ''} ${postalCode?.long_name || ''}, ${country?.long_name || ''}`.replace(/,\s*,/g, ',').trim();
+              
+              setLocationName(areaName);
+              setLocationAddress(fullAddress);
+              return;
+            }
+          }
+        }
+      } catch (gmError) {
+        console.log('Google Maps geocoding failed, falling back to Nominatim:', gmError);
+      }
+      
+      // Fallback to Nominatim for reverse geocoding
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         { headers: { 'accept-language': 'en' } }
