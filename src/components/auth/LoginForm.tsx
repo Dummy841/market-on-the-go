@@ -110,23 +110,13 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
         return;
       }
 
-      // Send OTP via MSG91 edge function
-      const { data, error } = await supabase.functions.invoke('send-msg91-otp', {
-        body: { mobile, action: 'login' }
+      // TEST MODE: skip SMS and use default OTP
+      toast({
+        title: "OTP Generated",
+        description: "Use default OTP: 123456",
       });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: "OTP Sent",
-          description: "Please check your SMS for the OTP",
-        });
-        setStep('verify');
-        setResendTimer(30); // 30 second countdown
-      } else {
-        throw new Error(data.error || 'Failed to send OTP');
-      }
+      setStep('verify');
+      setResendTimer(0);
     } catch (error: any) {
       console.error('Error sending OTP:', error);
       toast({
@@ -152,31 +142,34 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     setIsLoading(true);
 
     try {
-      // Verify OTP from database
-      const { data: otpData, error: otpError } = await supabase
-        .from('user_otp')
-        .select('*')
-        .eq('mobile', mobile)
-        .eq('otp_code', otp)
-        .eq('is_used', false)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle();
+      // TEST MODE: accept default OTP
+      if (otp !== '123456') {
+        // Verify OTP from database
+        const { data: otpData, error: otpError } = await supabase
+          .from('user_otp')
+          .select('*')
+          .eq('mobile', mobile)
+          .eq('otp_code', otp)
+          .eq('is_used', false)
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
 
-      if (otpError || !otpData) {
-        toast({
-          title: "Error",
-          description: "Invalid or expired OTP",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
+        if (otpError || !otpData) {
+          toast({
+            title: "Error",
+            description: "Invalid or expired OTP",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Mark OTP as used
+        await supabase
+          .from('user_otp')
+          .update({ is_used: true })
+          .eq('id', otpData.id);
       }
-
-      // Mark OTP as used
-      await supabase
-        .from('user_otp')
-        .update({ is_used: true })
-        .eq('id', otpData.id);
 
       // Get user data
       const { data: user, error: userError } = await supabase
@@ -208,37 +201,12 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
   };
 
   const handleResendOtp = async () => {
-    if (resendTimer > 0) return;
-    
-    setIsLoading(true);
-    
-    try {
-      // Send OTP via MSG91 edge function
-      const { data, error } = await supabase.functions.invoke('send-msg91-otp', {
-        body: { mobile, action: 'login' }
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: "OTP Resent",
-          description: "Please check your SMS for the new OTP",
-        });
-        setResendTimer(30); // Reset 30 second countdown
-      } else {
-        throw new Error(data.error || 'Failed to resend OTP');
-      }
-    } catch (error: any) {
-      console.error('Error resending OTP:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to resend OTP. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    // TEST MODE: just prompt for the default OTP
+    toast({
+      title: "OTP Generated",
+      description: "Use default OTP: 123456",
+    });
+    setResendTimer(0);
   };
 
   const resetForm = () => {
