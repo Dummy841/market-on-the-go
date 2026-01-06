@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.process-razorpay-refund]
 verify_jwt = false
+
+[functions.send-msg91-otp]
+verify_jwt = false

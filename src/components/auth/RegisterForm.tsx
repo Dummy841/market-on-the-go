@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 interface RegisterFormProps {
   isOpen: boolean;
@@ -18,7 +19,55 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
   const { toast } = useToast();
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  // Web OTP API - Auto-read SMS OTP
+  useEffect(() => {
+    if (step === 'verify' && 'OTPCredential' in window) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
+      navigator.credentials.get({
+        // @ts-ignore - OTPCredential is not in TypeScript types yet
+        otp: { transport: ['sms'] },
+        signal
+      }).then((otpCredential: any) => {
+        if (otpCredential && otpCredential.code) {
+          setOtp(otpCredential.code);
+          toast({
+            title: "OTP Auto-filled",
+            description: "OTP was automatically read from SMS",
+          });
+        }
+      }).catch((err: any) => {
+        if (err.name !== 'AbortError') {
+          console.log('OTP auto-read not available:', err.message);
+        }
+      });
+    }
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [step, toast]);
 
   const handleSendOtp = async () => {
     if (!name.trim() || !mobile.trim()) {
@@ -59,33 +108,28 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
         return;
       }
 
-      // Generate OTP and save to database
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      const { error } = await supabase
-        .from('user_otp')
-        .insert({
-          mobile: mobile,
-          otp_code: otpCode,
-          expires_at: expiresAt.toISOString()
-        });
+      // Send OTP via MSG91 edge function
+      const { data, error } = await supabase.functions.invoke('send-msg91-otp', {
+        body: { mobile, action: 'register' }
+      });
 
       if (error) throw error;
 
-      // In a real app, you would send SMS here
-      // For demo purposes, we'll show the OTP in a toast
-      toast({
-        title: "OTP Sent",
-        description: `Your OTP is: ${otpCode} (Valid for 5 minutes)`,
-      });
-
-      setStep('verify');
-    } catch (error) {
+      if (data.success) {
+        toast({
+          title: "OTP Sent",
+          description: "Please check your SMS for the OTP",
+        });
+        setStep('verify');
+        setResendTimer(30); // 30 second countdown
+      } else {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+    } catch (error: any) {
       console.error('Error sending OTP:', error);
       toast({
         title: "Error",
-        description: "Failed to send OTP. Please try again.",
+        description: error.message || "Failed to send OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -106,7 +150,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
     setIsLoading(true);
 
     try {
-      // Verify OTP
+      // Verify OTP from database
       const { data: otpData, error: otpError } = await supabase
         .from('user_otp')
         .select('*')
@@ -165,11 +209,46 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
     }
   };
 
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Send OTP via MSG91 edge function
+      const { data, error } = await supabase.functions.invoke('send-msg91-otp', {
+        body: { mobile, action: 'register' }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "OTP Resent",
+          description: "Please check your SMS for the new OTP",
+        });
+        setResendTimer(30); // Reset 30 second countdown
+      } else {
+        throw new Error(data.error || 'Failed to resend OTP');
+      }
+    } catch (error: any) {
+      console.error('Error resending OTP:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const resetForm = () => {
     setStep('register');
     setName("");
     setMobile("");
     setOtp("");
+    setResendTimer(0);
   };
 
   const handleClose = () => {
@@ -179,7 +258,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md z-[10000]">
         <DialogHeader>
           <DialogTitle>
             {step === 'register' ? 'Register' : 'Verify OTP'}
@@ -201,34 +280,54 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
               </div>
               <div className="space-y-2">
                 <Label htmlFor="mobile">Mobile Number</Label>
-                <Input
-                  id="mobile"
-                  type="tel"
-                  placeholder="Enter 10-digit mobile number"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  maxLength={10}
-                />
+                <div className="flex">
+                  <div className="flex items-center justify-center px-3 bg-muted border border-r-0 border-input rounded-l-md text-sm text-muted-foreground">
+                    +91
+                  </div>
+                  <Input
+                    id="mobile"
+                    type="tel"
+                    placeholder="Enter 10-digit mobile number"
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                    maxLength={10}
+                    className="rounded-l-none"
+                  />
+                </div>
               </div>
               <Button 
                 onClick={handleSendOtp}
                 disabled={isLoading}
                 className="w-full"
               >
-                {isLoading ? "Sending OTP..." : "Send OTP"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending OTP...
+                  </>
+                ) : (
+                  "Send OTP"
+                )}
               </Button>
             </>
           ) : (
             <>
+              <div className="text-center mb-4">
+                <p className="text-sm text-muted-foreground">
+                  OTP sent to <span className="font-medium text-foreground">+91 {mobile}</span>
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="otp">Enter OTP</Label>
                 <Input
                   id="otp"
                   type="text"
+                  inputMode="numeric"
                   placeholder="Enter 6-digit OTP"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   maxLength={6}
+                  className="text-center text-2xl font-bold tracking-[0.5em] h-14 border-2 border-primary/30 focus:border-primary"
                 />
               </div>
               <div className="flex space-x-2">
@@ -241,10 +340,30 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
                 </Button>
                 <Button 
                   onClick={handleVerifyOtp}
-                  disabled={isLoading}
+                  disabled={isLoading || otp.length !== 6}
                   className="flex-1"
                 >
-                  {isLoading ? "Verifying..." : "Verify OTP"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    "Verify OTP"
+                  )}
+                </Button>
+              </div>
+              <div className="text-center">
+                <Button 
+                  variant="link" 
+                  onClick={handleResendOtp}
+                  disabled={resendTimer > 0 || isLoading}
+                  className="text-sm"
+                >
+                  {resendTimer > 0 
+                    ? `Resend OTP in ${resendTimer}s` 
+                    : "Resend OTP"
+                  }
                 </Button>
               </div>
             </>

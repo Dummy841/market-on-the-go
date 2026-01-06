@@ -29,8 +29,8 @@ const LocationPicker = ({
   const [selectedLat, setSelectedLat] = useState(initialLat);
   const [selectedLng, setSelectedLng] = useState(initialLng);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const { isLoaded } = useGoogleMaps();
-  
+  const { isLoaded, loadError } = useGoogleMaps();
+
   // Get current location when dialog opens
   useEffect(() => {
     if (open && navigator.geolocation) {
@@ -104,16 +104,26 @@ const LocationPicker = ({
         </DialogHeader>
         
         <div className="flex-1 relative">
-          {!isLoaded && (
+          {loadError ? (
+            <div className="h-96 flex items-center justify-center bg-muted p-6">
+              <div className="text-center max-w-sm">
+                <p className="font-semibold text-foreground">Map not available</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Google Maps is blocked by your API key settings (billing). Enable billing for the
+                  Google project linked to this key, then reload.
+                </p>
+              </div>
+            </div>
+          ) : !isLoaded ? (
             <div className="h-96 flex items-center justify-center bg-muted">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
                 <p className="text-sm text-muted-foreground">Loading map...</p>
               </div>
             </div>
-          )}
+          ) : null}
           
-          {isLoaded && (
+          {isLoaded && !loadError && (
             <>
               <GoogleMap
                 mapContainerStyle={containerStyle}
@@ -127,6 +137,7 @@ const LocationPicker = ({
                   streetViewControl: false,
                   mapTypeControl: false,
                   fullscreenControl: false,
+                  clickableIcons: false,
                 }}
               >
                 <Marker

@@ -447,48 +447,77 @@ export const Checkout = () => {
       </div>
 
       {/* Address Selector Modal */}
-      <AddressSelector open={showAddressSelector} onOpenChange={setShowAddressSelector} onAddressSelect={address => {
-        console.log('Address selected:', address);
-        console.log('Restaurant location:', { lat: cartRestaurantLatitude, lng: cartRestaurantLongitude });
-        
-        // Check if address is within 10km of restaurant
-        if (cartRestaurantLatitude && cartRestaurantLongitude && address.latitude && address.longitude) {
-          const distance = calculateDistance(
-            address.latitude,
-            address.longitude,
-            cartRestaurantLatitude,
-            cartRestaurantLongitude
-          );
-          
-          console.log('Calculated distance:', distance, 'km');
-          
-          if (distance > 10) {
-            console.log('Distance exceeds 10km, showing modal');
-            // Store the attempted address for use in "View Another Restaurant"
-            setAttemptedAddress({
-              label: address.label,
-              address: address.address,
-              latitude: address.latitude,
-              longitude: address.longitude
-            });
-            // Show modal that restaurant doesn't deliver to this location
-            setShowDeliveryNotAvailableModal(true);
-            setShowAddressSelector(false);
-            return;
-          }
-        } else {
-          console.log('Missing coordinates - Restaurant:', cartRestaurantLatitude, cartRestaurantLongitude, 'Address:', address.latitude, address.longitude);
-        }
-        
-        // Address is valid, update it
-        setSelectedAddress(address);
-        if (address.latitude && address.longitude) {
-          setUserLocation({
-            lat: address.latitude,
-            lng: address.longitude
+      <AddressSelector
+        open={showAddressSelector}
+        onOpenChange={setShowAddressSelector}
+        onAddressSelect={(address) => {
+          console.log("Address selected:", address);
+
+          const restaurantLatRaw =
+            cartRestaurantLatitude ?? cartItems[0]?.seller_latitude ?? null;
+          const restaurantLngRaw =
+            cartRestaurantLongitude ?? cartItems[0]?.seller_longitude ?? null;
+
+          const restaurantLat =
+            typeof restaurantLatRaw === "number" ? restaurantLatRaw : Number(restaurantLatRaw);
+          const restaurantLng =
+            typeof restaurantLngRaw === "number" ? restaurantLngRaw : Number(restaurantLngRaw);
+
+          const addrLat = address.latitude == null ? NaN : Number(address.latitude);
+          const addrLng = address.longitude == null ? NaN : Number(address.longitude);
+
+          console.log("Restaurant location:", {
+            lat: restaurantLat,
+            lng: restaurantLng,
           });
-        }
-      }} selectedAddress={selectedAddress} />
+
+          // Check if address is within 10km of restaurant
+          if (
+            Number.isFinite(restaurantLat) &&
+            Number.isFinite(restaurantLng) &&
+            Number.isFinite(addrLat) &&
+            Number.isFinite(addrLng)
+          ) {
+            const distance = calculateDistance(addrLat, addrLng, restaurantLat, restaurantLng);
+            console.log("Calculated distance:", distance, "km");
+
+            if (distance > 10) {
+              setAttemptedAddress({
+                label: address.label,
+                address: address.address,
+                latitude: addrLat,
+                longitude: addrLng,
+              });
+              setShowDeliveryNotAvailableModal(true);
+              setShowAddressSelector(false);
+              return;
+            }
+          } else {
+            console.log("Missing/invalid coordinates - Restaurant:", {
+              restaurantLat,
+              restaurantLng,
+            }, "Address:", {
+              addrLat,
+              addrLng,
+            });
+          }
+
+          // Address is valid, update it
+          setSelectedAddress({
+            ...address,
+            latitude: Number.isFinite(addrLat) ? addrLat : address.latitude,
+            longitude: Number.isFinite(addrLng) ? addrLng : address.longitude,
+          });
+
+          if (Number.isFinite(addrLat) && Number.isFinite(addrLng)) {
+            setUserLocation({
+              lat: addrLat,
+              lng: addrLng,
+            });
+          }
+        }}
+        selectedAddress={selectedAddress}
+      />
 
       {/* Login Modal */}
       <LoginForm isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onSuccess={userData => {

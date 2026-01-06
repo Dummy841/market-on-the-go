@@ -110,24 +110,13 @@ export const Header = () => {
         if (permission.state === 'granted') {
           getCurrentLocation();
         } else if (permission.state === 'prompt') {
-          navigator.geolocation.getCurrentPosition(position => {
-            setLocationGranted(true);
-            reverseGeocode(position.coords.latitude, position.coords.longitude);
-          }, error => {
-            console.error('Location access denied:', error);
-            setCurrentLocation("Enable location");
-            toast({
-              title: "Location Access",
-              description: "Please enable location access to see nearby restaurants",
-              variant: "destructive"
-            });
-          });
+          getCurrentLocation();
         } else {
           setCurrentLocation("Enable location");
         }
       } catch (error) {
         console.error('Error requesting location:', error);
-        setCurrentLocation("Select Location");
+        getCurrentLocation(); // Try anyway on error
       }
     } else {
       setCurrentLocation("Select Location");
@@ -135,13 +124,33 @@ export const Header = () => {
   };
 
   const getCurrentLocation = () => {
-    navigator.geolocation.getCurrentPosition(position => {
-      setLocationGranted(true);
-      reverseGeocode(position.coords.latitude, position.coords.longitude);
-    }, error => {
-      console.error('Error getting location:', error);
-      setCurrentLocation("Select Location");
-    });
+    setCurrentLocation("Detecting...");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationGranted(true);
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(`Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
+        reverseGeocode(latitude, longitude);
+      }, 
+      (error) => {
+        console.error('Error getting location:', error);
+        if (error.code === error.PERMISSION_DENIED) {
+          setCurrentLocation("Enable location");
+          toast({
+            title: "Location Access",
+            description: "Please enable location access to see nearby restaurants",
+            variant: "destructive"
+          });
+        } else {
+          setCurrentLocation("Select Location");
+        }
+      },
+      { 
+        enableHighAccuracy: true, 
+        timeout: 15000, 
+        maximumAge: 0 // Always get fresh location
+      }
+    );
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {

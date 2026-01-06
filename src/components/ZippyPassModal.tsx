@@ -79,26 +79,28 @@ export const ZippyPassModal = ({
         setIsLoading(false);
         return;
       }
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      const {
-        error
-      } = await supabase.from('user_otp').insert({
-        mobile: mobile,
-        otp_code: otpCode,
-        expires_at: expiresAt.toISOString()
+
+      // Send OTP via MSG91 edge function
+      const { data, error } = await supabase.functions.invoke('send-msg91-otp', {
+        body: { mobile, action: 'zippy_pass' }
       });
+
       if (error) throw error;
-      toast({
-        title: "OTP Sent",
-        description: `Your OTP is: ${otpCode} (Valid for 5 minutes)`
-      });
-      setLoginStep('verify');
-      setResendTimer(10);
-    } catch (error) {
+
+      if (data.success) {
+        toast({
+          title: "OTP Sent",
+          description: "Please check your SMS for the OTP"
+        });
+        setLoginStep('verify');
+        setResendTimer(30);
+      } else {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to send OTP. Please try again.",
+        description: error.message || "Failed to send OTP. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -159,25 +161,26 @@ export const ZippyPassModal = ({
     if (resendTimer > 0) return;
     setIsLoading(true);
     try {
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      const {
-        error
-      } = await supabase.from('user_otp').insert({
-        mobile: mobile,
-        otp_code: otpCode,
-        expires_at: expiresAt.toISOString()
+      // Send OTP via MSG91 edge function
+      const { data, error } = await supabase.functions.invoke('send-msg91-otp', {
+        body: { mobile, action: 'zippy_pass' }
       });
+
       if (error) throw error;
-      toast({
-        title: "OTP Resent",
-        description: `Your new OTP is: ${otpCode} (Valid for 5 minutes)`
-      });
-      setResendTimer(10);
-    } catch (error) {
+
+      if (data.success) {
+        toast({
+          title: "OTP Resent",
+          description: "Please check your SMS for the new OTP"
+        });
+        setResendTimer(30);
+      } else {
+        throw new Error(data.error || 'Failed to resend OTP');
+      }
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to resend OTP. Please try again.",
+        description: error.message || "Failed to resend OTP. Please try again.",
         variant: "destructive"
       });
     } finally {

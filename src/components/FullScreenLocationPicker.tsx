@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, MapPin, Search, Crosshair } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
-import { supabase } from '@/integrations/supabase/client';
 
 interface FullScreenLocationPickerProps {
   open: boolean;
@@ -28,7 +27,7 @@ const FullScreenLocationPicker = ({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
-  const { isLoaded } = useGoogleMaps();
+  const { isLoaded, loadError } = useGoogleMaps();
   
   // Get current location when component opens
   useEffect(() => {
@@ -36,95 +35,97 @@ const FullScreenLocationPicker = ({
       setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const { latitude, longitude } = position.coords;
+          const { latitude, longitude, accuracy } = position.coords;
+          console.log(`FullScreenLocationPicker: Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
           setSelectedLat(latitude);
           setSelectedLng(longitude);
           reverseGeocode(latitude, longitude);
+          if (map) {
+            map.panTo({ lat: latitude, lng: longitude });
+            map.setZoom(17);
+          }
           setIsLocating(false);
         },
         (error) => {
-          console.error('Error getting current location:', error);
+          console.error("Error getting current location:", error);
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
-  }, [open]);
+  }, [open, map]);
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      // First try Google Maps Geocoding API for more accurate results
-      try {
-        const { data: keyData } = await supabase.functions.invoke('get-google-maps-key');
-        if (keyData?.apiKey) {
-          const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${keyData.apiKey}`
+      // Prefer in-browser Google Maps Geocoder when Maps is loaded (most accurate)
+      if (
+        isLoaded &&
+        typeof window !== "undefined" &&
+        window.google?.maps?.Geocoder
+      ) {
+        const geocoder = new window.google.maps.Geocoder();
+        const result = await geocoder.geocode({ location: { lat, lng } });
+        const first = result.results?.[0];
+
+        if (first) {
+          const comps = first.address_components || [];
+          const pick = (types: string[]) =>
+            comps.find((c) => types.some((t) => c.types.includes(t)))?.long_name;
+
+          const areaName =
+            pick(["neighborhood", "sublocality", "sublocality_level_1"]) ||
+            pick(["locality"]) ||
+            "Selected Location";
+
+          const state = pick(["administrative_area_level_1"]);
+          const postal = pick(["postal_code"]);
+          const country = pick(["country"]);
+
+          setLocationName(areaName);
+          setLocationAddress(
+            [areaName, state, postal, country].filter(Boolean).join(", ")
           );
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.results && data.results.length > 0) {
-              // Find the locality/sublocality from address components
-              const addressComponents = data.results[0].address_components;
-              const locality = addressComponents?.find((c: any) => 
-                c.types.includes('locality') || c.types.includes('sublocality') || c.types.includes('sublocality_level_1')
-              );
-              const area = addressComponents?.find((c: any) => 
-                c.types.includes('neighborhood') || c.types.includes('sublocality_level_2')
-              );
-              const state = addressComponents?.find((c: any) => c.types.includes('administrative_area_level_1'));
-              const country = addressComponents?.find((c: any) => c.types.includes('country'));
-              const postalCode = addressComponents?.find((c: any) => c.types.includes('postal_code'));
-              
-              // Get detailed area name
-              const areaName = area?.long_name || locality?.long_name || "Selected Location";
-              const fullAddress = `${areaName}, ${state?.short_name || ''} ${postalCode?.long_name || ''}, ${country?.long_name || ''}`.replace(/,\s*,/g, ',').trim();
-              
-              setLocationName(areaName);
-              setLocationAddress(fullAddress);
-              return;
-            }
-          }
+          return;
         }
-      } catch (gmError) {
-        console.log('Google Maps geocoding failed, falling back to Nominatim:', gmError);
       }
-      
+
       // Fallback to Nominatim for reverse geocoding
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { 'accept-language': 'en' } }
+        { headers: { "accept-language": "en" } }
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         const address = data.address;
-        
+
         // Priority order: hamlet > village > locality > neighbourhood > suburb > town > city
-        const areaName = address?.hamlet || 
-                         address?.village || 
-                         address?.locality ||
-                         address?.neighbourhood ||
-                         address?.suburb || 
-                         address?.town ||
-                         address?.city ||
-                         "Selected Location";
-        
+        const areaName =
+          address?.hamlet ||
+          address?.village ||
+          address?.locality ||
+          address?.neighbourhood ||
+          address?.suburb ||
+          address?.town ||
+          address?.city ||
+          "Selected Location";
+
         setLocationName(areaName);
-        
-        // Build full address
+
         const fullAddress = [
           areaName,
           address?.state,
           address?.postcode,
-          address?.country
-        ].filter(Boolean).join(', ');
-        
+          address?.country,
+        ]
+          .filter(Boolean)
+          .join(", ");
+
         setLocationAddress(fullAddress);
       }
     } catch (error) {
-      console.error('Reverse geocoding error:', error);
-      setLocationName('Selected Location');
+      console.error("Reverse geocoding error:", error);
+      setLocationName("Selected Location");
       setLocationAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
     }
   };
@@ -166,14 +167,15 @@ const FullScreenLocationPicker = ({
       setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const { latitude, longitude } = position.coords;
+          const { latitude, longitude, accuracy } = position.coords;
+          console.log(`Current location button: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
           setSelectedLat(latitude);
           setSelectedLng(longitude);
           reverseGeocode(latitude, longitude);
           
           if (map) {
             map.panTo({ lat: latitude, lng: longitude });
-            map.setZoom(16);
+            map.setZoom(17);
           }
           setIsLocating(false);
         },
@@ -181,7 +183,7 @@ const FullScreenLocationPicker = ({
           console.error('Error getting current location:', error);
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
   };
@@ -213,7 +215,24 @@ const FullScreenLocationPicker = ({
       
       {/* Map Container */}
       <div className="flex-1 relative">
-        {!isLoaded ? (
+        {loadError ? (
+          <div className="h-full flex items-center justify-center bg-muted p-6">
+            <div className="text-center max-w-sm">
+              <p className="font-semibold text-foreground">Map not available</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Google Maps is blocked by your API key settings. Console shows a billing error.
+                Enable billing for the Google project linked to this key, then reload.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => reverseGeocode(selectedLat, selectedLng)}
+              >
+                Refresh address
+              </Button>
+            </div>
+          </div>
+        ) : !isLoaded ? (
           <div className="h-full flex items-center justify-center bg-muted">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
@@ -223,7 +242,7 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '100%' }}
+              mapContainerStyle={{ width: "100%", height: "100%" }}
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={onLoad}
@@ -234,6 +253,7 @@ const FullScreenLocationPicker = ({
                 streetViewControl: false,
                 mapTypeControl: false,
                 fullscreenControl: false,
+                clickableIcons: false,
               }}
             >
               <Marker
@@ -241,12 +261,12 @@ const FullScreenLocationPicker = ({
                 draggable={true}
                 onDragEnd={handleMarkerDragEnd}
                 icon={{
-                  url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                  scaledSize: new google.maps.Size(50, 50)
+                  url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                  scaledSize: new google.maps.Size(50, 50),
                 }}
               />
             </GoogleMap>
-            
+
             {/* Current Location Button */}
             <Button
               onClick={handleCurrentLocation}
@@ -254,7 +274,10 @@ const FullScreenLocationPicker = ({
               variant="outline"
               className="absolute bottom-44 left-1/2 -translate-x-1/2 bg-background shadow-lg rounded-full px-4 h-10"
             >
-              <Crosshair className={`h-4 w-4 mr-2 ${isLocating ? 'animate-pulse' : ''}`} style={{ color: 'hsl(var(--primary))' }} />
+              <Crosshair
+                className={`h-4 w-4 mr-2 ${isLocating ? "animate-pulse" : ""}`}
+                style={{ color: "hsl(var(--primary))" }}
+              />
               <span>Current location</span>
             </Button>
           </>
