@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, MapPin, Search, Crosshair } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
+import { toast } from '@/hooks/use-toast';
 
 interface FullScreenLocationPickerProps {
   open: boolean;
@@ -29,6 +30,14 @@ const FullScreenLocationPicker = ({
   const [isLocating, setIsLocating] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
   
+  // Resolve an address immediately when the picker opens
+  useEffect(() => {
+    if (!open) return;
+    setSearchQuery('');
+    reverseGeocode(selectedLat, selectedLng);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Get current location when component opens
   useEffect(() => {
     if (open && navigator.geolocation) {
@@ -36,7 +45,9 @@ const FullScreenLocationPicker = ({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords;
-          console.log(`FullScreenLocationPicker: Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
+          console.log(
+            `FullScreenLocationPicker: Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`
+          );
           setSelectedLat(latitude);
           setSelectedLng(longitude);
           reverseGeocode(latitude, longitude);
@@ -47,13 +58,18 @@ const FullScreenLocationPicker = ({
           setIsLocating(false);
         },
         (error) => {
-          console.error("Error getting current location:", error);
+          console.error('Error getting current location:', error);
+          toast({
+            title: 'Location error',
+            description: 'Please allow location permission and try again.',
+            variant: 'destructive',
+          });
           setIsLocating(false);
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
-  }, [open, map]);
+  }, [open, map, toast]);
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
@@ -159,7 +175,12 @@ const FullScreenLocationPicker = ({
   };
 
   const handleConfirm = () => {
-    onLocationSelect(selectedLat, selectedLng, locationAddress || `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`);
+    onLocationSelect(
+      selectedLat,
+      selectedLng,
+      locationAddress || `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`
+    );
+    onClose();
   };
 
   const handleCurrentLocation = () => {
@@ -168,11 +189,13 @@ const FullScreenLocationPicker = ({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords;
-          console.log(`Current location button: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
+          console.log(
+            `Current location button: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`
+          );
           setSelectedLat(latitude);
           setSelectedLng(longitude);
           reverseGeocode(latitude, longitude);
-          
+
           if (map) {
             map.panTo({ lat: latitude, lng: longitude });
             map.setZoom(17);
@@ -181,6 +204,11 @@ const FullScreenLocationPicker = ({
         },
         (error) => {
           console.error('Error getting current location:', error);
+          toast({
+            title: 'Location error',
+            description: 'Please allow location permission and try again.',
+            variant: 'destructive',
+          });
           setIsLocating(false);
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -193,10 +221,10 @@ const FullScreenLocationPicker = ({
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
       {/* Header with Search */}
-      <div className="bg-background p-4 flex items-center gap-3 border-b">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+      <div className="relative z-20 bg-background p-4 flex items-center gap-3 border-b">
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onClose}
           className="h-10 w-10 rounded-full"
         >
@@ -272,11 +300,11 @@ const FullScreenLocationPicker = ({
               onClick={handleCurrentLocation}
               disabled={isLocating}
               variant="outline"
-              className="absolute bottom-44 left-1/2 -translate-x-1/2 bg-background shadow-lg rounded-full px-4 h-10"
+              className="absolute bottom-44 left-1/2 -translate-x-1/2 z-20 bg-background shadow-lg rounded-full px-4 h-10"
             >
               <Crosshair
-                className={`h-4 w-4 mr-2 ${isLocating ? "animate-pulse" : ""}`}
-                style={{ color: "hsl(var(--primary))" }}
+                className={`h-4 w-4 mr-2 ${isLocating ? 'animate-pulse' : ''}`}
+                style={{ color: 'hsl(var(--primary))' }}
               />
               <span>Current location</span>
             </Button>
@@ -285,10 +313,10 @@ const FullScreenLocationPicker = ({
       </div>
       
       {/* Bottom Sheet */}
-      <div className="bg-background rounded-t-3xl shadow-2xl p-5 pb-8">
+      <div className="relative z-20 bg-background rounded-t-3xl shadow-2xl p-5 pb-8">
         <p className="text-sm text-muted-foreground mb-1">Place the pin at exact delivery location</p>
         <p className="text-xs text-muted-foreground mb-3">Order will be delivered here</p>
-        
+
         <div className="flex items-start gap-3 mb-5">
           <MapPin className="h-6 w-6 shrink-0" style={{ color: 'hsl(var(--primary))' }} />
           <div className="flex-1 min-w-0">
@@ -296,8 +324,8 @@ const FullScreenLocationPicker = ({
             <p className="text-sm text-muted-foreground line-clamp-2">{locationAddress}</p>
           </div>
         </div>
-        
-        <Button 
+
+        <Button
           onClick={handleConfirm}
           className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-medium rounded-xl"
         >

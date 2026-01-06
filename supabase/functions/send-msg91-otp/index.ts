@@ -22,20 +22,13 @@ serve(async (req) => {
       );
     }
 
+    // TEST MODE: Use a fixed OTP until real SMS OTP is enabled
+    const otpCode = '123456';
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Optional (real SMS) credentials
     const authKey = Deno.env.get('MSG91_AUTH_KEY');
     const templateId = Deno.env.get('MSG91_TEMPLATE_ID');
-
-    if (!authKey || !templateId) {
-      console.error('MSG91 credentials not configured');
-      return new Response(
-        JSON.stringify({ success: false, error: 'SMS service not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Generate 6-digit OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -59,43 +52,51 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP via MSG91
-    const msg91Response = await fetch(
-      `https://control.msg91.com/api/v5/otp?template_id=${templateId}&mobile=91${mobile}&otp=${otpCode}`,
-      {
-        method: 'POST',
-        headers: {
-          'authkey': authKey,
-          'Content-Type': 'application/json'
+    // Send OTP via MSG91 (optional)
+    if (authKey && templateId) {
+      const msg91Response = await fetch(
+        `https://control.msg91.com/api/v5/otp?template_id=${templateId}&mobile=91${mobile}&otp=${otpCode}`,
+        {
+          method: 'POST',
+          headers: {
+            authkey: authKey,
+            'Content-Type': 'application/json',
+          },
         }
-      }
-    );
-
-    const msg91Result = await msg91Response.json();
-    console.log('MSG91 Response:', msg91Result);
-
-    if (msg91Result.type === 'success' || msg91Result.type === 'SUCCESS') {
-      return new Response(
-        JSON.stringify({ success: true, message: 'OTP sent successfully' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } else {
+
+      const msg91Result = await msg91Response.json();
+      console.log('MSG91 Response:', msg91Result);
+
+      if (msg91Result.type === 'success' || msg91Result.type === 'SUCCESS') {
+        return new Response(
+          JSON.stringify({ success: true, message: 'OTP sent successfully' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       console.error('MSG91 Error:', msg91Result);
-      // Still return success since OTP is stored in DB - can be used for testing
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'OTP generated',
-          debug: msg91Result.message || 'SMS delivery may be delayed'
+        JSON.stringify({
+          success: true,
+          message: 'OTP generated (test mode: use 123456)',
+          debug: msg91Result.message || 'SMS delivery may be delayed',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-  } catch (error) {
-    console.error('Error in send-msg91-otp function:', error);
+    // If MSG91 creds are not configured, still allow login/register with test OTP
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: true, message: 'OTP generated (test mode: use 123456)' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error in send-msg91-otp function:', message);
+    return new Response(
+      JSON.stringify({ success: false, error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
