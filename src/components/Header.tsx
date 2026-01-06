@@ -256,6 +256,20 @@ export const Header = () => {
   };
 
   const handleLogout = () => {
+    // Clear saved address so logged-out users fall back to device/current location
+    localStorage.removeItem('selectedAddress');
+    setSelectedAddress(null);
+
+    const lat = localStorage.getItem('currentLat');
+    const lng = localStorage.getItem('currentLng');
+    if (lat && lng) {
+      window.dispatchEvent(
+        new CustomEvent('addressChanged', {
+          detail: { latitude: parseFloat(lat), longitude: parseFloat(lng) },
+        })
+      );
+    }
+
     logout();
   };
 
