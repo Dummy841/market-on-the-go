@@ -30,46 +30,23 @@ const FullScreenLocationPicker = ({
   const [isLocating, setIsLocating] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
   
-  // Resolve an address immediately when the picker opens
+  // When the picker opens, prefer last known device location (stored by Header)
   useEffect(() => {
     if (!open) return;
-    setSearchQuery('');
-    reverseGeocode(selectedLat, selectedLng);
+
+    setSearchQuery("");
+
+    const storedLat = localStorage.getItem("currentLat");
+    const storedLng = localStorage.getItem("currentLng");
+
+    const nextLat = storedLat ? parseFloat(storedLat) : selectedLat;
+    const nextLng = storedLng ? parseFloat(storedLng) : selectedLng;
+
+    setSelectedLat(nextLat);
+    setSelectedLng(nextLng);
+    reverseGeocode(nextLat, nextLng);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  // Get current location when component opens
-  useEffect(() => {
-    if (open && navigator.geolocation) {
-      setIsLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          console.log(
-            `FullScreenLocationPicker: Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`
-          );
-          setSelectedLat(latitude);
-          setSelectedLng(longitude);
-          reverseGeocode(latitude, longitude);
-          if (map) {
-            map.panTo({ lat: latitude, lng: longitude });
-            map.setZoom(17);
-          }
-          setIsLocating(false);
-        },
-        (error) => {
-          console.error('Error getting current location:', error);
-          toast({
-            title: 'Location error',
-            description: 'Please allow location permission and try again.',
-            variant: 'destructive',
-          });
-          setIsLocating(false);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
-    }
-  }, [open, map, toast]);
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
@@ -184,36 +161,48 @@ const FullScreenLocationPicker = ({
   };
 
   const handleCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setIsLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          console.log(
-            `Current location button: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`
-          );
-          setSelectedLat(latitude);
-          setSelectedLng(longitude);
-          reverseGeocode(latitude, longitude);
-
-          if (map) {
-            map.panTo({ lat: latitude, lng: longitude });
-            map.setZoom(17);
-          }
-          setIsLocating(false);
-        },
-        (error) => {
-          console.error('Error getting current location:', error);
-          toast({
-            title: 'Location error',
-            description: 'Please allow location permission and try again.',
-            variant: 'destructive',
-          });
-          setIsLocating(false);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
+    if (!navigator.geolocation) {
+      toast({
+        title: 'Location not available',
+        description: 'Geolocation is not supported by this browser.',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    setIsLocating(true);
+    toast({
+      title: 'Getting location',
+      description: 'Fetching your current location…',
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log(
+          `Current location button: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`
+        );
+        setSelectedLat(latitude);
+        setSelectedLng(longitude);
+        reverseGeocode(latitude, longitude);
+
+        if (map) {
+          map.panTo({ lat: latitude, lng: longitude });
+          map.setZoom(17);
+        }
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error('Error getting current location:', error);
+        toast({
+          title: 'Location error',
+          description: 'Please allow location permission and try again.',
+          variant: 'destructive',
+        });
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
   };
 
   if (!open) return null;
@@ -270,10 +259,14 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerStyle={{ width: "100%", height: "100%" }}
+              mapContainerClassName="w-full h-full touch-none"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
-              onLoad={onLoad}
+              onLoad={(m) => {
+                onLoad(m);
+                // Ensure the map becomes interactive immediately on mobile
+                m.setOptions({ gestureHandling: 'greedy' });
+              }}
               onUnmount={onUnmount}
               onClick={handleMapClick}
               options={{
@@ -282,6 +275,7 @@ const FullScreenLocationPicker = ({
                 mapTypeControl: false,
                 fullscreenControl: false,
                 clickableIcons: false,
+                gestureHandling: 'greedy',
               }}
             >
               <Marker
@@ -302,10 +296,7 @@ const FullScreenLocationPicker = ({
               variant="outline"
               className="absolute bottom-44 left-1/2 -translate-x-1/2 z-20 bg-background shadow-lg rounded-full px-4 h-10"
             >
-              <Crosshair
-                className={`h-4 w-4 mr-2 ${isLocating ? 'animate-pulse' : ''}`}
-                style={{ color: 'hsl(var(--primary))' }}
-              />
+              <Crosshair className={`h-4 w-4 mr-2 text-primary ${isLocating ? 'animate-pulse' : ''}`} />
               <span>Current location</span>
             </Button>
           </>
@@ -318,7 +309,7 @@ const FullScreenLocationPicker = ({
         <p className="text-xs text-muted-foreground mb-3">Order will be delivered here</p>
 
         <div className="flex items-start gap-3 mb-5">
-          <MapPin className="h-6 w-6 shrink-0" style={{ color: 'hsl(var(--primary))' }} />
+          <MapPin className="h-6 w-6 shrink-0 text-primary" />
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-lg">{locationName || 'Loading...'}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">{locationAddress}</p>
