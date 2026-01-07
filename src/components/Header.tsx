@@ -130,6 +130,14 @@ export const Header = () => {
         setLocationGranted(true);
         const { latitude, longitude, accuracy } = position.coords;
         console.log(`Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
+
+        // Update app listings immediately (restaurants/sellers) based on device location
+        window.dispatchEvent(
+          new CustomEvent('addressChanged', {
+            detail: { latitude, longitude },
+          })
+        );
+
         reverseGeocode(latitude, longitude);
       }, 
       (error) => {
