@@ -25,7 +25,7 @@ const editSellerSchema = z.object({
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['approved', 'pending', 'inactive']),
   is_online: z.boolean(),
-  category: z.enum(['food_delivery', 'instamart', 'dineout', 'services']),
+  category: z.enum(['food_delivery', 'instamart', 'dairy', 'services']),
 });
 
 type EditSellerFormData = z.infer<typeof editSellerSchema>;
@@ -316,15 +316,15 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
               <Label htmlFor="category">Category</Label>
               <Select
                 value={watch('category')}
-                onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dineout' | 'services')}
+                onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dairy' | 'services')}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="food_delivery">Food Delivery</SelectItem>
-                  <SelectItem value="instamart">Insta Mart</SelectItem>
-                  <SelectItem value="dineout">Dine Out</SelectItem>
+                  <SelectItem value="instamart">Instamart</SelectItem>
+                  <SelectItem value="dairy">Dairy</SelectItem>
                   <SelectItem value="services">Services</SelectItem>
                 </SelectContent>
               </Select>

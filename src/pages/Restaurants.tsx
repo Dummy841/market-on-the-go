@@ -16,8 +16,8 @@ const Restaurants = () => {
   const getCategoryTitle = () => {
     switch(category) {
       case 'food_delivery': return 'Food Delivery';
-      case 'instamart': return 'Insta Mart';
-      case 'dineout': return 'Dine Out';
+      case 'instamart': return 'Instamart';
+      case 'dairy': return 'Dairy Products';
       case 'services': return 'Services';
       default: return 'Restaurants';
     }
