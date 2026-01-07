@@ -259,7 +259,7 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-none"
+              mapContainerClassName="w-full h-full touch-auto"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={(m) => {
