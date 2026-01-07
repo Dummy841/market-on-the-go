@@ -24,7 +24,7 @@ const sellerSchema = z.object({
   seller_longitude: z.number().optional(),
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['active', 'inactive']).default('active'),
-  category: z.enum(['food_delivery', 'instamart', 'dineout', 'services']).default('food_delivery'),
+  category: z.enum(['food_delivery', 'instamart', 'dairy', 'services']).default('food_delivery'),
 });
 
 type SellerFormData = z.infer<typeof sellerSchema>;
@@ -292,15 +292,15 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             <Label htmlFor="category">Category</Label>
             <Select
               value={watch('category')}
-              onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dineout' | 'services')}
+              onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dairy' | 'services')}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="food_delivery">Food Delivery</SelectItem>
-                <SelectItem value="instamart">Insta Mart</SelectItem>
-                <SelectItem value="dineout">Dine Out</SelectItem>
+                <SelectItem value="instamart">Instamart</SelectItem>
+                <SelectItem value="dairy">Dairy</SelectItem>
                 <SelectItem value="services">Services</SelectItem>
               </SelectContent>
             </Select>
