@@ -30,36 +30,41 @@ const FullScreenLocationPicker = ({
   const [isLocating, setIsLocating] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
   
-  // When the picker opens, prefer last known device location (stored by Header)
+  // When the picker opens, get current location immediately
   useEffect(() => {
     if (!open) return;
 
     setSearchQuery("");
+    setIsLocating(true);
 
+    // Start with stored location or initial coords immediately (no waiting)
     const storedLat = localStorage.getItem("currentLat");
     const storedLng = localStorage.getItem("currentLng");
-
-    // Prefer header's current location; else use provided initial coords; else try geolocation.
+    
+    let startLat = 17.385044;
+    let startLng = 78.486671;
+    
     if (storedLat && storedLng) {
-      const nextLat = parseFloat(storedLat);
-      const nextLng = parseFloat(storedLng);
-      setSelectedLat(nextLat);
-      setSelectedLng(nextLng);
-      reverseGeocode(nextLat, nextLng);
-      return;
+      startLat = parseFloat(storedLat);
+      startLng = parseFloat(storedLng);
+    } else if (initialLat != null && initialLng != null) {
+      startLat = initialLat;
+      startLng = initialLng;
     }
+    
+    setSelectedLat(startLat);
+    setSelectedLng(startLng);
+    reverseGeocode(startLat, startLng);
 
-    if (initialLat != null && initialLng != null) {
-      setSelectedLat(initialLat);
-      setSelectedLng(initialLng);
-      reverseGeocode(initialLat, initialLng);
-      return;
-    }
-
+    // Now try to get fresh device location (don't block UI)
     if (navigator.geolocation) {
-      setIsLocating(true);
+      const timeoutId = window.setTimeout(() => {
+        setIsLocating(false);
+      }, 3000);
+
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          window.clearTimeout(timeoutId);
           const { latitude, longitude } = pos.coords;
           setSelectedLat(latitude);
           setSelectedLng(longitude);
@@ -71,14 +76,14 @@ const FullScreenLocationPicker = ({
           setIsLocating(false);
         },
         (err) => {
+          window.clearTimeout(timeoutId);
           console.error('Error getting current location:', err);
           setIsLocating(false);
-          reverseGeocode(selectedLat, selectedLng);
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
       );
     } else {
-      reverseGeocode(selectedLat, selectedLng);
+      setIsLocating(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -196,18 +201,16 @@ const FullScreenLocationPicker = ({
   };
 
   const handleCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      return;
-    }
+    if (!navigator.geolocation) return;
 
     setIsLocating(true);
+    
+    const timeoutId = window.setTimeout(() => setIsLocating(false), 3000);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        console.log(
-          `Current location button: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`
-        );
+        window.clearTimeout(timeoutId);
+        const { latitude, longitude } = position.coords;
         setSelectedLat(latitude);
         setSelectedLng(longitude);
         reverseGeocode(latitude, longitude);
@@ -219,10 +222,11 @@ const FullScreenLocationPicker = ({
         setIsLocating(false);
       },
       (error) => {
+        window.clearTimeout(timeoutId);
         console.error('Error getting current location:', error);
         setIsLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
   };
 

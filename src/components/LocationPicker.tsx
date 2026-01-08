@@ -26,7 +26,7 @@ const LocationPicker = ({
   const [gettingLocation, setGettingLocation] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
 
-  // Try to pan to current location when picker opens (map should still render even if this fails)
+  // Try to pan to current location when picker opens (map renders immediately)
   useEffect(() => {
     if (!open) return;
 
@@ -40,10 +40,10 @@ const LocationPicker = ({
 
     setGettingLocation(true);
 
+    // Short timeout - don't block UI
     const timeoutId = window.setTimeout(() => {
-      // If geolocation hangs/blocked, don't keep the UI stuck
       setGettingLocation(false);
-    }, 5000);
+    }, 3000);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -63,7 +63,7 @@ const LocationPicker = ({
         console.error('Error getting current location:', error);
         setGettingLocation(false);
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
   }, [open, initialLat, initialLng, map]);
 
@@ -98,8 +98,11 @@ const LocationPicker = ({
     if (!navigator.geolocation) return;
     
     setGettingLocation(true);
+    const timeoutId = window.setTimeout(() => setGettingLocation(false), 3000);
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        window.clearTimeout(timeoutId);
         const { latitude, longitude } = position.coords;
         setSelectedLat(latitude);
         setSelectedLng(longitude);
@@ -111,10 +114,11 @@ const LocationPicker = ({
         }
       },
       (error) => {
+        window.clearTimeout(timeoutId);
         console.error('Error getting location:', error);
         setGettingLocation(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
   };
 
