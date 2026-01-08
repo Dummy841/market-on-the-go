@@ -6,11 +6,12 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Star, Clock, MapPin, Plus, ChevronRight } from "lucide-react";
+import { ArrowLeft, Star, Clock, MapPin, Plus, ChevronRight, Info } from "lucide-react";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import { useCart } from "@/contexts/CartContext";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import restaurant1 from "@/assets/restaurant-1.jpg";
 import { calculateDistance, getDeliveryTime, formatDistance } from "@/lib/distanceUtils";
 interface Restaurant {
@@ -34,6 +35,7 @@ interface MenuItem {
   franchise_price: number;
   item_photo_url: string | null;
   is_active: boolean;
+  item_info?: string | null;
   average_rating?: number;
   total_ratings?: number;
 }
@@ -49,6 +51,8 @@ const RestaurantMenu = () => {
   const [similarRestaurants, setSimilarRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [showItemInfoModal, setShowItemInfoModal] = useState(false);
+  const [selectedItemInfo, setSelectedItemInfo] = useState<{ name: string; info: string } | null>(null);
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -431,15 +435,30 @@ const RestaurantMenu = () => {
                               ₹{item.seller_price}
                             </Badge>
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddToCart(item)}
-                            disabled={!item.is_active || restaurant.is_online === false}
-                            className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            {restaurant.is_online === false ? 'Offline' : 'ADD'}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {item.item_info && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedItemInfo({ name: item.item_name, info: item.item_info! });
+                                  setShowItemInfoModal(true);
+                                }}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddToCart(item)}
+                              disabled={!item.is_active || restaurant.is_online === false}
+                              className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              {restaurant.is_online === false ? 'Offline' : 'ADD'}
+                            </Button>
+                          </div>
                         </div>
 
                         {!item.is_active && (
@@ -522,6 +541,20 @@ const RestaurantMenu = () => {
           </Button>
         </div>
       )}
+
+      {/* Item Info Modal */}
+      <Dialog open={showItemInfoModal} onOpenChange={setShowItemInfoModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{selectedItemInfo?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {selectedItemInfo?.info}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
