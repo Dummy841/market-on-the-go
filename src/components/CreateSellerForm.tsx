@@ -297,7 +297,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 <SelectItem value="food_delivery">Food Delivery</SelectItem>
                 <SelectItem value="instamart">Instamart</SelectItem>
                 <SelectItem value="dairy">Dairy</SelectItem>
