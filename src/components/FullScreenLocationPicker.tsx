@@ -65,7 +65,13 @@ const FullScreenLocationPicker = ({
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           window.clearTimeout(timeoutId);
-          const { latitude, longitude } = pos.coords;
+          const { latitude, longitude, accuracy } = pos.coords;
+          // Only use location if accuracy is reasonable (< 5km)
+          if (accuracy && accuracy > 5000) {
+            console.warn('Location accuracy too low:', accuracy, 'm');
+            setIsLocating(false);
+            return;
+          }
           setSelectedLat(latitude);
           setSelectedLng(longitude);
           reverseGeocode(latitude, longitude);
@@ -80,7 +86,7 @@ const FullScreenLocationPicker = ({
           console.error('Error getting current location:', err);
           setIsLocating(false);
         },
-        { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
       );
     } else {
       setIsLocating(false);
@@ -210,7 +216,13 @@ const FullScreenLocationPicker = ({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         window.clearTimeout(timeoutId);
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
+        // Reject if accuracy is worse than 5km (IP-based location)
+        if (accuracy && accuracy > 5000) {
+          console.warn('Location accuracy too low:', accuracy, 'm');
+          setIsLocating(false);
+          return;
+        }
         setSelectedLat(latitude);
         setSelectedLng(longitude);
         reverseGeocode(latitude, longitude);
@@ -226,7 +238,7 @@ const FullScreenLocationPicker = ({
         console.error('Error getting current location:', error);
         setIsLocating(false);
       },
-      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   };
 

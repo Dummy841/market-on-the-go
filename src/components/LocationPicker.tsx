@@ -48,7 +48,13 @@ const LocationPicker = ({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         window.clearTimeout(timeoutId);
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
+        // Skip if accuracy > 5km (likely IP-based)
+        if (accuracy && accuracy > 5000) {
+          console.warn('Location accuracy too low:', accuracy, 'm');
+          setGettingLocation(false);
+          return;
+        }
         setSelectedLat(latitude);
         setSelectedLng(longitude);
         setGettingLocation(false);
@@ -63,7 +69,7 @@ const LocationPicker = ({
         console.error('Error getting current location:', error);
         setGettingLocation(false);
       },
-      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   }, [open, initialLat, initialLng, map]);
 
@@ -103,7 +109,13 @@ const LocationPicker = ({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         window.clearTimeout(timeoutId);
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
+        // Skip if accuracy > 5km (IP-based)
+        if (accuracy && accuracy > 5000) {
+          console.warn('Location accuracy too low:', accuracy, 'm');
+          setGettingLocation(false);
+          return;
+        }
         setSelectedLat(latitude);
         setSelectedLng(longitude);
         setGettingLocation(false);
@@ -118,7 +130,7 @@ const LocationPicker = ({
         console.error('Error getting location:', error);
         setGettingLocation(false);
       },
-      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   };
 
