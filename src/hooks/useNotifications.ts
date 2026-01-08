@@ -87,6 +87,10 @@ export const useNotifications = () => {
         title: 'Order Delivered! ✅',
         body: `Enjoy your meal from ${sellerName}! Don't forget to rate your experience.`,
       },
+      rejected: {
+        title: 'Order Rejected ❌',
+        body: `${sellerName} was unable to accept your order. Your amount will be refunded shortly.`,
+      },
     };
 
     const message = statusMessages[status];

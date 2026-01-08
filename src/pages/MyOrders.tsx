@@ -219,12 +219,9 @@ export const MyOrders = () => {
 
                   {/* Rejected Order Message */}
                   {order.status === 'rejected' && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
-                      <p className="text-sm text-red-700 font-medium">
-                        Order Rejected by Seller
-                      </p>
-                      <p className="text-xs text-red-600 mt-1">
-                        Your amount will be refunded shortly
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-orange-700 font-medium">
+                        Order Rejected by Seller - Your amount will be refunded shortly
                       </p>
                     </div>
                   )}
