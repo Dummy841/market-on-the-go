@@ -58,37 +58,62 @@ export const Header = () => {
   
   const loadSelectedAddress = async () => {
     if (!user) return;
-    
-    // First check localStorage for selected address
+
+    const dispatchAddressChanged = (latitude?: number, longitude?: number) => {
+      if (latitude == null || longitude == null) return;
+
+      const last = lastDispatchedLocationRef.current;
+      const next = { lat: latitude, lng: longitude };
+      const changed =
+        !last ||
+        Math.abs(last.lat - next.lat) > 0.0001 ||
+        Math.abs(last.lng - next.lng) > 0.0001;
+
+      if (changed) {
+        lastDispatchedLocationRef.current = next;
+        window.dispatchEvent(
+          new CustomEvent('addressChanged', {
+            detail: { latitude, longitude },
+          })
+        );
+      }
+    };
+
+    // First check localStorage for selected address (preferred; includes coordinates)
     const storedAddress = localStorage.getItem('selectedAddress');
     if (storedAddress) {
       try {
-        setSelectedAddress(JSON.parse(storedAddress));
+        const parsed = JSON.parse(storedAddress);
+        setSelectedAddress(parsed);
+        dispatchAddressChanged(parsed.latitude, parsed.longitude);
         return;
       } catch (error) {
         console.error('Error parsing stored address:', error);
       }
     }
-    
+
     // Fallback to loading from database
     try {
       const { data, error } = await supabase
         .from('user_addresses')
-        .select('label, full_address')
+        .select('label, full_address, latitude, longitude')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
         .limit(1)
         .single();
-      
+
       if (error) throw error;
-      
+
       if (data) {
         const addressData = {
           label: data.label,
-          address: data.full_address
+          address: data.full_address,
+          latitude: data.latitude,
+          longitude: data.longitude,
         };
         setSelectedAddress(addressData);
         localStorage.setItem('selectedAddress', JSON.stringify(addressData));
+        dispatchAddressChanged(data.latitude, data.longitude);
       }
     } catch (error) {
       console.error('No saved addresses found');
