@@ -33,6 +33,10 @@ export const Header = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Prevent rapid re-dispatch of the same device location (causes re-fetch loops)
+  const lastDispatchedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+
   const {
     user,
     login,
@@ -131,15 +135,22 @@ export const Header = () => {
         const { latitude, longitude, accuracy } = position.coords;
         console.log(`Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
 
-        // Update app listings immediately (restaurants/sellers) based on device location
-        window.dispatchEvent(
-          new CustomEvent('addressChanged', {
-            detail: { latitude, longitude },
-          })
-        );
+        // Update listings only when device location actually changes (prevents blinking loops)
+        const last = lastDispatchedLocationRef.current;
+        const next = { lat: latitude, lng: longitude };
+        const changed = !last || Math.abs(last.lat - next.lat) > 0.0001 || Math.abs(last.lng - next.lng) > 0.0001;
+
+        if (changed) {
+          lastDispatchedLocationRef.current = next;
+          window.dispatchEvent(
+            new CustomEvent('addressChanged', {
+              detail: { latitude, longitude },
+            })
+          );
+        }
 
         reverseGeocode(latitude, longitude);
-      }, 
+      },
       (error) => {
         console.error('Error getting location:', error);
         if (error.code === error.PERMISSION_DENIED) {
@@ -153,9 +164,9 @@ export const Header = () => {
           setCurrentLocation("Select Location");
         }
       },
-      { 
-        enableHighAccuracy: true, 
-        timeout: 15000, 
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
         maximumAge: 0 // Always get fresh location
       }
     );
