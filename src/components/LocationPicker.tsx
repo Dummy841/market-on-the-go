@@ -24,51 +24,47 @@ const LocationPicker = ({
   const [selectedLng, setSelectedLng] = useState(initialLng || 78.486671);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [locationReady, setLocationReady] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
 
-  // Get current location immediately when dialog opens
+  // Try to pan to current location when picker opens (map should still render even if this fails)
   useEffect(() => {
-    if (open) {
-      setLocationReady(false);
-      
-      // If we have valid initial coordinates, use them
-      if (initialLat && initialLng && initialLat !== 28.6139) {
-        setSelectedLat(initialLat);
-        setSelectedLng(initialLng);
-        setLocationReady(true);
-        return;
-      }
+    if (!open) return;
 
-      // Otherwise get current location immediately
-      setGettingLocation(true);
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            setSelectedLat(latitude);
-            setSelectedLng(longitude);
-            setGettingLocation(false);
-            setLocationReady(true);
-            
-            // Pan map to location
-            if (map) {
-              map.panTo({ lat: latitude, lng: longitude });
-              map.setZoom(16);
-            }
-          },
-          (error) => {
-            console.error('Error getting current location:', error);
-            setGettingLocation(false);
-            setLocationReady(true);
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      } else {
-        setGettingLocation(false);
-        setLocationReady(true);
-      }
+    // Always initialize with provided coords if available
+    if (initialLat != null && initialLng != null) {
+      setSelectedLat(initialLat);
+      setSelectedLng(initialLng);
     }
+
+    if (!navigator.geolocation) return;
+
+    setGettingLocation(true);
+
+    const timeoutId = window.setTimeout(() => {
+      // If geolocation hangs/blocked, don't keep the UI stuck
+      setGettingLocation(false);
+    }, 5000);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        window.clearTimeout(timeoutId);
+        const { latitude, longitude } = position.coords;
+        setSelectedLat(latitude);
+        setSelectedLng(longitude);
+        setGettingLocation(false);
+
+        if (map) {
+          map.panTo({ lat: latitude, lng: longitude });
+          map.setZoom(16);
+        }
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        console.error('Error getting current location:', error);
+        setGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
   }, [open, initialLat, initialLng, map]);
 
   const onLoad = useCallback((mapInstance: google.maps.Map) => {
@@ -153,13 +149,11 @@ const LocationPicker = ({
               </p>
             </div>
           </div>
-        ) : !isLoaded || !locationReady ? (
+        ) : !isLoaded ? (
           <div className="h-full flex items-center justify-center bg-muted">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm text-muted-foreground">
-                {gettingLocation ? 'Getting your current location...' : 'Loading map...'}
-              </p>
+              <p className="text-sm text-muted-foreground">Loading map...</p>
             </div>
           </div>
         ) : (
@@ -186,18 +180,18 @@ const LocationPicker = ({
                 onDragEnd={handleMarkerDragEnd}
                 icon={{
                   url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                  scaledSize: new google.maps.Size(40, 40)
+                  scaledSize: new google.maps.Size(40, 40),
                 }}
               />
             </GoogleMap>
-            
+
             {/* Current Location Button */}
             <Button
               variant="secondary"
               size="sm"
               onClick={handleGetCurrentLocation}
               disabled={gettingLocation}
-              className="absolute top-4 right-4 gap-2 bg-white shadow-md hover:bg-gray-50"
+              className="absolute top-4 right-4 gap-2 bg-background shadow-md"
             >
               <Crosshair className={`h-4 w-4 ${gettingLocation ? 'animate-pulse' : ''}`} />
               {gettingLocation ? 'Locating...' : 'Current Location'}
@@ -223,7 +217,6 @@ const LocationPicker = ({
         <Button 
           onClick={handleConfirm}
           className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white text-lg font-medium rounded-lg"
-          disabled={!locationReady}
         >
           Confirm & proceed
         </Button>
