@@ -59,14 +59,9 @@ const SellerEarningsDashboard = () => {
       } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status').eq('seller_id', seller.id).gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
         ascending: false
       });
-      
+
       // Filter to only include delivered or rejected orders
-      const filteredData = (data || []).filter(order => 
-        order.status === 'delivered' || 
-        order.status === 'rejected' || 
-        order.seller_status === 'delivered' || 
-        order.seller_status === 'rejected'
-      );
+      const filteredData = (data || []).filter(order => order.status === 'delivered' || order.status === 'rejected' || order.seller_status === 'delivered' || order.seller_status === 'rejected');
       if (error) throw error;
       setOrders(filteredData);
       calculateEarnings(filteredData);
@@ -87,7 +82,6 @@ const SellerEarningsDashboard = () => {
     let totalRevenue = 0;
     let totalEarnings = 0;
     let totalPenalty = 0;
-    
     ordersData.forEach(order => {
       const dateKey = format(parseISO(order.created_at), 'yyyy-MM-dd');
       const isRejected = order.status === 'rejected' || order.seller_status === 'rejected';
@@ -95,7 +89,6 @@ const SellerEarningsDashboard = () => {
       // Calculate seller earnings from items (only for delivered orders)
       let orderSellerEarnings = 0;
       let orderPenalty = 0;
-      
       if (isRejected) {
         orderPenalty = REJECTION_PENALTY;
       } else if (Array.isArray(order.items)) {
@@ -105,7 +98,6 @@ const SellerEarningsDashboard = () => {
           orderSellerEarnings += itemTotal - deduction;
         });
       }
-      
       const existing = earningsByDate.get(dateKey) || {
         date: dateKey,
         totalOrders: 0,
@@ -114,7 +106,6 @@ const SellerEarningsDashboard = () => {
         sellerEarnings: 0,
         rejectionPenalty: 0
       };
-      
       earningsByDate.set(dateKey, {
         date: dateKey,
         totalOrders: existing.totalOrders + (isRejected ? 0 : 1),
@@ -123,7 +114,6 @@ const SellerEarningsDashboard = () => {
         sellerEarnings: existing.sellerEarnings + orderSellerEarnings,
         rejectionPenalty: existing.rejectionPenalty + orderPenalty
       });
-      
       if (isRejected) {
         rejectedOrders++;
         totalPenalty += orderPenalty;
@@ -158,11 +148,9 @@ const SellerEarningsDashboard = () => {
       return sum + (item.seller_price || 0) * (item.quantity || 1);
     }, 0);
   };
-  
   const isOrderRejected = (order: Order) => {
     return order.status === 'rejected' || order.seller_status === 'rejected';
   };
-  
   const getOrderEarnings = (order: Order) => {
     if (isOrderRejected(order)) {
       return -10; // ₹10 penalty for rejected orders
@@ -223,9 +211,7 @@ const SellerEarningsDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Rejected Orders</p>
                 <p className="text-2xl font-bold text-red-600">{totalStats.rejectedOrders}</p>
-                {totalStats.rejectedOrders > 0 && (
-                  <p className="text-xs text-red-500">-{formatCurrency(totalStats.totalPenalty)} penalty</p>
-                )}
+                {totalStats.rejectedOrders > 0 && <p className="text-xs text-red-500">-{formatCurrency(totalStats.totalPenalty)} penalty</p>}
               </div>
             </div>
           </CardContent>
@@ -254,9 +240,8 @@ const SellerEarningsDashboard = () => {
         <CardContent>
           {loading ? <p className="text-muted-foreground">Loading...</p> : dailyEarnings.length === 0 ? <p className="text-muted-foreground">No orders in this date range.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {dailyEarnings.map(day => {
-                const netEarnings = day.sellerEarnings - day.rejectionPenalty;
-                return (
-                  <Card key={day.date} className="border-l-4 border-l-primary">
+            const netEarnings = day.sellerEarnings - day.rejectionPenalty;
+            return <Card key={day.date} className="border-l-4 border-l-primary">
                     <CardContent className="pt-4">
                       <p className="text-sm font-medium text-muted-foreground">
                         {format(parseISO(day.date), 'dd MMM yyyy')}
@@ -268,16 +253,11 @@ const SellerEarningsDashboard = () => {
                         <p className="text-xs text-muted-foreground">
                           {day.totalOrders} delivered{day.rejectedOrders > 0 && `, ${day.rejectedOrders} rejected`}
                         </p>
-                        {day.rejectionPenalty > 0 && (
-                          <p className="text-xs text-red-500">
-                            -{formatCurrency(day.rejectionPenalty)} penalty
-                          </p>
-                        )}
+                        {day.rejectionPenalty > 0}
                       </div>
                     </CardContent>
-                  </Card>
-                );
-              })}
+                  </Card>;
+          })}
             </div>}
         </CardContent>
       </Card>
@@ -303,13 +283,12 @@ const SellerEarningsDashboard = () => {
                 </TableHeader>
                 <TableBody>
                   {orders.map(order => {
-                    const rejected = isOrderRejected(order);
-                    const itemsTotal = getOrderItemsTotal(order);
-                    const earnings = getOrderEarnings(order);
-                    const franchisePercentage = seller?.franchise_percentage || 0;
-                    const deduction = rejected ? 0 : (itemsTotal * franchisePercentage / 100);
-                    
-                    return <TableRow key={order.id} className={rejected ? 'bg-red-50' : ''}>
+                const rejected = isOrderRejected(order);
+                const itemsTotal = getOrderItemsTotal(order);
+                const earnings = getOrderEarnings(order);
+                const franchisePercentage = seller?.franchise_percentage || 0;
+                const deduction = rejected ? 0 : itemsTotal * franchisePercentage / 100;
+                return <TableRow key={order.id} className={rejected ? 'bg-red-50' : ''}>
                       <TableCell className="font-mono text-xs">
                         #{order.id.slice(-6)}
                       </TableCell>
@@ -317,11 +296,7 @@ const SellerEarningsDashboard = () => {
                         {format(parseISO(order.created_at), 'dd MMM yyyy, HH:mm')}
                       </TableCell>
                       <TableCell>
-                        {rejected ? (
-                          <Badge variant="destructive" className="text-xs">Rejected</Badge>
-                        ) : (
-                          <Badge variant="default" className="text-xs bg-green-600">Delivered</Badge>
-                        )}
+                        {rejected ? <Badge variant="destructive" className="text-xs">Rejected</Badge> : <Badge variant="default" className="text-xs bg-green-600">Delivered</Badge>}
                       </TableCell>
                       <TableCell>
                         <div className="text-xs space-y-0.5">
@@ -340,7 +315,7 @@ const SellerEarningsDashboard = () => {
                         {formatCurrency(earnings)}
                       </TableCell>
                     </TableRow>;
-                  })}
+              })}
                 </TableBody>
               </Table>
             </div>}
