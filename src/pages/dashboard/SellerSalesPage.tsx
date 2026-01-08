@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Calendar, Package } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Calendar, Package, Eye, IndianRupee } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -18,6 +19,8 @@ interface Order {
   created_at: string;
   delivered_at: string | null;
   payment_method: string;
+  delivery_mobile: string | null;
+  user_id: string;
 }
 
 const SellerSalesPage = () => {
@@ -27,8 +30,11 @@ const SellerSalesPage = () => {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [sellerName, setSellerName] = useState('');
+  const [franchisePercentage, setFranchisePercentage] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [customerName, setCustomerName] = useState('');
 
   useEffect(() => {
     if (sellerId) {
@@ -45,12 +51,13 @@ const SellerSalesPage = () => {
       // Fetch seller info
       const { data: seller } = await supabase
         .from('sellers')
-        .select('seller_name')
+        .select('seller_name, franchise_percentage')
         .eq('id', sellerId)
         .single();
       
       if (seller) {
         setSellerName(seller.seller_name);
+        setFranchisePercentage(seller.franchise_percentage || 0);
       }
 
       // Fetch orders
@@ -94,6 +101,8 @@ const SellerSalesPage = () => {
         return <Badge className="bg-green-500">Delivered</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
+      case 'refunded':
+        return <Badge variant="outline">refunded</Badge>;
       case 'pending':
         return <Badge variant="secondary">Pending</Badge>;
       case 'confirmed':
@@ -107,13 +116,49 @@ const SellerSalesPage = () => {
     }
   };
 
-  const stats = {
-    total: orders.length,
-    delivered: orders.filter(o => o.status === 'delivered').length,
-    rejected: orders.filter(o => o.status === 'rejected').length,
-    totalRevenue: orders
+  const handleViewDetails = async (order: Order) => {
+    setSelectedOrder(order);
+    // Fetch customer name
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', order.user_id)
+        .single();
+      setCustomerName(data?.name || 'N/A');
+    } catch {
+      setCustomerName('N/A');
+    }
+  };
+
+  // Calculate seller earnings from items (sum of seller_price * quantity)
+  const calculateSellerEarnings = (ordersToCalc: Order[]) => {
+    return ordersToCalc
       .filter(o => o.status === 'delivered')
-      .reduce((sum, o) => sum + Number(o.total_amount), 0)
+      .reduce((sum, order) => {
+        if (Array.isArray(order.items)) {
+          const orderEarning = order.items.reduce((itemSum: number, item: any) => {
+            const sellerPrice = Number(item.seller_price) || 0;
+            const quantity = Number(item.quantity) || 1;
+            return itemSum + (sellerPrice * quantity);
+          }, 0);
+          // Apply franchise percentage deduction
+          const afterCommission = orderEarning * (1 - franchisePercentage / 100);
+          return sum + afterCommission;
+        }
+        return sum;
+      }, 0);
+  };
+
+  // Stats based on filtered orders for day-wise filtering
+  const stats = {
+    total: filteredOrders.length,
+    delivered: filteredOrders.filter(o => o.status === 'delivered').length,
+    rejected: filteredOrders.filter(o => o.status === 'rejected' || o.status === 'refunded').length,
+    totalRevenue: filteredOrders
+      .filter(o => o.status === 'delivered')
+      .reduce((sum, o) => sum + Number(o.total_amount), 0),
+    sellerEarnings: calculateSellerEarnings(filteredOrders)
   };
 
   return (
@@ -129,7 +174,7 @@ const SellerSalesPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -152,6 +197,12 @@ const SellerSalesPage = () => {
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-primary">₹{stats.totalRevenue.toFixed(0)}</div>
             <p className="text-sm text-muted-foreground">Total Revenue</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-emerald-600">₹{stats.sellerEarnings.toFixed(0)}</div>
+            <p className="text-sm text-muted-foreground">Seller Earnings</p>
           </CardContent>
         </Card>
       </div>
@@ -227,27 +278,17 @@ const SellerSalesPage = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Order ID</TableHead>
-                  <TableHead>Items</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Delivery Address</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium text-primary">{order.id}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {Array.isArray(order.items) 
-                          ? order.items.map((item: any, idx: number) => (
-                              <div key={idx}>{item.item_name} x{item.quantity}</div>
-                            ))
-                          : '-'}
-                      </div>
-                    </TableCell>
                     <TableCell>₹{Number(order.total_amount).toFixed(0)}</TableCell>
                     <TableCell className="capitalize">{order.payment_method}</TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
@@ -260,9 +301,14 @@ const SellerSalesPage = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="max-w-[200px] truncate text-sm">
-                        {order.delivery_address}
-                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewDetails(order)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View Details
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -271,6 +317,67 @@ const SellerSalesPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Order Details Modal */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Order ID</p>
+                  <p className="font-medium text-primary">{selectedOrder.id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  {getStatusBadge(selectedOrder.status)}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Customer Details</p>
+                <div className="bg-muted p-3 rounded-lg space-y-1">
+                  <p className="font-medium">{customerName}</p>
+                  <p className="text-sm">{selectedOrder.delivery_mobile || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Items</p>
+                <div className="bg-muted p-3 rounded-lg space-y-2">
+                  {Array.isArray(selectedOrder.items) && selectedOrder.items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between">
+                      <span>{item.item_name} x{item.quantity}</span>
+                      <span>₹{(Number(item.franchise_price) * item.quantity).toFixed(0)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 flex justify-between font-bold">
+                    <span>Total</span>
+                    <span>₹{Number(selectedOrder.total_amount).toFixed(0)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Delivery Address</p>
+                <div className="bg-muted p-3 rounded-lg">
+                  <p className="text-sm">{selectedOrder.delivery_address}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">Order Date</p>
+                <p className="font-medium">
+                  {format(new Date(selectedOrder.created_at), 'dd MMM yyyy, hh:mm a')}
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
