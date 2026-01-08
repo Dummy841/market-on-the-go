@@ -217,6 +217,18 @@ export const MyOrders = () => {
                       <strong>Instructions:</strong> {order.instructions}
                     </div>}
 
+                  {/* Rejected Order Message */}
+                  {order.status === 'rejected' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-red-700 font-medium">
+                        Order Rejected by Seller
+                      </p>
+                      <p className="text-xs text-red-600 mt-1">
+                        Your amount will be refunded shortly
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>Payment: {order.payment_method.toUpperCase()}</span>
                     <span className="text-right line-clamp-1">{order.delivery_address.split(',')[0]}</span>

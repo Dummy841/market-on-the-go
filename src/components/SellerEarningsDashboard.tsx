@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
-import { Calendar, TrendingUp, IndianRupee, ShoppingBag } from 'lucide-react';
+import { Calendar, TrendingUp, IndianRupee, ShoppingBag, XCircle } from 'lucide-react';
 interface Order {
   id: string;
   created_at: string;
@@ -20,8 +20,10 @@ interface Order {
 interface DailyEarning {
   date: string;
   totalOrders: number;
+  rejectedOrders: number;
   totalRevenue: number;
   sellerEarnings: number;
+  rejectionPenalty: number;
 }
 const SellerEarningsDashboard = () => {
   const {
@@ -34,8 +36,10 @@ const SellerEarningsDashboard = () => {
   const [dailyEarnings, setDailyEarnings] = useState<DailyEarning[]>([]);
   const [totalStats, setTotalStats] = useState({
     totalOrders: 0,
+    rejectedOrders: 0,
     totalRevenue: 0,
-    totalEarnings: 0
+    totalEarnings: 0,
+    totalPenalty: 0
   });
   useEffect(() => {
     if (seller) {
@@ -51,7 +55,7 @@ const SellerEarningsDashboard = () => {
       const {
         data,
         error
-      } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status').eq('seller_id', seller.id).eq('status', 'delivered').gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
+      } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status').eq('seller_id', seller.id).in('status', ['delivered', 'rejected']).gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
         ascending: false
       });
       if (error) throw error;
@@ -65,39 +69,60 @@ const SellerEarningsDashboard = () => {
   };
   const calculateEarnings = (ordersData: Order[]) => {
     const franchisePercentage = seller?.franchise_percentage || 0;
+    const REJECTION_PENALTY = 10; // ₹10 per rejected order
 
     // Group by date
     const earningsByDate = new Map<string, DailyEarning>();
     let totalOrders = 0;
+    let rejectedOrders = 0;
     let totalRevenue = 0;
     let totalEarnings = 0;
+    let totalPenalty = 0;
+    
     ordersData.forEach(order => {
       const dateKey = format(parseISO(order.created_at), 'yyyy-MM-dd');
+      const isRejected = order.status === 'rejected' || order.seller_status === 'rejected';
 
-      // Calculate seller earnings from items
+      // Calculate seller earnings from items (only for delivered orders)
       let orderSellerEarnings = 0;
-      if (Array.isArray(order.items)) {
+      let orderPenalty = 0;
+      
+      if (isRejected) {
+        orderPenalty = REJECTION_PENALTY;
+      } else if (Array.isArray(order.items)) {
         order.items.forEach((item: any) => {
           const itemTotal = (item.seller_price || 0) * (item.quantity || 1);
           const deduction = itemTotal * franchisePercentage / 100;
           orderSellerEarnings += itemTotal - deduction;
         });
       }
+      
       const existing = earningsByDate.get(dateKey) || {
         date: dateKey,
         totalOrders: 0,
+        rejectedOrders: 0,
         totalRevenue: 0,
-        sellerEarnings: 0
+        sellerEarnings: 0,
+        rejectionPenalty: 0
       };
+      
       earningsByDate.set(dateKey, {
         date: dateKey,
-        totalOrders: existing.totalOrders + 1,
-        totalRevenue: existing.totalRevenue + order.total_amount,
-        sellerEarnings: existing.sellerEarnings + orderSellerEarnings
+        totalOrders: existing.totalOrders + (isRejected ? 0 : 1),
+        rejectedOrders: existing.rejectedOrders + (isRejected ? 1 : 0),
+        totalRevenue: existing.totalRevenue + (isRejected ? 0 : order.total_amount),
+        sellerEarnings: existing.sellerEarnings + orderSellerEarnings,
+        rejectionPenalty: existing.rejectionPenalty + orderPenalty
       });
-      totalOrders++;
-      totalRevenue += order.total_amount;
-      totalEarnings += orderSellerEarnings;
+      
+      if (isRejected) {
+        rejectedOrders++;
+        totalPenalty += orderPenalty;
+      } else {
+        totalOrders++;
+        totalRevenue += order.total_amount;
+        totalEarnings += orderSellerEarnings;
+      }
     });
 
     // Convert map to array and sort by date descending
@@ -105,8 +130,10 @@ const SellerEarningsDashboard = () => {
     setDailyEarnings(earningsArray);
     setTotalStats({
       totalOrders,
+      rejectedOrders,
       totalRevenue,
-      totalEarnings
+      totalEarnings: totalEarnings - totalPenalty,
+      totalPenalty
     });
   };
   const formatCurrency = (amount: number) => {
@@ -122,7 +149,15 @@ const SellerEarningsDashboard = () => {
       return sum + (item.seller_price || 0) * (item.quantity || 1);
     }, 0);
   };
+  
+  const isOrderRejected = (order: Order) => {
+    return order.status === 'rejected' || order.seller_status === 'rejected';
+  };
+  
   const getOrderEarnings = (order: Order) => {
+    if (isOrderRejected(order)) {
+      return -10; // ₹10 penalty for rejected orders
+    }
     const franchisePercentage = seller?.franchise_percentage || 0;
     const itemsTotal = getOrderItemsTotal(order);
     const deduction = itemsTotal * franchisePercentage / 100;
@@ -155,7 +190,7 @@ const SellerEarningsDashboard = () => {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -163,14 +198,29 @@ const SellerEarningsDashboard = () => {
                 <ShoppingBag className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Orders</p>
+                <p className="text-sm text-muted-foreground">Delivered Orders</p>
                 <p className="text-2xl font-bold">{totalStats.totalOrders}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-red-500/10 rounded-full">
+                <XCircle className="h-6 w-6 text-red-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Rejected Orders</p>
+                <p className="text-2xl font-bold text-red-600">{totalStats.rejectedOrders}</p>
+                {totalStats.rejectedOrders > 0 && (
+                  <p className="text-xs text-red-500">-{formatCurrency(totalStats.totalPenalty)} penalty</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         
         <Card>
           <CardContent className="pt-6">
@@ -179,9 +229,8 @@ const SellerEarningsDashboard = () => {
                 <TrendingUp className="h-6 w-6 text-green-500" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Your Earnings</p>
+                <p className="text-sm text-muted-foreground">Net Earnings</p>
                 <p className="text-2xl font-bold text-green-600">{formatCurrency(totalStats.totalEarnings)}</p>
-                
               </div>
             </div>
           </CardContent>
@@ -194,22 +243,32 @@ const SellerEarningsDashboard = () => {
           <CardTitle>Daily Earnings Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground">Loading...</p> : dailyEarnings.length === 0 ? <p className="text-muted-foreground">No delivered orders in this date range.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dailyEarnings.map(day => <Card key={day.date} className="border-l-4 border-l-primary">
-                  <CardContent className="pt-4">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {format(parseISO(day.date), 'dd MMM yyyy')}
-                    </p>
-                    <div className="mt-2 space-y-1">
-                      <p className="text-lg font-bold text-green-600">
-                        {formatCurrency(day.sellerEarnings)}
+          {loading ? <p className="text-muted-foreground">Loading...</p> : dailyEarnings.length === 0 ? <p className="text-muted-foreground">No orders in this date range.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {dailyEarnings.map(day => {
+                const netEarnings = day.sellerEarnings - day.rejectionPenalty;
+                return (
+                  <Card key={day.date} className="border-l-4 border-l-primary">
+                    <CardContent className="pt-4">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {format(parseISO(day.date), 'dd MMM yyyy')}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {day.totalOrders} order{day.totalOrders > 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>)}
+                      <div className="mt-2 space-y-1">
+                        <p className="text-lg font-bold text-green-600">
+                          {formatCurrency(netEarnings)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {day.totalOrders} delivered{day.rejectedOrders > 0 && `, ${day.rejectedOrders} rejected`}
+                        </p>
+                        {day.rejectionPenalty > 0 && (
+                          <p className="text-xs text-red-500">
+                            -{formatCurrency(day.rejectionPenalty)} penalty
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>}
         </CardContent>
       </Card>
@@ -220,48 +279,59 @@ const SellerEarningsDashboard = () => {
           <CardTitle>Order-wise Earnings</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground">Loading orders...</p> : orders.length === 0 ? <p className="text-muted-foreground">No delivered orders found.</p> : <div className="overflow-x-auto">
+          {loading ? <p className="text-muted-foreground">Loading orders...</p> : orders.length === 0 ? <p className="text-muted-foreground">No orders found.</p> : <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order ID</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Items</TableHead>
                     <TableHead className="text-right">Items Total</TableHead>
-                    <TableHead className="text-right">Deduction ({seller?.franchise_percentage || 0}%)</TableHead>
-                    <TableHead className="text-right">Your Earnings</TableHead>
+                    <TableHead className="text-right">Deduction</TableHead>
+                    <TableHead className="text-right">Earnings</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {orders.map(order => {
-                const itemsTotal = getOrderItemsTotal(order);
-                const earnings = getOrderEarnings(order);
-                const deduction = itemsTotal - earnings;
-                return <TableRow key={order.id}>
-                        <TableCell className="font-mono text-xs">
-                          #{order.id.slice(-6)}
-                        </TableCell>
-                        <TableCell>
-                          {format(parseISO(order.created_at), 'dd MMM yyyy, HH:mm')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs space-y-0.5">
-                            {Array.isArray(order.items) && order.items.map((item: any, idx: number) => <div key={idx}>
-                                {item.item_name} × {item.quantity || 1}
-                              </div>)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(itemsTotal)}
-                        </TableCell>
-                        <TableCell className="text-right text-red-500">
-                          -{formatCurrency(deduction)}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-green-600">
-                          {formatCurrency(earnings)}
-                        </TableCell>
-                      </TableRow>;
-              })}
+                    const rejected = isOrderRejected(order);
+                    const itemsTotal = getOrderItemsTotal(order);
+                    const earnings = getOrderEarnings(order);
+                    const franchisePercentage = seller?.franchise_percentage || 0;
+                    const deduction = rejected ? 0 : (itemsTotal * franchisePercentage / 100);
+                    
+                    return <TableRow key={order.id} className={rejected ? 'bg-red-50' : ''}>
+                      <TableCell className="font-mono text-xs">
+                        #{order.id.slice(-6)}
+                      </TableCell>
+                      <TableCell>
+                        {format(parseISO(order.created_at), 'dd MMM yyyy, HH:mm')}
+                      </TableCell>
+                      <TableCell>
+                        {rejected ? (
+                          <Badge variant="destructive" className="text-xs">Rejected</Badge>
+                        ) : (
+                          <Badge variant="default" className="text-xs bg-green-600">Delivered</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs space-y-0.5">
+                          {Array.isArray(order.items) && order.items.map((item: any, idx: number) => <div key={idx}>
+                              {item.item_name} × {item.quantity || 1}
+                            </div>)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {rejected ? '-' : formatCurrency(itemsTotal)}
+                      </TableCell>
+                      <TableCell className="text-right text-red-500">
+                        {rejected ? '₹10 penalty' : `-${formatCurrency(deduction)}`}
+                      </TableCell>
+                      <TableCell className={`text-right font-semibold ${rejected ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatCurrency(earnings)}
+                      </TableCell>
+                    </TableRow>;
+                  })}
                 </TableBody>
               </Table>
             </div>}
