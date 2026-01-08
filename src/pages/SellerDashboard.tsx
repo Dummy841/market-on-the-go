@@ -179,7 +179,7 @@ const SellerDashboard = () => {
     if (!seller) return;
     try {
       const { data, error } = await supabase
-        .from('seller_wallets')
+        .from('seller_wallets' as any)
         .select('balance')
         .eq('seller_id', seller.id)
         .single();
@@ -188,7 +188,7 @@ const SellerDashboard = () => {
         console.log('Wallet may not exist yet:', error);
         setWalletBalance(0);
       } else {
-        setWalletBalance(data?.balance || 0);
+        setWalletBalance((data as any)?.balance || 0);
       }
     } catch (error) {
       console.error('Error fetching wallet balance:', error);

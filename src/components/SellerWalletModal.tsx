@@ -34,18 +34,18 @@ const SellerWalletModal = ({ open, onOpenChange, sellerId, walletBalance }: Sell
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('seller_wallet_transactions')
+      const result = await supabase
+        .from('seller_wallet_transactions' as any)
         .select('*')
         .eq('seller_id', sellerId)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) {
-        console.log('Wallet transactions table may not exist yet:', error);
+      if (result.error) {
+        console.log('Wallet transactions table may not exist yet:', result.error);
         setTransactions([]);
       } else {
-        setTransactions(data || []);
+        setTransactions((result.data as unknown as WalletTransaction[]) || []);
       }
     } catch (error) {
       console.error('Error fetching wallet transactions:', error);
