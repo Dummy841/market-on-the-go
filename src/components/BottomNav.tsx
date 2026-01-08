@@ -1,37 +1,32 @@
 import { UtensilsCrossed, ShoppingBasket, Milk, Package } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 
 export const BottomNav = () => {
   const navigate = useNavigate();
-
-  const handleComingSoon = () => {
-    toast.info("Coming soon! This feature is under development.");
-  };
 
   const navItems = [
     {
       icon: UtensilsCrossed,
       label: "Food",
-      onClick: () => navigate("/restaurants"),
+      onClick: () => navigate("/restaurants?category=food_delivery"),
       color: "text-primary"
     },
     {
       icon: ShoppingBasket,
       label: "Instamart",
-      onClick: handleComingSoon,
+      onClick: () => navigate("/restaurants?category=instamart"),
       color: "text-green-600"
     },
     {
       icon: Milk,
       label: "Dairy",
-      onClick: handleComingSoon,
+      onClick: () => navigate("/restaurants?category=dairy"),
       color: "text-blue-600"
     },
     {
       icon: Package,
       label: "Services",
-      onClick: handleComingSoon,
+      onClick: () => navigate("/restaurants?category=services"),
       color: "text-purple-600"
     }
   ];
