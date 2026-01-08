@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
 
 interface CartItem {
   id: string;
@@ -97,11 +96,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     // Check if cart is empty or item is from same restaurant
     if (cartRestaurant && cartRestaurant !== item.seller_id) {
-      toast({
-        title: "Different Restaurant",
-        description: `You can only order from one restaurant at a time. Your cart contains items from ${cartRestaurantName}. Clear your cart to add items from ${item.seller_name}.`,
-        variant: "destructive",
-      });
       return;
     }
 
@@ -126,11 +120,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (item.seller_latitude) setCartRestaurantLatitude(item.seller_latitude);
       if (item.seller_longitude) setCartRestaurantLongitude(item.seller_longitude);
     }
-
-    toast({
-      title: "Added to Cart",
-      description: `${item.item_name} has been added to your cart.`,
-    });
   };
 
   const removeFromCart = (itemId: string) => {
