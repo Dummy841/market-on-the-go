@@ -52,15 +52,24 @@ const SellerEarningsDashboard = () => {
     try {
       const startDateTime = startOfDay(parseISO(startDate)).toISOString();
       const endDateTime = endOfDay(parseISO(endDate)).toISOString();
+      // Fetch orders that are delivered OR rejected (check both status and seller_status)
       const {
         data,
         error
-      } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status').eq('seller_id', seller.id).in('status', ['delivered', 'rejected']).gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
+      } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status').eq('seller_id', seller.id).gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
         ascending: false
       });
+      
+      // Filter to only include delivered or rejected orders
+      const filteredData = (data || []).filter(order => 
+        order.status === 'delivered' || 
+        order.status === 'rejected' || 
+        order.seller_status === 'delivered' || 
+        order.seller_status === 'rejected'
+      );
       if (error) throw error;
-      setOrders(data || []);
-      calculateEarnings(data || []);
+      setOrders(filteredData);
+      calculateEarnings(filteredData);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
