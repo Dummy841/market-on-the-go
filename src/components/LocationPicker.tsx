@@ -162,7 +162,7 @@ const LocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-auto"
+              mapContainerClassName="w-full h-full touch-none"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={onLoad}
@@ -219,6 +219,7 @@ const LocationPicker = ({
         </div>
         
         <Button 
+          type="button"
           onClick={handleConfirm}
           className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white text-lg font-medium rounded-lg"
         >
