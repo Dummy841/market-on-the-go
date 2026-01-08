@@ -1,28 +1,30 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Edit, DollarSign, CreditCard, Settings, MoreVertical } from "lucide-react";
+import { Plus, Eye, Edit, DollarSign, CreditCard, MoreVertical, Search } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CreateSellerForm from '@/components/CreateSellerForm';
 import SellerDetailsModal from '@/components/SellerDetailsModal';
 import EditSellerModal from '@/components/EditSellerModal';
-import SellerSalesModal from '@/components/SellerSalesModal';
 import SellerSettlementsModal from '@/components/SellerSettlementsModal';
 import { Seller } from '@/contexts/SellerAuthContext';
+
 const Sellers = () => {
+  const navigate = useNavigate();
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showSalesModal, setShowSalesModal] = useState(false);
   const [showSettlementsModal, setShowSettlementsModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -85,17 +87,39 @@ const Sellers = () => {
           Create Seller
         </Button>
       </div>
-      
-      
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by seller name, owner name, or mobile..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
 
       <Card>
         <CardHeader>
           <CardTitle>All Sellers</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? <div className="text-center py-4">Loading...</div> : sellers.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-              No sellers found. Create your first seller to get started.
-            </div> : <Table>
+          {loading ? <div className="text-center py-4">Loading...</div> : (() => {
+            const filteredSellers = sellers.filter(seller => {
+              if (!searchQuery.trim()) return true;
+              const query = searchQuery.toLowerCase();
+              return (
+                seller.seller_name.toLowerCase().includes(query) ||
+                seller.owner_name.toLowerCase().includes(query) ||
+                seller.mobile.includes(query)
+              );
+            });
+            
+            return filteredSellers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchQuery ? 'No sellers match your search.' : 'No sellers found. Create your first seller to get started.'}
+              </div>
+            ) : <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Seller ID</TableHead>
@@ -108,7 +132,7 @@ const Sellers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sellers.map(seller => <TableRow key={seller.id}>
+                {filteredSellers.map(seller => <TableRow key={seller.id}>
                     <TableCell>
                       
                     </TableCell>
@@ -165,10 +189,7 @@ const Sellers = () => {
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Seller
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowSalesModal(true);
-                    }}>
+                          <DropdownMenuItem onClick={() => navigate(`/dashboard/sellers/${seller.id}/sales`)}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             View Sales
                           </DropdownMenuItem>
@@ -184,7 +205,8 @@ const Sellers = () => {
                     </TableCell>
                   </TableRow>)}
               </TableBody>
-            </Table>}
+            </Table>;
+          })()}
         </CardContent>
       </Card>
 
@@ -193,8 +215,6 @@ const Sellers = () => {
       <SellerDetailsModal seller={selectedSeller} open={showDetailsModal} onOpenChange={setShowDetailsModal} />
 
       <EditSellerModal seller={selectedSeller} open={showEditModal} onOpenChange={setShowEditModal} onSuccess={fetchSellers} />
-
-      <SellerSalesModal seller={selectedSeller} open={showSalesModal} onOpenChange={setShowSalesModal} />
 
       <SellerSettlementsModal seller={selectedSeller} open={showSettlementsModal} onOpenChange={setShowSettlementsModal} />
     </div>;
