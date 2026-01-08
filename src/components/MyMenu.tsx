@@ -109,10 +109,7 @@ const MyMenu = () => {
                 <span className="text-muted-foreground">Seller Price:</span>
                 <span className="font-medium">₹{item.seller_price}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Franchise Price:</span>
-                <span className="font-medium">₹{item.franchise_price}</span>
-              </div>
+              
               
               <div className="flex gap-2 pt-2">
                 <Button variant={item.is_active !== false ? "outline" : "default"} size="sm" className="flex-1" onClick={() => toggleItemStatus(item.id, item.is_active !== false)}>
