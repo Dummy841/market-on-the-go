@@ -1,59 +1,64 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Edit, DollarSign, CreditCard, Settings, MoreVertical } from "lucide-react";
+import { Plus, Eye, Edit, DollarSign, CreditCard, MoreVertical, Search } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CreateSellerForm from '@/components/CreateSellerForm';
 import SellerDetailsModal from '@/components/SellerDetailsModal';
 import EditSellerModal from '@/components/EditSellerModal';
-import SellerSalesModal from '@/components/SellerSalesModal';
 import SellerSettlementsModal from '@/components/SellerSettlementsModal';
 import { Seller } from '@/contexts/SellerAuthContext';
+
 const Sellers = () => {
+  const navigate = useNavigate();
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [filteredSellers, setFilteredSellers] = useState<Seller[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showSalesModal, setShowSalesModal] = useState(false);
   const [showSettlementsModal, setShowSettlementsModal] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    pending: 0
-  });
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+
   useEffect(() => {
     fetchSellers();
   }, []);
+
+  useEffect(() => {
+    filterSellers();
+  }, [sellers, searchQuery]);
+
+  const filterSellers = () => {
+    if (!searchQuery.trim()) {
+      setFilteredSellers(sellers);
+      return;
+    }
+    const query = searchQuery.toLowerCase();
+    const filtered = sellers.filter(seller => 
+      seller.seller_name.toLowerCase().includes(query) ||
+      seller.owner_name.toLowerCase().includes(query) ||
+      seller.mobile.includes(query)
+    );
+    setFilteredSellers(filtered);
+  };
+
   const fetchSellers = async () => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('sellers').select('*').order('created_at', {
-        ascending: false
-      });
+      const { data, error } = await supabase
+        .from('sellers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       if (error) throw error;
       setSellers((data || []) as Seller[]);
-
-      // Calculate stats
-      const total = data?.length || 0;
-      const active = data?.filter(s => s.status === 'approved').length || 0;
-      const pending = data?.filter(s => s.status === 'pending').length || 0;
-      setStats({
-        total,
-        active,
-        pending
-      });
     } catch (error) {
       console.error('Error fetching sellers:', error);
       toast({
@@ -65,6 +70,7 @@ const Sellers = () => {
       setLoading(false);
     }
   };
+
   const getStatusText = (status: string) => {
     switch (status) {
       case 'approved':
@@ -77,7 +83,9 @@ const Sellers = () => {
         return status;
     }
   };
-  return <div className="space-y-6">
+
+  return (
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-foreground">Sellers Management</h2>
         <Button onClick={() => setShowCreateForm(true)}>
@@ -86,16 +94,30 @@ const Sellers = () => {
         </Button>
       </div>
       
-      
-
       <Card>
         <CardHeader>
-          <CardTitle>All Sellers</CardTitle>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <CardTitle>All Sellers</CardTitle>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, owner, or mobile..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {loading ? <div className="text-center py-4">Loading...</div> : sellers.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-              No sellers found. Create your first seller to get started.
-            </div> : <Table>
+          {loading ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : filteredSellers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchQuery ? 'No sellers found matching your search.' : 'No sellers found. Create your first seller to get started.'}
+            </div>
+          ) : (
+            <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Seller ID</TableHead>
@@ -108,7 +130,8 @@ const Sellers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sellers.map(seller => <TableRow key={seller.id}>
+                {filteredSellers.map(seller => (
+                  <TableRow key={seller.id}>
                     <TableCell>
                       <div className="font-medium text-primary">
                         {seller.seller_id || `HMD${String(sellers.indexOf(seller) + 1).padStart(6, '0')}`}
@@ -154,51 +177,49 @@ const Sellers = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowDetailsModal(true);
-                    }}>
+                            setSelectedSeller(seller);
+                            setShowDetailsModal(true);
+                          }}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowEditModal(true);
-                    }}>
+                            setSelectedSeller(seller);
+                            setShowEditModal(true);
+                          }}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Seller
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowSalesModal(true);
-                    }}>
+                            navigate(`/dashboard/sellers/${seller.id}/sales`);
+                          }}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             View Sales
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowSettlementsModal(true);
-                    }}>
+                            setSelectedSeller(seller);
+                            setShowSettlementsModal(true);
+                          }}>
                             <CreditCard className="mr-2 h-4 w-4" />
                             Settlements
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                  </TableRow>)}
+                  </TableRow>
+                ))}
               </TableBody>
-            </Table>}
+            </Table>
+          )}
         </CardContent>
       </Card>
 
       <CreateSellerForm open={showCreateForm} onOpenChange={setShowCreateForm} onSuccess={fetchSellers} />
-
       <SellerDetailsModal seller={selectedSeller} open={showDetailsModal} onOpenChange={setShowDetailsModal} />
-
       <EditSellerModal seller={selectedSeller} open={showEditModal} onOpenChange={setShowEditModal} onSuccess={fetchSellers} />
-
-      <SellerSalesModal seller={selectedSeller} open={showSalesModal} onOpenChange={setShowSalesModal} />
-
       <SellerSettlementsModal seller={selectedSeller} open={showSettlementsModal} onOpenChange={setShowSettlementsModal} />
-    </div>;
+    </div>
+  );
 };
+
 export default Sellers;

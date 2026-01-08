@@ -14,6 +14,7 @@ import Orders from "./pages/dashboard/Orders";
 import Refunds from "./pages/dashboard/Refunds";
 import Settlements from "./pages/dashboard/Settlements";
 import DashboardHome from "./pages/dashboard/DashboardHome";
+import SellerSalesPage from "./pages/dashboard/SellerSalesPage";
 import Banners from "./pages/dashboard/Banners";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -59,6 +60,7 @@ const App = () => (
                       <Route index element={<DashboardHome />} />
                       <Route path="users" element={<Users />} />
                       <Route path="sellers" element={<Sellers />} />
+                      <Route path="sellers/:sellerId/sales" element={<SellerSalesPage />} />
                       <Route path="orders" element={<Orders />} />
                       <Route path="settlements" element={<Settlements />} />
                       <Route path="refunds" element={<Refunds />} />
