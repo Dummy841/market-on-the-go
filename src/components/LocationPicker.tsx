@@ -122,8 +122,7 @@ const LocationPicker = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] bg-background flex flex-col"
-      style={{ touchAction: 'auto' }}
+      className="fixed inset-0 z-[9999] bg-background flex flex-col touch-none"
     >
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b bg-background">
@@ -159,7 +158,7 @@ const LocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '100%' }}
+              mapContainerClassName="w-full h-full touch-none"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={onLoad}
@@ -172,6 +171,7 @@ const LocationPicker = ({
                 fullscreenControl: false,
                 clickableIcons: false,
                 gestureHandling: 'greedy',
+                draggable: true,
               }}
             >
               <Marker
