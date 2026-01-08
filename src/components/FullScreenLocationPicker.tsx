@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, MapPin, Search, Crosshair } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
-import { toast } from '@/hooks/use-toast';
+
 
 interface FullScreenLocationPickerProps {
   open: boolean;
@@ -18,11 +18,11 @@ const FullScreenLocationPicker = ({
   open, 
   onClose, 
   onLocationSelect, 
-  initialLat = 28.6139, 
-  initialLng = 77.2090 
+  initialLat,
+  initialLng 
 }: FullScreenLocationPickerProps) => {
-  const [selectedLat, setSelectedLat] = useState(initialLat);
-  const [selectedLng, setSelectedLng] = useState(initialLng);
+  const [selectedLat, setSelectedLat] = useState(initialLat ?? 17.385044);
+  const [selectedLng, setSelectedLng] = useState(initialLng ?? 78.486671);
   const [locationName, setLocationName] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -39,12 +39,47 @@ const FullScreenLocationPicker = ({
     const storedLat = localStorage.getItem("currentLat");
     const storedLng = localStorage.getItem("currentLng");
 
-    const nextLat = storedLat ? parseFloat(storedLat) : selectedLat;
-    const nextLng = storedLng ? parseFloat(storedLng) : selectedLng;
+    // Prefer header's current location; else use provided initial coords; else try geolocation.
+    if (storedLat && storedLng) {
+      const nextLat = parseFloat(storedLat);
+      const nextLng = parseFloat(storedLng);
+      setSelectedLat(nextLat);
+      setSelectedLng(nextLng);
+      reverseGeocode(nextLat, nextLng);
+      return;
+    }
 
-    setSelectedLat(nextLat);
-    setSelectedLng(nextLng);
-    reverseGeocode(nextLat, nextLng);
+    if (initialLat != null && initialLng != null) {
+      setSelectedLat(initialLat);
+      setSelectedLng(initialLng);
+      reverseGeocode(initialLat, initialLng);
+      return;
+    }
+
+    if (navigator.geolocation) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setSelectedLat(latitude);
+          setSelectedLng(longitude);
+          reverseGeocode(latitude, longitude);
+          if (map) {
+            map.panTo({ lat: latitude, lng: longitude });
+            map.setZoom(17);
+          }
+          setIsLocating(false);
+        },
+        (err) => {
+          console.error('Error getting current location:', err);
+          setIsLocating(false);
+          reverseGeocode(selectedLat, selectedLng);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    } else {
+      reverseGeocode(selectedLat, selectedLng);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -162,19 +197,10 @@ const FullScreenLocationPicker = ({
 
   const handleCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast({
-        title: 'Location not available',
-        description: 'Geolocation is not supported by this browser.',
-        variant: 'destructive',
-      });
       return;
     }
 
     setIsLocating(true);
-    toast({
-      title: 'Getting location',
-      description: 'Fetching your current location…',
-    });
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -194,11 +220,6 @@ const FullScreenLocationPicker = ({
       },
       (error) => {
         console.error('Error getting current location:', error);
-        toast({
-          title: 'Location error',
-          description: 'Please allow location permission and try again.',
-          variant: 'destructive',
-        });
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -259,7 +280,7 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-auto"
+              mapContainerClassName="w-full h-full touch-none"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={(m) => {
@@ -276,6 +297,7 @@ const FullScreenLocationPicker = ({
                 fullscreenControl: false,
                 clickableIcons: false,
                 gestureHandling: 'greedy',
+                draggable: true,
               }}
             >
               <Marker

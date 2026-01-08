@@ -364,8 +364,8 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
           setValue('seller_latitude', lat);
           setValue('seller_longitude', lng);
         }}
-        initialLat={watch('seller_latitude') || 28.6139}
-        initialLng={watch('seller_longitude') || 77.2090}
+        initialLat={watch('seller_latitude') ?? undefined}
+        initialLng={watch('seller_longitude') ?? undefined}
       />
     </>
   );
