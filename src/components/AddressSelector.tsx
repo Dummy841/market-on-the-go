@@ -334,7 +334,7 @@ const AddressSelector = ({
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="z-[9999]">
                               <DropdownMenuItem
                                 onClick={(e) => handleEditAddress(address, e)}
                               >
