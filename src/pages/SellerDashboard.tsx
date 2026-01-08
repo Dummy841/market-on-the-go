@@ -13,7 +13,6 @@ import { SellerOrderManagement } from '@/components/SellerOrderManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
-import SellerWalletModal from '@/components/SellerWalletModal';
 
 // Create a persistent audio element for background tab support
 let dashboardNotificationAudio: HTMLAudioElement | null = null;
@@ -148,7 +147,6 @@ const SellerDashboard = () => {
   const [isOnline, setIsOnline] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showWallet, setShowWallet] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
   const processedOrderIdsRef = useRef<Set<string>>(new Set());
@@ -354,7 +352,7 @@ const SellerDashboard = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => setShowWallet(true)}
+              onClick={() => navigate('/seller-wallet')}
               className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 hover:from-green-600 hover:to-emerald-700"
             >
               <Wallet className="w-4 h-4" />
@@ -466,16 +464,6 @@ const SellerDashboard = () => {
           userType="seller"
           userId={seller.id}
           currentPasswordHash={seller.password_hash || ''}
-        />
-      )}
-
-      {/* Wallet Modal */}
-      {seller && (
-        <SellerWalletModal
-          open={showWallet}
-          onOpenChange={setShowWallet}
-          sellerId={seller.id}
-          walletBalance={walletBalance}
         />
       )}
     </div>

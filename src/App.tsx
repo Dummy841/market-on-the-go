@@ -15,6 +15,7 @@ import Refunds from "./pages/dashboard/Refunds";
 import Banners from "./pages/dashboard/Banners";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
+import SellerWallet from "./pages/SellerWallet";
 import DeliveryPartnerLogin from "./pages/DeliveryPartnerLogin";
 import DeliveryPartnerDashboard from "./pages/DeliveryPartnerDashboard";
 import RestaurantMenu from "./pages/RestaurantMenu";
@@ -49,6 +50,7 @@ const App = () => (
                     <Route path="/my-orders" element={<MyOrders />} />
                     <Route path="/seller-login" element={<SellerLogin />} />
                     <Route path="/seller-dashboard" element={<SellerDashboard />} />
+                    <Route path="/seller-wallet" element={<SellerWallet />} />
                     <Route path="/delivery-login" element={<DeliveryPartnerLogin />} />
                     <Route path="/delivery-dashboard" element={<DeliveryPartnerDashboard />} />
                     <Route path="/dashboard" element={<Dashboard />}>
