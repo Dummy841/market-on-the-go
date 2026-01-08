@@ -29,6 +29,7 @@ interface Order {
   instructions: string;
   payment_method: string;
   status: string;
+  seller_status?: string | null;
   delivery_pin: string;
   created_at: string;
   is_rated: boolean;
@@ -173,15 +174,21 @@ export const MyOrders = () => {
               <Button onClick={() => navigate('/')}>Browse Restaurants</Button>
             </CardContent>
           </Card> : <div className="space-y-4">
-            {orders.map(order => <Card key={order.id} className="border-l-4 border-l-primary">
+            {orders.map(order => {
+              const displayStatus =
+                order.status === 'rejected' || order.seller_status === 'rejected'
+                  ? 'rejected'
+                  : order.status;
+
+              return <Card key={order.id} className="border-l-4 border-l-primary">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold">{order.seller_name}</h3>
-                        <Badge className={getStatusColor(order.status)}>
-                          {getStatusIcon(order.status)}
-                          <span className="ml-1">{getStatusText(order.status)}</span>
+                        <Badge className={getStatusColor(displayStatus)}>
+                          {getStatusIcon(displayStatus)}
+                          <span className="ml-1">{getStatusText(displayStatus)}</span>
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -198,7 +205,7 @@ export const MyOrders = () => {
                       <p className="text-xs text-muted-foreground">
                         {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                       </p>
-                      {order.status === 'out_for_delivery' && order.delivery_pin && <div className="mt-2">
+                      {displayStatus === 'out_for_delivery' && order.delivery_pin && <div className="mt-2">
                           <Badge className="bg-green-100 text-green-800 text-xs">
                             Delivery PIN: {order.delivery_pin}
                           </Badge>
@@ -218,7 +225,7 @@ export const MyOrders = () => {
                     </div>}
 
                   {/* Rejected Order Message */}
-                  {order.status === 'rejected' && (
+                  {displayStatus === 'rejected' && (
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                       <p className="text-sm text-orange-700 font-medium">
                         Order Rejected by Seller - Your amount will be refunded shortly
@@ -232,7 +239,7 @@ export const MyOrders = () => {
                   </div>
 
                   {/* Track Order Button - Show for non-delivered orders */}
-                  {order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'rejected' && (
+                  {displayStatus !== 'delivered' && displayStatus !== 'cancelled' && displayStatus !== 'rejected' && (
                     <div className="mt-3 pt-3 border-t">
                       <Button
                         variant="default"
@@ -260,7 +267,7 @@ export const MyOrders = () => {
                   )}
 
                   {/* Rate Order Button */}
-                  {order.status === 'delivered' && !order.is_rated && (
+                  {displayStatus === 'delivered' && !order.is_rated && (
                     <div className="mt-3 pt-3 border-t">
                       <Button
                         variant="outline"
@@ -285,7 +292,8 @@ export const MyOrders = () => {
                     </div>
                   )}
                 </CardContent>
-              </Card>)}
+              </Card>;
+            })}
           </div>}
       </div>
 
