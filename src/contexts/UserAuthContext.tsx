@@ -124,6 +124,30 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
     }
+
+    // Dispatch addressChanged event to refresh location-based data (e.g., sellers)
+    const storedAddress = localStorage.getItem('selectedAddress');
+    if (storedAddress) {
+      try {
+        const parsed = JSON.parse(storedAddress);
+        if (parsed?.latitude != null && parsed?.longitude != null) {
+          window.dispatchEvent(new CustomEvent('addressChanged', {
+            detail: { latitude: parsed.latitude, longitude: parsed.longitude }
+          }));
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    } else {
+      // Fallback to currentLat/Lng
+      const lat = localStorage.getItem('currentLat');
+      const lng = localStorage.getItem('currentLng');
+      if (lat && lng) {
+        window.dispatchEvent(new CustomEvent('addressChanged', {
+          detail: { latitude: parseFloat(lat), longitude: parseFloat(lng) }
+        }));
+      }
+    }
   };
 
   const logout = async () => {
