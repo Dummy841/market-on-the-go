@@ -12,6 +12,8 @@ import Sellers from "./pages/dashboard/Sellers";
 import DeliveryPartners from "./pages/dashboard/DeliveryPartners";
 import Orders from "./pages/dashboard/Orders";
 import Refunds from "./pages/dashboard/Refunds";
+import Settlements from "./pages/dashboard/Settlements";
+import DashboardHome from "./pages/dashboard/DashboardHome";
 import Banners from "./pages/dashboard/Banners";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -54,9 +56,11 @@ const App = () => (
                     <Route path="/delivery-login" element={<DeliveryPartnerLogin />} />
                     <Route path="/delivery-dashboard" element={<DeliveryPartnerDashboard />} />
                     <Route path="/dashboard" element={<Dashboard />}>
+                      <Route index element={<DashboardHome />} />
                       <Route path="users" element={<Users />} />
                       <Route path="sellers" element={<Sellers />} />
                       <Route path="orders" element={<Orders />} />
+                      <Route path="settlements" element={<Settlements />} />
                       <Route path="refunds" element={<Refunds />} />
                       <Route path="delivery-partners" element={<DeliveryPartners />} />
                       <Route path="banners" element={<Banners />} />
