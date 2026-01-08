@@ -80,7 +80,7 @@ const FullScreenLocationPicker = ({
           console.error('Error getting current location:', err);
           setIsLocating(false);
         },
-        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
       );
     } else {
       setIsLocating(false);
@@ -226,14 +226,14 @@ const FullScreenLocationPicker = ({
         console.error('Error getting current location:', error);
         setIsLocating(false);
       },
-      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
     );
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-background flex flex-col touch-auto">
       {/* Header with Search */}
       <div className="relative z-20 bg-background p-4 flex items-center gap-3 border-b">
         <Button
@@ -284,7 +284,7 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-none"
+              mapContainerClassName="w-full h-full touch-auto"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={(m) => {
