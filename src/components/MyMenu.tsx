@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
+import EditItemModal from './EditItemModal';
+
 interface Item {
   id: string;
   item_name: string;
@@ -13,30 +15,32 @@ interface Item {
   seller_price: number;
   franchise_price: number;
   is_active?: boolean;
+  item_info?: string | null;
   created_at: string;
 }
+
 const MyMenu = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const {
-    toast
-  } = useToast();
-  const {
-    seller
-  } = useSellerAuth();
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const { toast } = useToast();
+  const { seller } = useSellerAuth();
+
   useEffect(() => {
     if (seller) {
       fetchItems();
     }
   }, [seller]);
+
   const fetchItems = async () => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('items').select('*').eq('seller_id', seller?.id).order('created_at', {
-        ascending: false
-      });
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .eq('seller_id', seller?.id)
+        .order('created_at', { ascending: false });
+
       if (error) throw error;
       setItems(data || []);
     } catch (error) {
@@ -50,18 +54,20 @@ const MyMenu = () => {
       setLoading(false);
     }
   };
+
   const toggleItemStatus = async (itemId: string, currentStatus: boolean) => {
     try {
-      const {
-        error
-      } = await supabase.from('items').update({
-        is_active: !currentStatus
-      }).eq('id', itemId);
+      const { error } = await supabase
+        .from('items')
+        .update({ is_active: !currentStatus })
+        .eq('id', itemId);
+
       if (error) throw error;
-      setItems(items.map(item => item.id === itemId ? {
-        ...item,
-        is_active: !currentStatus
-      } : item));
+
+      setItems(items.map(item => 
+        item.id === itemId ? { ...item, is_active: !currentStatus } : item
+      ));
+
       toast({
         title: "Success",
         description: `Item ${!currentStatus ? 'activated' : 'deactivated'} successfully`
@@ -75,27 +81,38 @@ const MyMenu = () => {
       });
     }
   };
+
   if (loading) {
-    return <div className="flex items-center justify-center p-8">
+    return (
+      <div className="flex items-center justify-center p-8">
         <div className="text-lg">Loading menu...</div>
-      </div>;
+      </div>
+    );
   }
+
   if (items.length === 0) {
-    return <div className="text-center p-8">
+    return (
+      <div className="text-center p-8">
         <h3 className="text-lg font-medium text-muted-foreground">No items added yet</h3>
         <p className="text-sm text-muted-foreground mt-2">Add your first item to get started</p>
-      </div>;
+      </div>
+    );
   }
-  return <div className="space-y-4">
+
+  return (
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">My Menu ({items.length} items)</h2>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map(item => <Card key={item.id} className="overflow-hidden">
-            {item.item_photo_url && <div className="h-48 bg-muted">
+        {items.map(item => (
+          <Card key={item.id} className="overflow-hidden">
+            {item.item_photo_url && (
+              <div className="h-48 bg-muted">
                 <img src={item.item_photo_url} alt={item.item_name} className="w-full h-full object-cover" />
-              </div>}
+              </div>
+            )}
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg">{item.item_name}</CardTitle>
@@ -110,17 +127,41 @@ const MyMenu = () => {
                 <span className="font-medium">₹{item.seller_price}</span>
               </div>
               
-              
               <div className="flex gap-2 pt-2">
-                <Button variant={item.is_active !== false ? "outline" : "default"} size="sm" className="flex-1" onClick={() => toggleItemStatus(item.id, item.is_active !== false)}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    setEditingItem(item);
+                    setShowEditModal(true);
+                  }}
+                >
+                  <Pencil className="w-3 h-3 mr-1" />
+                  Edit
+                </Button>
+                <Button 
+                  variant={item.is_active !== false ? "outline" : "default"} 
+                  size="sm" 
+                  className="flex-1" 
+                  onClick={() => toggleItemStatus(item.id, item.is_active !== false)}
+                >
                   {item.is_active !== false ? "Deactivate" : "Activate"}
                 </Button>
-                
-                
               </div>
             </CardContent>
-          </Card>)}
+          </Card>
+        ))}
       </div>
-    </div>;
+
+      <EditItemModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        item={editingItem}
+        onSuccess={fetchItems}
+      />
+    </div>
+  );
 };
+
 export default MyMenu;
