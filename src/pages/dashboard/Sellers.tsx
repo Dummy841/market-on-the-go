@@ -14,7 +14,6 @@ import EditSellerModal from '@/components/EditSellerModal';
 import SellerSalesModal from '@/components/SellerSalesModal';
 import SellerSettlementsModal from '@/components/SellerSettlementsModal';
 import { Seller } from '@/contexts/SellerAuthContext';
-
 const Sellers = () => {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,41 +28,43 @@ const Sellers = () => {
     active: 0,
     pending: 0
   });
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     fetchSellers();
   }, []);
-
   const fetchSellers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('sellers')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const {
+        data,
+        error
+      } = await supabase.from('sellers').select('*').order('created_at', {
+        ascending: false
+      });
       if (error) throw error;
-
       setSellers((data || []) as Seller[]);
-      
+
       // Calculate stats
       const total = data?.length || 0;
       const active = data?.filter(s => s.status === 'approved').length || 0;
       const pending = data?.filter(s => s.status === 'pending').length || 0;
-      
-      setStats({ total, active, pending });
+      setStats({
+        total,
+        active,
+        pending
+      });
     } catch (error) {
       console.error('Error fetching sellers:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch sellers",
+        description: "Failed to fetch sellers"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const getStatusText = (status: string) => {
     switch (status) {
       case 'approved':
@@ -76,9 +77,7 @@ const Sellers = () => {
         return status;
     }
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-foreground">Sellers Management</h2>
         <Button onClick={() => setShowCreateForm(true)}>
@@ -87,51 +86,16 @@ const Sellers = () => {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Total Sellers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">{stats.total}</p>
-            <p className="text-sm text-muted-foreground">All registered sellers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Active Sellers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{stats.active}</p>
-            <p className="text-sm text-muted-foreground">Approved sellers</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Pending Approvals</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-orange-600">{stats.pending}</p>
-            <p className="text-sm text-muted-foreground">Awaiting review</p>
-          </CardContent>
-        </Card>
-      </div>
+      
 
       <Card>
         <CardHeader>
           <CardTitle>All Sellers</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="text-center py-4">Loading...</div>
-          ) : sellers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+          {loading ? <div className="text-center py-4">Loading...</div> : sellers.length === 0 ? <div className="text-center py-8 text-muted-foreground">
               No sellers found. Create your first seller to get started.
-            </div>
-          ) : (
-            <Table>
+            </div> : <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Seller ID</TableHead>
@@ -144,8 +108,7 @@ const Sellers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sellers.map((seller) => (
-                  <TableRow key={seller.id}>
+                {sellers.map(seller => <TableRow key={seller.id}>
                     <TableCell>
                       <div className="font-medium text-primary">
                         {seller.seller_id || `HMD${String(sellers.indexOf(seller) + 1).padStart(6, '0')}`}
@@ -178,11 +141,7 @@ const Sellers = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className={`font-medium ${
-                        (seller.status === 'approved' || seller.status === 'active') 
-                          ? 'text-green-600' 
-                          : 'text-gray-600'
-                      }`}>
+                      <span className={`font-medium ${seller.status === 'approved' || seller.status === 'active' ? 'text-green-600' : 'text-gray-600'}`}>
                         {getStatusText(seller.status)}
                       </span>
                     </TableCell>
@@ -194,85 +153,52 @@ const Sellers = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedSeller(seller);
-                              setShowDetailsModal(true);
-                            }}
-                          >
+                          <DropdownMenuItem onClick={() => {
+                      setSelectedSeller(seller);
+                      setShowDetailsModal(true);
+                    }}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedSeller(seller);
-                              setShowEditModal(true);
-                            }}
-                          >
+                          <DropdownMenuItem onClick={() => {
+                      setSelectedSeller(seller);
+                      setShowEditModal(true);
+                    }}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Seller
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedSeller(seller);
-                              setShowSalesModal(true);
-                            }}
-                          >
+                          <DropdownMenuItem onClick={() => {
+                      setSelectedSeller(seller);
+                      setShowSalesModal(true);
+                    }}>
                             <DollarSign className="mr-2 h-4 w-4" />
                             View Sales
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedSeller(seller);
-                              setShowSettlementsModal(true);
-                            }}
-                          >
+                          <DropdownMenuItem onClick={() => {
+                      setSelectedSeller(seller);
+                      setShowSettlementsModal(true);
+                    }}>
                             <CreditCard className="mr-2 h-4 w-4" />
                             Settlements
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>)}
               </TableBody>
-            </Table>
-          )}
+            </Table>}
         </CardContent>
       </Card>
 
-      <CreateSellerForm
-        open={showCreateForm}
-        onOpenChange={setShowCreateForm}
-        onSuccess={fetchSellers}
-      />
+      <CreateSellerForm open={showCreateForm} onOpenChange={setShowCreateForm} onSuccess={fetchSellers} />
 
-      <SellerDetailsModal
-        seller={selectedSeller}
-        open={showDetailsModal}
-        onOpenChange={setShowDetailsModal}
-      />
+      <SellerDetailsModal seller={selectedSeller} open={showDetailsModal} onOpenChange={setShowDetailsModal} />
 
-      <EditSellerModal
-        seller={selectedSeller}
-        open={showEditModal}
-        onOpenChange={setShowEditModal}
-        onSuccess={fetchSellers}
-      />
+      <EditSellerModal seller={selectedSeller} open={showEditModal} onOpenChange={setShowEditModal} onSuccess={fetchSellers} />
 
-      <SellerSalesModal
-        seller={selectedSeller}
-        open={showSalesModal}
-        onOpenChange={setShowSalesModal}
-      />
+      <SellerSalesModal seller={selectedSeller} open={showSalesModal} onOpenChange={setShowSalesModal} />
 
-      <SellerSettlementsModal
-        seller={selectedSeller}
-        open={showSettlementsModal}
-        onOpenChange={setShowSettlementsModal}
-      />
-    </div>
-  );
+      <SellerSettlementsModal seller={selectedSeller} open={showSettlementsModal} onOpenChange={setShowSettlementsModal} />
+    </div>;
 };
-
 export default Sellers;
