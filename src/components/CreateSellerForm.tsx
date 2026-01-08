@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import LocationPicker from './LocationPicker';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 
 const sellerSchema = z.object({
   owner_name: z.string().min(2, 'Owner name must be at least 2 characters'),
@@ -39,6 +40,8 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
   const [uploading, setUploading] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>('');
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [isBankVerified, setIsBankVerified] = useState(false);
+  const [isVerifyingBank, setIsVerifyingBank] = useState(false);
   const { toast } = useToast();
   
   const form = useForm<SellerFormData>({
@@ -58,6 +61,10 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     watch,
     setValue
   } = form;
+
+  const accountNumber = watch('account_number');
+  const ifscCode = watch('ifsc_code');
+  const ownerName = watch('owner_name');
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -96,7 +103,83 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     }
   };
 
+  const handleVerifyBank = async () => {
+    if (!accountNumber || !ifscCode || !ownerName) {
+      toast({
+        variant: "destructive",
+        title: "Missing Details",
+        description: "Please enter owner name, account number and IFSC code first",
+      });
+      return;
+    }
+
+    if (accountNumber.length < 8) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Account Number",
+        description: "Account number must be at least 8 digits",
+      });
+      return;
+    }
+
+    if (ifscCode.length !== 11) {
+      toast({
+        variant: "destructive",
+        title: "Invalid IFSC Code",
+        description: "IFSC code must be exactly 11 characters",
+      });
+      return;
+    }
+
+    setIsVerifyingBank(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-bank-account', {
+        body: {
+          account_number: accountNumber,
+          ifsc_code: ifscCode,
+          account_holder_name: ownerName,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.verified) {
+        setIsBankVerified(true);
+        toast({
+          title: "Bank Verified",
+          description: data.message || "Bank account verified successfully!",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Verification Failed",
+          description: data.error || "Could not verify bank account",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error verifying bank:', error);
+      toast({
+        variant: "destructive",
+        title: "Verification Failed",
+        description: error.message || "Failed to verify bank account",
+      });
+    } finally {
+      setIsVerifyingBank(false);
+    }
+  };
+
   const onSubmit = async (data: SellerFormData) => {
+    if (!isBankVerified) {
+      toast({
+        variant: "destructive",
+        title: "Bank Not Verified",
+        description: "Please verify the bank account before creating the seller",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('sellers')
@@ -105,7 +188,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             owner_name: data.owner_name,
             seller_name: data.seller_name,
             mobile: data.mobile,
-            password_hash: data.password, // In production, hash the password
+            password_hash: data.password,
             account_number: data.account_number,
             ifsc_code: data.ifsc_code,
             bank_name: data.bank_name,
@@ -115,6 +198,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             status: data.status === 'active' ? 'approved' : 'inactive',
             profile_photo_url: profilePhotoUrl || null,
             category: data.category,
+            is_bank_verified: true,
           },
         ]);
 
@@ -127,6 +211,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
 
       reset();
       setProfilePhotoUrl('');
+      setIsBankVerified(false);
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -211,40 +296,74 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="account_number">Account Number</Label>
-            <Input
-              id="account_number"
-              {...register('account_number')}
-              placeholder="Enter bank account number"
-            />
-            {errors.account_number && (
-              <p className="text-sm text-destructive">{errors.account_number.message}</p>
-            )}
-          </div>
+          <div className="p-3 border rounded-lg space-y-3 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Bank Details</Label>
+              {isBankVerified && (
+                <div className="flex items-center gap-1 text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm font-medium">Verified</span>
+                </div>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="ifsc_code">IFSC Code</Label>
-            <Input
-              id="ifsc_code"
-              {...register('ifsc_code')}
-              placeholder="Enter IFSC code"
-              maxLength={11}
-            />
-            {errors.ifsc_code && (
-              <p className="text-sm text-destructive">{errors.ifsc_code.message}</p>
-            )}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="account_number">Account Number</Label>
+              <Input
+                id="account_number"
+                {...register('account_number')}
+                placeholder="Enter bank account number"
+                disabled={isBankVerified}
+              />
+              {errors.account_number && (
+                <p className="text-sm text-destructive">{errors.account_number.message}</p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="bank_name">Bank Name</Label>
-            <Input
-              id="bank_name"
-              {...register('bank_name')}
-              placeholder="Enter bank name"
-            />
-            {errors.bank_name && (
-              <p className="text-sm text-destructive">{errors.bank_name.message}</p>
+            <div className="space-y-2">
+              <Label htmlFor="ifsc_code">IFSC Code</Label>
+              <Input
+                id="ifsc_code"
+                {...register('ifsc_code')}
+                placeholder="Enter IFSC code"
+                maxLength={11}
+                disabled={isBankVerified}
+              />
+              {errors.ifsc_code && (
+                <p className="text-sm text-destructive">{errors.ifsc_code.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bank_name">Bank Name</Label>
+              <Input
+                id="bank_name"
+                {...register('bank_name')}
+                placeholder="Enter bank name"
+                disabled={isBankVerified}
+              />
+              {errors.bank_name && (
+                <p className="text-sm text-destructive">{errors.bank_name.message}</p>
+              )}
+            </div>
+
+            {!isBankVerified && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleVerifyBank}
+                disabled={isVerifyingBank}
+                className="w-full"
+              >
+                {isVerifyingBank ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying Bank Account...
+                  </>
+                ) : (
+                  'Verify Bank Account (₹1 will be credited)'
+                )}
+              </Button>
             )}
           </div>
 
@@ -327,7 +446,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || !isBankVerified}>
               {isSubmitting ? 'Creating...' : 'Create Seller'}
             </Button>
           </div>

@@ -411,6 +411,7 @@ export type Database = {
           franchise_percentage: number | null
           id: string
           ifsc_code: string
+          is_bank_verified: boolean
           is_online: boolean
           mobile: string
           owner_name: string
@@ -431,6 +432,7 @@ export type Database = {
           franchise_percentage?: number | null
           id?: string
           ifsc_code: string
+          is_bank_verified?: boolean
           is_online?: boolean
           mobile: string
           owner_name: string
@@ -451,6 +453,7 @@ export type Database = {
           franchise_percentage?: number | null
           id?: string
           ifsc_code?: string
+          is_bank_verified?: boolean
           is_online?: boolean
           mobile?: string
           owner_name?: string
