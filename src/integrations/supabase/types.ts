@@ -122,6 +122,7 @@ export type Database = {
           franchise_price: number
           id: string
           is_active: boolean
+          item_info: string | null
           item_name: string
           item_photo_url: string | null
           seller_id: string
@@ -133,6 +134,7 @@ export type Database = {
           franchise_price: number
           id?: string
           is_active?: boolean
+          item_info?: string | null
           item_name: string
           item_photo_url?: string | null
           seller_id: string
@@ -144,6 +146,7 @@ export type Database = {
           franchise_price?: number
           id?: string
           is_active?: boolean
+          item_info?: string | null
           item_name?: string
           item_photo_url?: string | null
           seller_id?: string

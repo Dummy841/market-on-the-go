@@ -19,7 +19,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
   const [formData, setFormData] = useState({
     item_name: '',
     seller_price: '',
-    franchise_price: ''
+    item_info: ''
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -95,7 +95,8 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
           item_name: formData.item_name,
           item_photo_url: imageUrl,
           seller_price: parseFloat(formData.seller_price),
-          franchise_price: parseFloat(formData.franchise_price)
+          franchise_price: parseFloat(formData.seller_price), // Set same as seller_price (required field)
+          item_info: formData.item_info || null
         });
 
       if (error) throw error;
@@ -109,7 +110,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
       setFormData({
         item_name: '',
         seller_price: '',
-        franchise_price: ''
+        item_info: ''
       });
       setImageFile(null);
       setImagePreview(null);
@@ -181,7 +182,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
           </div>
 
           <div>
-            <Label htmlFor="seller_price">Seller Price</Label>
+            <Label htmlFor="seller_price">Price (₹)</Label>
             <Input
               id="seller_price"
               type="number"
@@ -193,14 +194,13 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
           </div>
 
           <div>
-            <Label htmlFor="franchise_price">Franchise Price</Label>
-            <Input
-              id="franchise_price"
-              type="number"
-              step="0.01"
-              value={formData.franchise_price}
-              onChange={(e) => handleInputChange('franchise_price', e.target.value)}
-              required
+            <Label htmlFor="item_info">Item Info (Optional)</Label>
+            <textarea
+              id="item_info"
+              className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Add description about this item (e.g., ingredients, serving size, etc.)"
+              value={formData.item_info}
+              onChange={(e) => handleInputChange('item_info', e.target.value)}
             />
           </div>
 

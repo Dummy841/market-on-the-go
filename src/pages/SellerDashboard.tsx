@@ -9,6 +9,7 @@ import { LogOut, Plus, User, Menu, ShoppingBag, TrendingUp, Power, PowerOff, Key
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import SellerItemsForm from '@/components/SellerItemsForm';
 import MyMenu from '@/components/MyMenu';
+import SellerEarningsDashboard from '@/components/SellerEarningsDashboard';
 import { SellerOrderManagement } from '@/components/SellerOrderManagement';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -416,12 +417,7 @@ const SellerDashboard = () => {
                 ← Back to Dashboard
               </Button>
             </div>
-            <Card>
-              <CardContent className="p-8 text-center">
-                <h3 className="text-lg font-medium text-muted-foreground">Earnings Dashboard</h3>
-                <p className="text-sm text-muted-foreground mt-2">Coming soon...</p>
-              </CardContent>
-            </Card>
+            <SellerEarningsDashboard />
           </div>}
       </main>
 
