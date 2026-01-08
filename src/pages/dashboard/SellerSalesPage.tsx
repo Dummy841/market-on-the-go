@@ -79,9 +79,13 @@ const SellerSalesPage = () => {
   const filterOrders = () => {
     let filtered = [...orders];
 
-    // Filter by status
+    // Filter by status - 'rejected' filter shows both rejected and refunded
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === statusFilter);
+      if (statusFilter === 'rejected') {
+        filtered = filtered.filter(order => order.status === 'rejected' || order.status === 'refunded');
+      } else {
+        filtered = filtered.filter(order => order.status === statusFilter);
+      }
     }
 
     // Filter by date
@@ -131,9 +135,11 @@ const SellerSalesPage = () => {
     }
   };
 
+  const PENALTY_AMOUNT = 10;
+
   // Calculate seller earnings from items (sum of seller_price * quantity)
   const calculateSellerEarnings = (ordersToCalc: Order[]) => {
-    return ordersToCalc
+    const deliveredEarnings = ordersToCalc
       .filter(o => o.status === 'delivered')
       .reduce((sum, order) => {
         if (Array.isArray(order.items)) {
@@ -148,17 +154,27 @@ const SellerSalesPage = () => {
         }
         return sum;
       }, 0);
+    
+    // Deduct penalty for rejected orders
+    const rejectedCount = ordersToCalc.filter(o => o.status === 'rejected' || o.status === 'refunded').length;
+    const totalPenalty = rejectedCount * PENALTY_AMOUNT;
+    
+    return deliveredEarnings - totalPenalty;
   };
 
   // Stats based on filtered orders for day-wise filtering
+  const rejectedOrders = filteredOrders.filter(o => o.status === 'rejected' || o.status === 'refunded');
+  const totalPenalty = rejectedOrders.length * PENALTY_AMOUNT;
+  
   const stats = {
     total: filteredOrders.length,
     delivered: filteredOrders.filter(o => o.status === 'delivered').length,
-    rejected: filteredOrders.filter(o => o.status === 'rejected' || o.status === 'refunded').length,
+    rejected: rejectedOrders.length,
     totalRevenue: filteredOrders
       .filter(o => o.status === 'delivered')
-      .reduce((sum, o) => sum + Number(o.total_amount), 0),
-    sellerEarnings: calculateSellerEarnings(filteredOrders)
+      .reduce((sum, o) => sum + Number(o.total_amount), 0) + totalPenalty,
+    sellerEarnings: calculateSellerEarnings(filteredOrders),
+    totalPenalty
   };
 
   return (
@@ -233,7 +249,9 @@ const SellerSalesPage = () => {
               <Button
                 variant={statusFilter === 'rejected' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setStatusFilter('rejected')}
+                onClick={() => {
+                  setStatusFilter('rejected');
+                }}
               >
                 Rejected
               </Button>
@@ -286,32 +304,40 @@ const SellerSalesPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium text-primary">{order.id}</TableCell>
-                    <TableCell>₹{Number(order.total_amount).toFixed(0)}</TableCell>
-                    <TableCell className="capitalize">{order.payment_method}</TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {format(new Date(order.created_at), 'dd MMM yyyy')}
-                        <div className="text-muted-foreground">
-                          {format(new Date(order.created_at), 'hh:mm a')}
+                {filteredOrders.map((order) => {
+                  const isRejected = order.status === 'rejected' || order.status === 'refunded';
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium text-primary">{order.id}</TableCell>
+                      <TableCell>
+                        <div>₹{Number(order.total_amount).toFixed(0)}</div>
+                        {isRejected && (
+                          <div className="text-xs text-red-600">Penalty: -₹{PENALTY_AMOUNT}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="capitalize">{order.payment_method}</TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {format(new Date(order.created_at), 'dd MMM yyyy')}
+                          <div className="text-muted-foreground">
+                            {format(new Date(order.created_at), 'hh:mm a')}
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewDetails(order)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewDetails(order)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
