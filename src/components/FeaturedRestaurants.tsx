@@ -63,10 +63,10 @@ export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRest
       if (storedAddress) {
         try {
           const parsed = JSON.parse(storedAddress);
-          if (parsed.latitude && parsed.longitude) {
+          if (parsed?.latitude != null && parsed?.longitude != null) {
             setUserLocation({
               lat: parseFloat(parsed.latitude.toString()),
-              lng: parseFloat(parsed.longitude.toString())
+              lng: parseFloat(parsed.longitude.toString()),
             });
             return;
           }
@@ -74,18 +74,14 @@ export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRest
           console.error('Error parsing stored address:', error);
         }
       }
-      
-      // Fallback: try to get user's saved default address from DB
-      const { data: addresses } = await supabase
-        .from('user_addresses')
-        .select('latitude, longitude')
-        .eq('is_default', true)
-        .limit(1);
 
-      if (addresses && addresses.length > 0) {
+      // Next, fall back to the latest device/current coordinates saved by Header
+      const currentLat = localStorage.getItem('currentLat');
+      const currentLng = localStorage.getItem('currentLng');
+      if (currentLat && currentLng) {
         setUserLocation({
-          lat: parseFloat(addresses[0].latitude.toString()),
-          lng: parseFloat(addresses[0].longitude.toString())
+          lat: parseFloat(currentLat),
+          lng: parseFloat(currentLng),
         });
         return;
       }

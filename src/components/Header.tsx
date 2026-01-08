@@ -80,15 +80,23 @@ export const Header = () => {
     };
 
     // First check localStorage for selected address (preferred; includes coordinates)
+    // Note: older stored values may miss latitude/longitude; in that case we fall back to DB.
     const storedAddress = localStorage.getItem('selectedAddress');
     if (storedAddress) {
       try {
         const parsed = JSON.parse(storedAddress);
         setSelectedAddress(parsed);
-        dispatchAddressChanged(parsed.latitude, parsed.longitude);
-        return;
+
+        if (parsed?.latitude != null && parsed?.longitude != null) {
+          dispatchAddressChanged(parsed.latitude, parsed.longitude);
+          return;
+        }
+
+        // Stored address without coordinates can't be used for filtering; refresh from DB.
+        localStorage.removeItem('selectedAddress');
       } catch (error) {
         console.error('Error parsing stored address:', error);
+        localStorage.removeItem('selectedAddress');
       }
     }
 
