@@ -284,7 +284,7 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-auto"
+              mapContainerClassName="w-full h-full touch-none"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={(m) => {
@@ -343,6 +343,7 @@ const FullScreenLocationPicker = ({
         </div>
 
         <Button
+          type="button"
           onClick={handleConfirm}
           className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-medium rounded-xl"
         >
