@@ -254,6 +254,11 @@ export const SellerOrderManagement = () => {
     value: "delivered",
     icon: Truck,
     color: "bg-purple-100 text-purple-800"
+  }, {
+    label: "Rejected",
+    value: "rejected",
+    icon: AlertCircle,
+    color: "bg-red-100 text-red-800"
   }];
   const fetchSellerOrders = useCallback(async () => {
     if (!seller) return;
@@ -508,6 +513,14 @@ export const SellerOrderManagement = () => {
       // Check both main status and seller_status for delivered orders
       return order.status === "delivered" || sellerStatus === "delivered";
     }
+    if (selectedStatus === "rejected") {
+      // Check both main status and seller_status for rejected orders
+      return order.status === "rejected" || sellerStatus === "rejected";
+    }
+    if (selectedStatus === "packed") {
+      // Only show packed orders that are NOT delivered yet
+      return sellerStatus === "packed" && order.status !== "delivered";
+    }
     return sellerStatus === selectedStatus;
   }).filter(order => {
     // Date filtering for delivered orders
@@ -535,12 +548,19 @@ export const SellerOrderManagement = () => {
       </CardHeader>
 
       {/* Status Filter Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
         {statusOptions.map(status => {
         const Icon = status.icon;
         const count = status.value === "All" ? orders.length : (() => {
           if (status.value === "delivered") {
             return orders.filter(order => order.status === "delivered" || (order as any).seller_status === "delivered").length;
+          }
+          if (status.value === "rejected") {
+            return orders.filter(order => order.status === "rejected" || (order as any).seller_status === "rejected").length;
+          }
+          if (status.value === "packed") {
+            // Only count packed orders that are NOT delivered
+            return orders.filter(order => (order as any).seller_status === "packed" && order.status !== "delivered").length;
           }
           return orders.filter(order => {
             const sellerStatus = (order as any).seller_status || 'pending';
