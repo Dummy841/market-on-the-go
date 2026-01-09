@@ -129,6 +129,15 @@ const UserWallet = () => {
       return;
     }
 
+    if (amount > 5000) {
+      toast({
+        title: "Amount Too High",
+        description: "Maximum amount you can add is ₹5000",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!razorpayLoaded) {
       toast({
         title: "Loading...",
@@ -375,7 +384,7 @@ const UserWallet = () => {
                         </p>
                         {txn.order_id && (
                           <p className="text-xs text-muted-foreground">
-                            Order: #{txn.order_id.slice(-6)}
+                            Order: #{txn.order_id}
                           </p>
                         )}
                       </div>
