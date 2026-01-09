@@ -1,12 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Star, Clock, MapPin, Plus, ChevronRight, Info } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Star, Clock, MapPin, Plus, ChevronRight, Info, Search, X } from "lucide-react";
 import { RestaurantCard } from "@/components/RestaurantCard";
 import { useCart } from "@/contexts/CartContext";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
@@ -57,11 +58,37 @@ const RestaurantMenu = () => {
     lat: number;
     lng: number;
   } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const {
     addToCart,
     getTotalItems,
     getTotalPrice
   } = useCart();
+
+  // Filter menu items based on search query - name matches first, then description matches
+  const filteredMenuItems = useMemo(() => {
+    if (!searchQuery.trim()) return menuItems;
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Separate into name matches and description-only matches
+    const nameMatches: MenuItem[] = [];
+    const descriptionOnlyMatches: MenuItem[] = [];
+    
+    menuItems.forEach(item => {
+      const nameMatch = item.item_name.toLowerCase().includes(query);
+      const descMatch = item.item_info?.toLowerCase().includes(query);
+      
+      if (nameMatch) {
+        nameMatches.push(item);
+      } else if (descMatch) {
+        descriptionOnlyMatches.push(item);
+      }
+    });
+    
+    // Return name matches first, then description matches
+    return [...nameMatches, ...descriptionOnlyMatches];
+  }, [menuItems, searchQuery]);
   useEffect(() => {
     getUserLocation();
     
@@ -387,14 +414,35 @@ const RestaurantMenu = () => {
 
             {/* Menu Items */}
             <section className="mb-12">
-              <h2 className="text-2xl font-bold text-foreground mb-6">Menu Items</h2>
-              {menuItems.length === 0 ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h2 className="text-2xl font-bold text-foreground">Menu Items</h2>
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search items..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-9"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {filteredMenuItems.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No menu items available</p>
+                  <p className="text-muted-foreground">
+                    {searchQuery ? `No items found for "${searchQuery}"` : 'No menu items available'}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 pb-24">
-                  {menuItems.map((item) => (
+                  {filteredMenuItems.map((item) => (
                     <Card
                       key={item.id}
                       className="overflow-hidden hover:shadow-lg transition-shadow border-border/40"
