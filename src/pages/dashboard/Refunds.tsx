@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format } from "date-fns";
-import { RotateCcw, AlertCircle, CheckCircle, Clock, XCircle, Eye } from "lucide-react";
+import { RotateCcw, AlertCircle, CheckCircle, XCircle, Eye, Wallet } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -45,7 +45,6 @@ const Refunds = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("All");
-  const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -57,13 +56,7 @@ const Refunds = () => {
       color: "bg-muted"
     },
     {
-      label: "Pending Refund",
-      value: "pending",
-      icon: Clock,
-      color: "bg-yellow-100 text-yellow-800"
-    },
-    {
-      label: "Refunded",
+      label: "Refunded to Wallet",
       value: "refunded",
       icon: CheckCircle,
       color: "bg-green-100 text-green-800"
@@ -104,64 +97,21 @@ const Refunds = () => {
     }
   };
 
-  const processRefund = async (order: Order) => {
-    try {
-      setRefundingOrderId(order.id);
-      
-      const response = await supabase.functions.invoke('process-razorpay-refund', {
-        body: {
-          order_id: order.id,
-          amount: order.total_amount
-        }
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Refund failed');
-      }
-
-      const data = response.data;
-      
-      if (data.success) {
-        toast({
-          title: "Refund Processed",
-          description: data.refund_id 
-            ? `Refund ID: ${data.refund_id} - ₹${data.amount} refunded`
-            : "Order marked as refunded"
-        });
-        await fetchRejectedOrders();
-      } else {
-        throw new Error(data.error || 'Refund failed');
-      }
-    } catch (error) {
-      console.error('Error processing refund:', error);
-      toast({
-        title: "Refund Failed",
-        description: error instanceof Error ? error.message : "Failed to process refund",
-        variant: "destructive"
-      });
-    } finally {
-      setRefundingOrderId(null);
-    }
-  };
-
   useEffect(() => {
     fetchRejectedOrders();
   }, []);
 
   const filteredOrders = selectedStatus === "All" 
     ? orders 
-    : selectedStatus === "pending"
-      ? orders.filter(order => order.status !== 'refunded')
-      : orders.filter(order => order.status === 'refunded');
+    : orders.filter(order => order.status === 'refunded');
 
-  const pendingCount = orders.filter(order => order.status !== 'refunded').length;
   const refundedCount = orders.filter(order => order.status === 'refunded').length;
 
   const getRefundStatusBadge = (status: string) => {
     if (status === 'refunded') {
-      return { color: 'bg-green-100 text-green-800', text: 'Refunded', icon: CheckCircle };
+      return { color: 'bg-green-100 text-green-800', text: 'Refunded to Wallet', icon: CheckCircle };
     }
-    return { color: 'bg-yellow-100 text-yellow-800', text: 'Pending Refund', icon: Clock };
+    return { color: 'bg-yellow-100 text-yellow-800', text: 'Processing...', icon: Wallet };
   };
 
   const openDetails = (order: Order) => {
@@ -173,8 +123,8 @@ const Refunds = () => {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold text-foreground">Refunds Management</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map(i => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
                 <div className="h-16 bg-muted rounded"></div>
@@ -188,15 +138,19 @@ const Refunds = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold text-foreground">Refunds Management</h2>
+      <div>
+        <h2 className="text-2xl font-semibold text-foreground">Refunds Management</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Refunds are automatically credited to user wallets when sellers reject orders
+        </p>
+      </div>
       
       {/* Status Filter Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {statusOptions.map(status => {
           const Icon = status.icon;
           let count = 0;
           if (status.value === "All") count = orders.length;
-          else if (status.value === "pending") count = pendingCount;
           else if (status.value === "refunded") count = refundedCount;
 
           return (
@@ -226,7 +180,7 @@ const Refunds = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <RotateCcw className="h-5 w-5" />
-            {selectedStatus === "All" ? "All Rejected Orders" : selectedStatus === "pending" ? "Pending Refunds" : "Refunded Orders"}
+            {selectedStatus === "All" ? "All Rejected Orders" : "Refunded Orders"}
             <Badge variant="secondary">{filteredOrders.length}</Badge>
           </CardTitle>
         </CardHeader>
@@ -285,17 +239,6 @@ const Refunds = () => {
                         </div>
                         
                         <div className="flex flex-col sm:flex-row gap-2">
-                          {order.status !== 'refunded' && (
-                            <Button 
-                              size="sm" 
-                              className="bg-orange-500 hover:bg-orange-600 text-white"
-                              onClick={() => processRefund(order)}
-                              disabled={refundingOrderId === order.id}
-                            >
-                              <RotateCcw className="w-4 h-4 mr-1" />
-                              {refundingOrderId === order.id ? 'Processing...' : 'Process Refund'}
-                            </Button>
-                          )}
                           <Button 
                             variant="outline" 
                             size="sm"

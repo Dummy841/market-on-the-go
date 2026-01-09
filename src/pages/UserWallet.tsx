@@ -384,7 +384,8 @@ const UserWallet = () => {
                         </p>
                         {txn.order_id && (
                           <p className="text-xs text-muted-foreground">
-                            Order: #{txn.order_id}
+                            Order: #{txn.order_id.slice(0, -4)}
+                            <span className="font-semibold">{txn.order_id.slice(-4)}</span>
                           </p>
                         )}
                       </div>
