@@ -257,8 +257,11 @@ export const MyOrders = () => {
                     <span className="text-right line-clamp-1">{order.delivery_address.split(',')[0]}</span>
                   </div>
 
-                  {/* Track Order Button - Show for non-delivered orders */}
-                  {displayStatus !== 'delivered' && displayStatus !== 'cancelled' && displayStatus !== 'rejected' && (
+                  {/* Track Order Button - Show for in-progress orders only */}
+                  {displayStatus !== 'delivered' &&
+                    displayStatus !== 'cancelled' &&
+                    displayStatus !== 'rejected' &&
+                    displayStatus !== 'refunded' && (
                     <div className="mt-3 pt-3 border-t">
                       <Button
                         variant="default"
@@ -272,7 +275,7 @@ export const MyOrders = () => {
                             .select('*, delivery_partners(id, name, mobile, profile_photo_url), sellers(seller_latitude, seller_longitude, seller_name)')
                             .eq('id', order.id)
                             .single();
-                          
+
                           if (data) {
                             setActiveOrder(data);
                             setShowTrackingModal(true);

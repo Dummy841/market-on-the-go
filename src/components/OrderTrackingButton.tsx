@@ -15,17 +15,18 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
   const buttonRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-hide after 1 minute for delivered or rejected orders
+  // Auto-hide after 1 minute for delivered/rejected/refunded orders
   useEffect(() => {
     if (activeOrder) {
       const isDelivered = activeOrder.status === 'delivered';
-      const isRejected = activeOrder.seller_status === 'rejected';
-      
-      if (isDelivered || isRejected) {
+      const isRejected = activeOrder.seller_status === 'rejected' || activeOrder.status === 'rejected';
+      const isRefunded = activeOrder.status === 'refunded';
+
+      if (isDelivered || isRejected || isRefunded) {
         if (hideTimerRef.current) {
           clearTimeout(hideTimerRef.current);
         }
-        
+
         hideTimerRef.current = setTimeout(() => {
           setShouldHide(true);
           clearActiveOrder();
