@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -36,14 +37,20 @@ const Settlements = () => {
   const [dateFilter, setDateFilter] = useState<string>("");
   const [pendingCount, setPendingCount] = useState(0);
   const [settledCount, setSettledCount] = useState(0);
-  const [processingId, setProcessingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [settlingAll, setSettlingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSettlements();
   }, [filter, dateFilter]);
+
+  // Reset selection when filter changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [filter]);
 
   const fetchSettlements = async () => {
     setLoading(true);
@@ -52,7 +59,7 @@ const Settlements = () => {
       let query = supabase
         .from("seller_wallet_transactions")
         .select("*")
-        .eq("type", "withdrawal")
+        .eq("type", "debit")
         .order("created_at", { ascending: false });
 
       if (dateFilter) {
@@ -79,7 +86,7 @@ const Settlements = () => {
 
       const sellerMap = new Map(sellers?.map((s) => [s.id, { name: s.seller_name, displayId: s.seller_id }]));
 
-      // Process settlements with status
+      // Process settlements with status based on description
       const processedSettlements: Settlement[] = (data || []).map((t: any) => ({
         ...t,
         seller_name: sellerMap.get(t.seller_id)?.name || "Unknown",
@@ -108,8 +115,51 @@ const Settlements = () => {
     }
   };
 
-  const handleMarkAsSettled = async (settlement: Settlement) => {
-    // Store the settlement ID for upload and open file picker
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(settlements.map(s => s.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(i => i !== id));
+    }
+  };
+
+  const handleSettleAll = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setSettlingAll(true);
+    try {
+      // Update all selected settlements to "Settled" status
+      for (const id of selectedIds) {
+        const settlement = settlements.find(s => s.id === id);
+        if (settlement) {
+          const newDescription = settlement.description.replace("Pending", "Settled");
+          await supabase
+            .from("seller_wallet_transactions")
+            .update({ description: newDescription })
+            .eq("id", id);
+        }
+      }
+      
+      toast.success(`${selectedIds.length} settlement(s) marked as settled`);
+      setSelectedIds([]);
+      fetchSettlements();
+    } catch (error) {
+      console.error("Error settling all:", error);
+      toast.error("Failed to settle selected items");
+    } finally {
+      setSettlingAll(false);
+    }
+  };
+
+  const handleUploadReceipt = (settlement: Settlement) => {
     setSelectedSettlementId(settlement.id);
     fileInputRef.current?.click();
   };
@@ -135,25 +185,19 @@ const Settlements = () => {
         .from('settlement-receipts')
         .getPublicUrl(fileName);
 
-      // Update description and receipt_url
-      const settlement = settlements.find(s => s.id === selectedSettlementId);
-      const newDescription = settlement?.description.replace("Pending", "Settled") || "Settled";
-      
+      // Update receipt_url
       const { error } = await supabase
         .from("seller_wallet_transactions")
-        .update({ 
-          description: newDescription,
-          receipt_url: publicUrl
-        })
+        .update({ receipt_url: publicUrl })
         .eq("id", selectedSettlementId);
 
       if (error) throw error;
 
-      toast.success("Settlement marked as completed with receipt");
+      toast.success("Receipt uploaded successfully");
       fetchSettlements();
     } catch (error) {
-      console.error("Error processing settlement:", error);
-      toast.error("Failed to process settlement");
+      console.error("Error uploading receipt:", error);
+      toast.error("Failed to upload receipt");
     } finally {
       setUploadingId(null);
       setSelectedSettlementId(null);
@@ -169,6 +213,9 @@ const Settlements = () => {
       currency: "INR",
     }).format(Math.abs(amount));
   };
+
+  const allSelected = settlements.length > 0 && selectedIds.length === settlements.length;
+  const someSelected = selectedIds.length > 0 && selectedIds.length < settlements.length;
 
   return (
     <div className="space-y-6">
@@ -232,14 +279,30 @@ const Settlements = () => {
       {/* Settlements Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {filter === "pending" ? (
-              <Clock className="h-5 w-5 text-orange-500" />
-            ) : (
-              <CheckCircle className="h-5 w-5 text-green-500" />
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              {filter === "pending" ? (
+                <Clock className="h-5 w-5 text-orange-500" />
+              ) : (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              )}
+              {filter === "pending" ? "Pending Withdrawals" : "Settled Withdrawals"}
+            </CardTitle>
+            {filter === "pending" && selectedIds.length > 0 && (
+              <Button 
+                onClick={handleSettleAll} 
+                disabled={settlingAll}
+                size="sm"
+              >
+                {settlingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Settle All ({selectedIds.length})
+              </Button>
             )}
-            {filter === "pending" ? "Pending Withdrawals" : "Settled Withdrawals"}
-          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -254,18 +317,35 @@ const Settlements = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {filter === "pending" && (
+                    <TableHead className="w-10">
+                      <Checkbox 
+                        checked={allSelected}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Seller ID</TableHead>
                   <TableHead>Seller Name</TableHead>
                   <TableHead>Request Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  {filter === "pending" && <TableHead>Action</TableHead>}
-                  {filter === "settled" && <TableHead>Receipt</TableHead>}
+                  <TableHead>{filter === "pending" ? "Action" : "Receipt"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {settlements.map((settlement) => (
                   <TableRow key={settlement.id}>
+                    {filter === "pending" && (
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedIds.includes(settlement.id)}
+                          onCheckedChange={(checked) => handleSelectOne(settlement.id, !!checked)}
+                          aria-label={`Select ${settlement.seller_name}`}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-mono text-xs">
                       {settlement.seller_display_id}
                     </TableCell>
@@ -290,25 +370,13 @@ const Settlements = () => {
                         {settlement.status === "pending" ? "Pending" : "Settled"}
                       </Badge>
                     </TableCell>
-                    {filter === "pending" && (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => handleMarkAsSettled(settlement)}
-                          disabled={uploadingId === settlement.id}
-                        >
-                          {uploadingId === settlement.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                          ) : (
-                            <Upload className="h-4 w-4 mr-1" />
-                          )}
-                          Settle
-                        </Button>
-                      </TableCell>
-                    )}
-                    {filter === "settled" && (
-                      <TableCell>
-                        {settlement.receipt_url ? (
+                    <TableCell>
+                      {filter === "pending" ? (
+                        <span className="text-xs text-muted-foreground">
+                          Use "Settle All" button
+                        </span>
+                      ) : (
+                        settlement.receipt_url ? (
                           <a 
                             href={settlement.receipt_url} 
                             target="_blank" 
@@ -323,10 +391,22 @@ const Settlements = () => {
                             View
                           </a>
                         ) : (
-                          <span className="text-muted-foreground text-sm">No receipt</span>
-                        )}
-                      </TableCell>
-                    )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUploadReceipt(settlement)}
+                            disabled={uploadingId === settlement.id}
+                          >
+                            {uploadingId === settlement.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-1" />
+                            )}
+                            Upload
+                          </Button>
+                        )
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
