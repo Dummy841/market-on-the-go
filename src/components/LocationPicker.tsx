@@ -174,7 +174,7 @@ const LocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-none"
+              mapContainerClassName="w-full h-full touch-auto"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={onLoad}
@@ -217,7 +217,7 @@ const LocationPicker = ({
       </div>
       
       {/* Bottom Sheet */}
-      <div className="bg-background border-t p-4 shadow-lg">
+      <div className="bg-background border-t p-4 shadow-lg pointer-events-auto">
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 bg-orange-100 rounded-full">
             <MapPin className="h-5 w-5 text-orange-600" />
