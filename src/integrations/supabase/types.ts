@@ -335,6 +335,30 @@ export type Database = {
           },
         ]
       }
+      seller_daily_wallet_credits: {
+        Row: {
+          amount: number
+          created_at: string
+          credit_date: string
+          id: string
+          seller_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          credit_date: string
+          id?: string
+          seller_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credit_date?: string
+          id?: string
+          seller_id?: string
+        }
+        Relationships: []
+      }
       seller_wallet_transactions: {
         Row: {
           amount: number
@@ -644,6 +668,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      compute_seller_daily_net_earnings: {
+        Args: { p_date: string; p_seller_id: string }
+        Returns: number
+      }
+      credit_daily_seller_wallets: {
+        Args: { p_date?: string }
+        Returns: undefined
+      }
       generate_delivery_pin: { Args: never; Returns: string }
       generate_order_id: {
         Args: { seller_name_param: string }

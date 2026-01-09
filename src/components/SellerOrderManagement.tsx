@@ -5,10 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useSellerAuth } from "@/contexts/SellerAuthContext";
-import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, User, Eye, Filter, Volume2 } from "lucide-react";
+import { formatDistanceToNow, isToday, isThisWeek, isThisMonth, format } from "date-fns";
+import { toZonedTime } from 'date-fns-tz';
+import { Package, Clock, CheckCircle, Truck, AlertCircle, User, Eye, Filter, Volume2, Search, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 interface Order {
   id: string;
@@ -210,25 +212,28 @@ export const SellerOrderManagement = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("pending");
-  const [dateFilter, setDateFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [searchQuery, setSearchQuery] = useState("");
   const {
     seller
   } = useSellerAuth();
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
   const processedOrderIdsRef = useRef<Set<string>>(new Set());
-  const dateOptions = [{
-    value: "all",
-    label: "All Time"
-  }, {
-    value: "today",
-    label: "Today"
-  }, {
-    value: "week",
-    label: "This Week"
-  }, {
-    value: "month",
-    label: "This Month"
-  }];
+  
+  // IST timezone
+  const IST = 'Asia/Kolkata';
+  const getTodayIST = () => format(toZonedTime(new Date(), IST), 'yyyy-MM-dd');
+  
+  // Get orders for a specific date (for stats)
+  const getOrdersForDate = (date: string) => {
+    return orders.filter(order => {
+      const orderDateIST = format(toZonedTime(new Date(order.created_at), IST), 'yyyy-MM-dd');
+      return orderDateIST === date;
+    });
+  };
+  
+  const todayIST = getTodayIST();
+  const dateFilteredOrders = dateFilter ? getOrdersForDate(dateFilter) : orders;
   const statusOptions = [{
     label: "All",
     value: "All",
@@ -507,38 +512,55 @@ export const SellerOrderManagement = () => {
           </Card>)}
       </div>;
   }
-  const filteredOrders = selectedStatus === "All" ? orders : orders.filter(order => {
+  // Filter orders by status + search + date
+  const filteredOrders = orders.filter(order => {
     const sellerStatus = (order as any).seller_status || 'pending';
+    
+    // Date filter (applies to all)
+    if (dateFilter) {
+      const orderDateIST = format(toZonedTime(new Date(order.created_at), IST), 'yyyy-MM-dd');
+      if (orderDateIST !== dateFilter) return false;
+    }
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesOrderId = order.id.toLowerCase().includes(query);
+      if (!matchesOrderId) return false;
+    }
+    
+    // Status filter
+    if (selectedStatus === "All") return true;
     if (selectedStatus === "delivered") {
-      // Check both main status and seller_status for delivered orders
       return order.status === "delivered" || sellerStatus === "delivered";
     }
     if (selectedStatus === "rejected") {
-      // Check both main status and seller_status for rejected orders
       return order.status === "rejected" || sellerStatus === "rejected";
     }
     if (selectedStatus === "packed") {
-      // Only show packed orders that are NOT delivered yet
       return sellerStatus === "packed" && order.status !== "delivered";
     }
     return sellerStatus === selectedStatus;
-  }).filter(order => {
-    // Date filtering for delivered orders
-    if (selectedStatus === "delivered" && dateFilter !== "all") {
-      const orderDate = new Date(order.delivered_at || order.created_at);
-      switch (dateFilter) {
-        case "today":
-          return isToday(orderDate);
-        case "week":
-          return isThisWeek(orderDate);
-        case "month":
-          return isThisMonth(orderDate);
-        default:
-          return true;
-      }
-    }
-    return true;
   });
+  
+  // Stats based on date filter
+  const getStatusCount = (statusVal: string) => {
+    if (statusVal === "All") return dateFilteredOrders.length;
+    if (statusVal === "delivered") {
+      return dateFilteredOrders.filter(order => order.status === "delivered" || (order as any).seller_status === "delivered").length;
+    }
+    if (statusVal === "rejected") {
+      return dateFilteredOrders.filter(order => order.status === "rejected" || (order as any).seller_status === "rejected").length;
+    }
+    if (statusVal === "packed") {
+      return dateFilteredOrders.filter(order => (order as any).seller_status === "packed" && order.status !== "delivered").length;
+    }
+    return dateFilteredOrders.filter(order => {
+      const sellerStatus = (order as any).seller_status || 'pending';
+      return sellerStatus === statusVal;
+    }).length;
+  };
+  
   return <div className="space-y-4">
       <CardHeader className="px-0">
         <CardTitle className="flex items-center gap-2">
@@ -547,54 +569,55 @@ export const SellerOrderManagement = () => {
         </CardTitle>
       </CardHeader>
 
-      {/* Status Filter Cards */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+      {/* Search and Date Filter */}
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[180px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search Order ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-8"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="h-8 w-auto"
+            />
+            {dateFilter && dateFilter !== todayIST && (
+              <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter(todayIST)}>
+                Today
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Status Filter Cards - Using dateFilteredOrders for count */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
         {statusOptions.map(status => {
         const Icon = status.icon;
-        const count = status.value === "All" ? orders.length : (() => {
-          if (status.value === "delivered") {
-            return orders.filter(order => order.status === "delivered" || (order as any).seller_status === "delivered").length;
-          }
-          if (status.value === "rejected") {
-            return orders.filter(order => order.status === "rejected" || (order as any).seller_status === "rejected").length;
-          }
-          if (status.value === "packed") {
-            // Only count packed orders that are NOT delivered
-            return orders.filter(order => (order as any).seller_status === "packed" && order.status !== "delivered").length;
-          }
-          return orders.filter(order => {
-            const sellerStatus = (order as any).seller_status || 'pending';
-            return sellerStatus === status.value;
-          }).length;
-        })();
+        const count = getStatusCount(status.value);
         return <Card key={status.value} className={`cursor-pointer transition-all hover:shadow-md ${selectedStatus === status.value ? 'ring-2 ring-primary shadow-md' : ''}`} onClick={() => setSelectedStatus(status.value)}>
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
-                    <p className="text-xl font-bold">{count}</p>
+                    <p className="text-[10px] font-medium text-muted-foreground">{status.label}</p>
+                    <p className="text-lg font-bold">{count}</p>
                   </div>
-                  <Icon className="h-6 w-6 text-muted-foreground" />
+                  <Icon className="h-5 w-5 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>;
       })}
       </div>
-
-      {/* Date Filter for Delivered Orders */}
-      {selectedStatus === "delivered" && <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by date" />
-            </SelectTrigger>
-            <SelectContent>
-              {dateOptions.map(option => <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>}
 
       {filteredOrders.length === 0 ? <Card>
           <CardContent className="p-8 text-center">
