@@ -358,7 +358,7 @@ const SellerEarningsDashboard = () => {
                 const deduction = rejected ? 0 : itemsTotal * franchisePercentage / 100;
                 return <TableRow key={order.id} className={rejected ? 'bg-red-50' : ''}>
                       <TableCell className="font-mono text-xs">
-                        #{order.id.slice(-6)}
+                        {order.id}
                       </TableCell>
                       <TableCell>
                         {format(parseISO(order.created_at), 'dd MMM yyyy, HH:mm')}

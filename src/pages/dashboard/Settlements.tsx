@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { CheckCircle, Clock, Loader2 } from "lucide-react";
+import { CheckCircle, Clock, Loader2, Upload, FileText, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface Settlement {
@@ -24,7 +24,9 @@ interface Settlement {
   description: string;
   created_at: string;
   seller_name?: string;
+  seller_display_id?: string;
   status: "pending" | "settled";
+  receipt_url?: string | null;
 }
 
 const Settlements = () => {
@@ -35,6 +37,9 @@ const Settlements = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [settledCount, setSettledCount] = useState(0);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSettlements();
@@ -65,20 +70,22 @@ const Settlements = () => {
 
       if (error) throw error;
 
-      // Fetch seller names
+      // Fetch seller names and seller_id
       const sellerIds = [...new Set(data?.map((t) => t.seller_id) || [])];
       const { data: sellers } = await supabase
         .from("sellers")
-        .select("id, seller_name")
+        .select("id, seller_name, seller_id")
         .in("id", sellerIds);
 
-      const sellerMap = new Map(sellers?.map((s) => [s.id, s.seller_name]));
+      const sellerMap = new Map(sellers?.map((s) => [s.id, { name: s.seller_name, displayId: s.seller_id }]));
 
       // Process settlements with status
-      const processedSettlements: Settlement[] = (data || []).map((t) => ({
+      const processedSettlements: Settlement[] = (data || []).map((t: any) => ({
         ...t,
-        seller_name: sellerMap.get(t.seller_id) || "Unknown",
+        seller_name: sellerMap.get(t.seller_id)?.name || "Unknown",
+        seller_display_id: sellerMap.get(t.seller_id)?.displayId || "-",
         status: t.description.includes("Pending") ? "pending" : "settled",
+        receipt_url: t.receipt_url || null,
       }));
 
       // Count pending and settled
@@ -102,25 +109,57 @@ const Settlements = () => {
   };
 
   const handleMarkAsSettled = async (settlement: Settlement) => {
-    setProcessingId(settlement.id);
+    // Store the settlement ID for upload and open file picker
+    setSelectedSettlementId(settlement.id);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedSettlementId) return;
+
+    setUploadingId(selectedSettlementId);
     try {
-      // Update the description to mark as settled
-      const newDescription = settlement.description.replace("Pending", "Settled");
+      // Upload file to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${selectedSettlementId}-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('settlement-receipts')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('settlement-receipts')
+        .getPublicUrl(fileName);
+
+      // Update description and receipt_url
+      const settlement = settlements.find(s => s.id === selectedSettlementId);
+      const newDescription = settlement?.description.replace("Pending", "Settled") || "Settled";
       
       const { error } = await supabase
         .from("seller_wallet_transactions")
-        .update({ description: newDescription })
-        .eq("id", settlement.id);
+        .update({ 
+          description: newDescription,
+          receipt_url: publicUrl
+        })
+        .eq("id", selectedSettlementId);
 
       if (error) throw error;
 
-      toast.success("Settlement marked as completed");
+      toast.success("Settlement marked as completed with receipt");
       fetchSettlements();
     } catch (error) {
-      console.error("Error updating settlement:", error);
-      toast.error("Failed to update settlement");
+      console.error("Error processing settlement:", error);
+      toast.error("Failed to process settlement");
     } finally {
-      setProcessingId(null);
+      setUploadingId(null);
+      setSelectedSettlementId(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -133,6 +172,15 @@ const Settlements = () => {
 
   return (
     <div className="space-y-6">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*,.pdf"
+        onChange={handleFileUpload}
+      />
+      
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-foreground">Seller Settlements</h2>
         <Input
@@ -206,18 +254,26 @@ const Settlements = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Seller</TableHead>
+                  <TableHead>Seller ID</TableHead>
+                  <TableHead>Seller Name</TableHead>
+                  <TableHead>Request Date</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
                   {filter === "pending" && <TableHead>Action</TableHead>}
+                  {filter === "settled" && <TableHead>Receipt</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {settlements.map((settlement) => (
                   <TableRow key={settlement.id}>
+                    <TableCell className="font-mono text-xs">
+                      {settlement.seller_display_id}
+                    </TableCell>
                     <TableCell className="font-medium">
                       {settlement.seller_name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(settlement.created_at), "dd MMM yyyy, hh:mm a")}
                     </TableCell>
                     <TableCell className="font-semibold text-foreground">
                       {formatCurrency(settlement.amount)}
@@ -234,22 +290,41 @@ const Settlements = () => {
                         {settlement.status === "pending" ? "Pending" : "Settled"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(settlement.created_at), "dd MMM yyyy, hh:mm a")}
-                    </TableCell>
                     {filter === "pending" && (
                       <TableCell>
                         <Button
                           size="sm"
                           onClick={() => handleMarkAsSettled(settlement)}
-                          disabled={processingId === settlement.id}
+                          disabled={uploadingId === settlement.id}
                         >
-                          {processingId === settlement.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                          {uploadingId === settlement.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
                           ) : (
-                            "Mark Settled"
+                            <Upload className="h-4 w-4 mr-1" />
                           )}
+                          Settle
                         </Button>
+                      </TableCell>
+                    )}
+                    {filter === "settled" && (
+                      <TableCell>
+                        {settlement.receipt_url ? (
+                          <a 
+                            href={settlement.receipt_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            {settlement.receipt_url.includes('.pdf') ? (
+                              <FileText className="h-4 w-4" />
+                            ) : (
+                              <ImageIcon className="h-4 w-4" />
+                            )}
+                            View
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">No receipt</span>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
