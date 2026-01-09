@@ -143,7 +143,7 @@ const SellerDashboard = () => {
   const { seller, loading, logout } = useSellerAuth();
   const navigate = useNavigate();
   const [showItemsForm, setShowItemsForm] = useState(false);
-  const [activeSection, setActiveSection] = useState('menu');
+  const [activeSection, setActiveSection] = useState('orders');
   const [isOnline, setIsOnline] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
   const [showChangePassword, setShowChangePassword] = useState(false);

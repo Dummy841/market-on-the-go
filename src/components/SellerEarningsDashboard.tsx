@@ -275,6 +275,18 @@ const SellerEarningsDashboard = () => {
           <Button onClick={fetchOrders} disabled={loading} size="sm" className="h-8">
             {loading ? 'Loading...' : 'Apply'}
           </Button>
+          <Button 
+            onClick={() => {
+              const today = format(new Date(), 'yyyy-MM-dd');
+              setStartDate(today);
+              setEndDate(today);
+            }} 
+            variant="outline" 
+            size="sm" 
+            className="h-8"
+          >
+            Today
+          </Button>
         </div>
       </Card>
 
