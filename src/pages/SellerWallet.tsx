@@ -143,14 +143,14 @@ const SellerWallet = () => {
     setWithdrawing(true);
 
     try {
-      // Create withdrawal transaction
+      // Create withdrawal transaction with "Pending" status in description
       const { error: txnError } = await supabase
         .from('seller_wallet_transactions')
         .insert({
           seller_id: seller.id,
           type: 'debit',
           amount: walletBalance,
-          description: `Withdrawal to bank - ${seller.bank_name} (${seller.account_number.slice(-4)})`
+          description: `Pending - Withdrawal to bank - ${seller.bank_name} (${seller.account_number.slice(-4)})`
         });
 
       if (txnError) throw txnError;
@@ -319,44 +319,61 @@ const SellerWallet = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {transactions.map((txn) => (
-                  <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${txn.type === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
-                        {txn.type === 'credit' ? (
-                          <ArrowDownLeft className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <ArrowUpRight className="h-4 w-4 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{txn.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(txn.created_at), 'dd MMM yyyy, hh:mm a')}
-                        </p>
-                        {txn.type === 'debit' && txn.receipt_url && (
-                          <a 
-                            href={txn.receipt_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                          >
-                            {txn.receipt_url.includes('.pdf') ? (
-                              <FileText className="h-3 w-3" />
-                            ) : (
-                              <ImageIcon className="h-3 w-3" />
+                {transactions.map((txn) => {
+                  const isPending = txn.type === 'debit' && txn.description.includes('Pending');
+                  const isSettled = txn.type === 'debit' && !txn.description.includes('Pending');
+                  
+                  return (
+                    <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${txn.type === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
+                          {txn.type === 'credit' ? (
+                            <ArrowDownLeft className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ArrowUpRight className="h-4 w-4 text-red-600" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">
+                              {txn.description.replace('Pending - ', '').replace('Settled - ', '')}
+                            </p>
+                            {txn.type === 'debit' && (
+                              <Badge 
+                                variant="secondary" 
+                                className={isPending ? 'bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0' : 'bg-green-100 text-green-700 text-[10px] px-1.5 py-0'}
+                              >
+                                {isPending ? 'Pending' : 'Settled'}
+                              </Badge>
                             )}
-                            View Receipt
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(txn.created_at), 'dd MMM yyyy, hh:mm a')}
+                          </p>
+                          {txn.type === 'debit' && isSettled && txn.receipt_url && (
+                            <a 
+                              href={txn.receipt_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                            >
+                              {txn.receipt_url.includes('.pdf') ? (
+                                <FileText className="h-3 w-3" />
+                              ) : (
+                                <ImageIcon className="h-3 w-3" />
+                              )}
+                              View Receipt
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
                       </div>
+                      <Badge variant={txn.type === 'credit' ? 'default' : 'secondary'} className={txn.type === 'credit' ? 'bg-green-500' : 'bg-red-500'}>
+                        {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
+                      </Badge>
                     </div>
-                    <Badge variant={txn.type === 'credit' ? 'default' : 'secondary'} className={txn.type === 'credit' ? 'bg-green-500' : 'bg-red-500'}>
-                      {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
