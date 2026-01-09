@@ -135,11 +135,12 @@ serve(async (req) => {
     const refundData = await refundResponse.json();
     console.log('Refund processed successfully:', refundData.id);
 
-    // Update order status to refunded in database
+    // Update order status to refunded in database with refund_id
     const { error: updateError } = await supabase
       .from('orders')
       .update({ 
         status: 'refunded',
+        refund_id: refundData.id,
         updated_at: new Date().toISOString()
       })
       .eq('id', order_id);

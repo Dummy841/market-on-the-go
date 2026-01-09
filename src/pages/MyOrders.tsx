@@ -33,6 +33,7 @@ interface Order {
   delivery_pin: string;
   created_at: string;
   is_rated: boolean;
+  refund_id?: string | null;
 }
 export const MyOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -108,6 +109,8 @@ export const MyOrders = () => {
         return 'bg-green-100 text-green-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
+      case 'refunded':
+        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -128,6 +131,8 @@ export const MyOrders = () => {
         return 'Delivered';
       case 'rejected':
         return 'Order Rejected';
+      case 'refunded':
+        return 'Refunded';
       default:
         return status;
     }
@@ -176,9 +181,11 @@ export const MyOrders = () => {
           </Card> : <div className="space-y-4">
             {orders.map(order => {
               const displayStatus =
-                order.status === 'rejected' || order.seller_status === 'rejected'
-                  ? 'rejected'
-                  : order.status;
+                order.status === 'refunded'
+                  ? 'refunded'
+                  : order.status === 'rejected' || order.seller_status === 'rejected'
+                    ? 'rejected'
+                    : order.status;
 
               return <Card key={order.id} className="border-l-4 border-l-primary">
                 <CardContent className="p-4">
@@ -230,6 +237,20 @@ export const MyOrders = () => {
                       <p className="text-sm text-orange-700 font-medium">
                         Order Rejected by Seller - Your amount will be refunded shortly
                       </p>
+                    </div>
+                  )}
+
+                  {/* Refunded Order Message */}
+                  {displayStatus === 'refunded' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-green-700 font-medium">
+                        ₹{order.total_amount} Refunded to your account
+                      </p>
+                      {order.refund_id && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Ref ID: {order.refund_id}
+                        </p>
+                      )}
                     </div>
                   )}
 
