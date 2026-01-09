@@ -5,7 +5,9 @@ import { useCart } from "@/contexts/CartContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useOrderTracking } from "@/contexts/OrderTrackingContext";
 import { useZippyPass } from "@/hooks/useZippyPass";
+import { useUserWallet } from "@/hooks/useUserWallet";
 import { useNavigate } from "react-router-dom";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -44,8 +46,10 @@ export const Checkout = () => {
     setActiveOrder
   } = useOrderTracking();
   const { hasActivePass, checkSubscription } = useZippyPass();
+  const { balance: walletBalance, refreshBalance } = useUserWallet();
   const navigate = useNavigate();
   const [instructions, setInstructions] = useState("");
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [userLocation, setUserLocation] = useState<{
     lat: number;
@@ -154,7 +158,11 @@ export const Checkout = () => {
   const smallOrderFee = itemTotal < 100 ? 10 : 0;
   const deliveryFee = hasActivePass ? 0 : (itemTotal >= 499 ? 0 : 19);
   const platformFee = Math.round(itemTotal * 0.05);
-  const totalAmount = itemTotal + deliveryFee + platformFee + smallOrderFee;
+  const grossTotal = itemTotal + deliveryFee + platformFee + smallOrderFee;
+  
+  // Calculate wallet discount
+  const walletAmountToUse = useWalletBalance ? Math.min(walletBalance, grossTotal) : 0;
+  const totalAmount = grossTotal - walletAmountToUse;
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
@@ -182,7 +190,9 @@ export const Checkout = () => {
       });
       return;
     }
-    if (!razorpayLoaded) {
+    
+    // Only check Razorpay if we need to pay via Razorpay (totalAmount > 0)
+    if (totalAmount > 0 && !razorpayLoaded) {
       toast({
         title: "Loading...",
         description: "Payment gateway is loading. Please try again.",
@@ -199,6 +209,10 @@ export const Checkout = () => {
       }
 
       const firstItem = cartItems[0];
+      const paymentMethod = walletAmountToUse > 0 
+        ? (totalAmount > 0 ? 'razorpay+wallet' : 'wallet') 
+        : 'upi';
+      
       const orderData = {
         user_id: user.id,
         seller_id: firstItem.seller_id,
@@ -209,7 +223,7 @@ export const Checkout = () => {
           quantity: item.quantity,
           seller_price: item.seller_price
         })),
-        total_amount: totalAmount,
+        total_amount: grossTotal, // Store gross total
         delivery_fee: deliveryFee,
         platform_fee: platformFee,
         delivery_address: `${selectedAddress.address}, Location: ${selectedAddress.latitude}, ${selectedAddress.longitude}`,
@@ -217,9 +231,76 @@ export const Checkout = () => {
         delivery_longitude: selectedAddress.longitude || userLocation?.lng,
         delivery_mobile: selectedAddress.mobile || user?.mobile || '',
         instructions: instructions,
+        payment_method: paymentMethod,
       };
 
-      // Create Razorpay order
+      // Helper function to debit wallet and create order
+      const processWalletDebit = async () => {
+        if (walletAmountToUse > 0) {
+          // Debit wallet
+          const { error: walletUpdateError } = await supabase
+            .from('user_wallets')
+            .update({ 
+              balance: walletBalance - walletAmountToUse,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', user.id);
+
+          if (walletUpdateError) {
+            console.error('Error updating wallet:', walletUpdateError);
+            throw new Error('Failed to debit wallet');
+          }
+
+          // Create debit transaction (order_id will be updated after order creation)
+          const { error: txnError } = await supabase
+            .from('user_wallet_transactions')
+            .insert({
+              user_id: user.id,
+              type: 'debit',
+              amount: walletAmountToUse,
+              description: `Used for order at ${cartRestaurantName}`,
+            });
+
+          if (txnError) {
+            console.error('Error creating transaction:', txnError);
+          }
+
+          refreshBalance();
+        }
+      };
+
+      // If wallet covers full amount, skip Razorpay
+      if (totalAmount === 0 && walletAmountToUse > 0) {
+        // Process wallet payment directly
+        await processWalletDebit();
+
+        // Create order directly
+        const { data: orderResult, error: orderError } = await supabase
+          .from('orders')
+          .insert(orderData)
+          .select()
+          .single();
+
+        if (orderError) {
+          throw new Error(orderError.message || 'Failed to create order');
+        }
+
+        if (orderResult) {
+          setActiveOrder(orderResult);
+        }
+
+        clearCart();
+        toast({
+          title: "Order Placed Successfully!",
+          description: "Paid using wallet balance."
+        });
+
+        navigate('/');
+        setIsPlacingOrder(false);
+        return;
+      }
+
+      // Create Razorpay order for remaining amount
       const { data: razorpayOrder, error: orderError } = await supabase.functions.invoke('create-razorpay-order', {
         body: {
           amount: totalAmount,
@@ -246,6 +327,9 @@ export const Checkout = () => {
           console.log('Payment successful:', response);
           
           try {
+            // Process wallet debit if applicable
+            await processWalletDebit();
+
             // Verify payment and create order
             const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verify-razorpay-payment', {
               body: {
@@ -431,6 +515,32 @@ export const Checkout = () => {
                 <span>Platform Fee</span>
                 <span>₹{platformFee}</span>
               </div>
+              
+              {/* Wallet Balance Option */}
+              {walletBalance > 0 && (
+                <>
+                  <Separator />
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <Checkbox 
+                        id="useWallet" 
+                        checked={useWalletBalance}
+                        onCheckedChange={(checked) => setUseWalletBalance(checked === true)}
+                      />
+                      <label htmlFor="useWallet" className="text-sm cursor-pointer">
+                        Use Wallet Balance (₹{walletBalance} available)
+                      </label>
+                    </div>
+                  </div>
+                  {useWalletBalance && walletAmountToUse > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Wallet Applied</span>
+                      <span>-₹{walletAmountToUse}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>TO PAY</span>
@@ -440,7 +550,7 @@ export const Checkout = () => {
             
             {/* Pay Button */}
             <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0}>
-              {isPlacingOrder ? "Processing..." : `Pay ₹${totalAmount}`}
+              {isPlacingOrder ? "Processing..." : (totalAmount === 0 ? "Place Order" : `Pay ₹${totalAmount}`)}
             </Button>
           </CardContent>
         </Card>

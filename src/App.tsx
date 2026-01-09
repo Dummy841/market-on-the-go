@@ -25,6 +25,7 @@ import RestaurantMenu from "./pages/RestaurantMenu";
 import { Checkout } from "./pages/Checkout";
 import { MyOrders } from "./pages/MyOrders";
 import CartPage from "./pages/CartPage";
+import UserWallet from "./pages/UserWallet";
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
@@ -51,6 +52,7 @@ const App = () => (
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/cart" element={<CartPage />} />
                     <Route path="/my-orders" element={<MyOrders />} />
+                    <Route path="/my-wallet" element={<UserWallet />} />
                     <Route path="/seller-login" element={<SellerLogin />} />
                     <Route path="/seller-dashboard" element={<SellerDashboard />} />
                     <Route path="/seller-wallet" element={<SellerWallet />} />

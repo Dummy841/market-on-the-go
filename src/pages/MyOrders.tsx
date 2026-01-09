@@ -244,13 +244,11 @@ export const MyOrders = () => {
                   {displayStatus === 'refunded' && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
                       <p className="text-sm text-green-700 font-medium">
-                        ₹{order.total_amount} Refunded to your account
+                        ₹{order.total_amount} Added to Wallet
                       </p>
-                      {order.refund_id && (
-                        <p className="text-xs text-green-600 mt-1">
-                          Ref ID: {order.refund_id}
-                        </p>
-                      )}
+                      <p className="text-xs text-green-600 mt-1">
+                        Use this balance at checkout
+                      </p>
                     </div>
                   )}
 
