@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, MapPin, Search, Crosshair } from 'lucide-react';
+import { ArrowLeft, MapPin, Search } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 
 
@@ -28,6 +28,9 @@ const FullScreenLocationPicker = ({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
+  const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const { isLoaded, loadError } = useGoogleMaps();
   
   // When the picker opens, get current location immediately
@@ -169,8 +172,13 @@ const FullScreenLocationPicker = ({
     }
   };
 
-  const onLoad = useCallback((map: google.maps.Map) => {
-    setMap(map);
+  const onLoad = useCallback((mapInstance: google.maps.Map) => {
+    setMap(mapInstance);
+    // Initialize places service for search
+    if (window.google?.maps?.places) {
+      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
+      placesServiceRef.current = new google.maps.places.PlacesService(mapInstance);
+    }
   }, []);
 
   const onUnmount = useCallback(() => {
@@ -206,39 +214,53 @@ const FullScreenLocationPicker = ({
     onClose();
   };
 
-  const handleCurrentLocation = () => {
-    if (!navigator.geolocation) return;
-
-    setIsLocating(true);
+  // Handle search input
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
     
-    const timeoutId = window.setTimeout(() => setIsLocating(false), 3000);
+    if (!value.trim() || !autocompleteServiceRef.current) {
+      setSearchResults([]);
+      return;
+    }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        window.clearTimeout(timeoutId);
-        const { latitude, longitude, accuracy } = position.coords;
-        // Reject if accuracy is worse than 5km (IP-based location)
-        if (accuracy && accuracy > 5000) {
-          console.warn('Location accuracy too low:', accuracy, 'm');
-          setIsLocating(false);
-          return;
+    autocompleteServiceRef.current.getPlacePredictions(
+      { 
+        input: value,
+        componentRestrictions: { country: 'in' }
+      },
+      (predictions, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setSearchResults(predictions);
+        } else {
+          setSearchResults([]);
         }
-        setSelectedLat(latitude);
-        setSelectedLng(longitude);
-        reverseGeocode(latitude, longitude);
+      }
+    );
+  };
 
-        if (map) {
-          map.panTo({ lat: latitude, lng: longitude });
-          map.setZoom(17);
+  // Handle place selection from search
+  const handlePlaceSelect = (placeId: string) => {
+    if (!placesServiceRef.current) return;
+
+    placesServiceRef.current.getDetails(
+      { placeId, fields: ['geometry', 'formatted_address', 'name'] },
+      (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          
+          setSelectedLat(lat);
+          setSelectedLng(lng);
+          setSearchQuery('');
+          setSearchResults([]);
+          reverseGeocode(lat, lng);
+
+          if (map) {
+            map.panTo({ lat, lng });
+            map.setZoom(17);
+          }
         }
-        setIsLocating(false);
-      },
-      (error) => {
-        window.clearTimeout(timeoutId);
-        console.error('Error getting current location:', error);
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      }
     );
   };
 
@@ -247,12 +269,12 @@ const FullScreenLocationPicker = ({
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col touch-auto">
       {/* Header with Search */}
-      <div className="relative z-20 bg-background p-4 flex items-center gap-3 border-b">
+      <div className="relative z-20 bg-background p-3 flex items-center gap-3 border-b">
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="h-10 w-10 rounded-full"
+          className="h-10 w-10 rounded-full shrink-0"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -261,14 +283,32 @@ const FullScreenLocationPicker = ({
           <Input
             placeholder="Search an area or address"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-12 rounded-full bg-muted/50"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-10 h-11 rounded-full bg-muted/50"
           />
+          {/* Search Results Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto z-30">
+              {searchResults.map((result) => (
+                <button
+                  key={result.place_id}
+                  onClick={() => handlePlaceSelect(result.place_id)}
+                  className="w-full text-left px-4 py-3 hover:bg-muted border-b last:border-b-0 flex items-start gap-3"
+                >
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{result.structured_formatting.main_text}</p>
+                    <p className="text-xs text-muted-foreground truncate">{result.structured_formatting.secondary_text}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       
-      {/* Map Container */}
-      <div className="flex-1 relative">
+      {/* Map Container - 75% height */}
+      <div className="h-[60vh] relative">
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -301,7 +341,6 @@ const FullScreenLocationPicker = ({
               zoom={16}
               onLoad={(m) => {
                 onLoad(m);
-                // Ensure the map becomes interactive immediately on mobile
                 m.setOptions({ gestureHandling: 'greedy' });
               }}
               onUnmount={onUnmount}
@@ -326,30 +365,19 @@ const FullScreenLocationPicker = ({
                 }}
               />
             </GoogleMap>
-
-            {/* Current Location Button */}
-            <Button
-              onClick={handleCurrentLocation}
-              disabled={isLocating}
-              variant="outline"
-              className="absolute bottom-44 left-1/2 -translate-x-1/2 z-20 bg-background shadow-lg rounded-full px-4 h-10"
-            >
-              <Crosshair className={`h-4 w-4 mr-2 text-primary ${isLocating ? 'animate-pulse' : ''}`} />
-              <span>Current location</span>
-            </Button>
           </>
         )}
       </div>
       
-      {/* Bottom Sheet */}
-      <div className="relative z-20 bg-background rounded-t-3xl shadow-2xl p-5 pb-8 pointer-events-auto">
-        <p className="text-sm text-muted-foreground mb-1">Place the pin at exact delivery location</p>
-        <p className="text-xs text-muted-foreground mb-3">Order will be delivered here</p>
+      {/* Bottom Sheet - remaining 25% */}
+      <div className="flex-1 relative z-20 bg-background rounded-t-3xl shadow-2xl p-4 pointer-events-auto flex flex-col">
+        <p className="text-sm text-muted-foreground">Place the pin at exact delivery location</p>
+        <p className="text-xs text-muted-foreground mb-2">Order will be delivered here</p>
 
-        <div className="flex items-start gap-3 mb-5">
-          <MapPin className="h-6 w-6 shrink-0 text-primary" />
+        <div className="flex items-start gap-3 mb-4">
+          <MapPin className="h-5 w-5 shrink-0 text-primary mt-0.5" />
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg">{locationName || 'Loading...'}</h3>
+            <h3 className="font-semibold">{locationName || 'Loading...'}</h3>
             <p className="text-sm text-muted-foreground line-clamp-2">{locationAddress}</p>
           </div>
         </div>
@@ -357,7 +385,7 @@ const FullScreenLocationPicker = ({
         <Button
           type="button"
           onClick={handleConfirm}
-          className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground text-lg font-medium rounded-xl"
+          className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl mt-auto"
         >
           Confirm & proceed
         </Button>
