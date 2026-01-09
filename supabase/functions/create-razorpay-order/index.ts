@@ -34,7 +34,7 @@ serve(async (req) => {
       body: JSON.stringify({
         amount: Math.round(amount * 100), // Convert to paise
         currency,
-        receipt,
+        receipt: receipt?.substring(0, 40) || `order_${Date.now()}`,
       }),
     });
 
