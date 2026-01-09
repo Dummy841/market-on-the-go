@@ -235,44 +235,48 @@ export const Checkout = () => {
       };
 
       // Helper function to debit wallet and create order
-      const processWalletDebit = async () => {
-        if (walletAmountToUse > 0) {
-          // Debit wallet
-          const { error: walletUpdateError } = await supabase
-            .from('user_wallets')
-            .update({ 
-              balance: walletBalance - walletAmountToUse,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id);
+      const processWalletDebit = async (): Promise<string | null> => {
+        if (walletAmountToUse <= 0) return null;
 
-          if (walletUpdateError) {
-            console.error('Error updating wallet:', walletUpdateError);
-            throw new Error('Failed to debit wallet');
-          }
+        // Debit wallet
+        const { error: walletUpdateError } = await supabase
+          .from('user_wallets')
+          .update({
+            balance: walletBalance - walletAmountToUse,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
 
-          // Create debit transaction (order_id will be updated after order creation)
-          const { error: txnError } = await supabase
-            .from('user_wallet_transactions')
-            .insert({
-              user_id: user.id,
-              type: 'debit',
-              amount: walletAmountToUse,
-              description: `Used for order at ${cartRestaurantName}`,
-            });
-
-          if (txnError) {
-            console.error('Error creating transaction:', txnError);
-          }
-
-          refreshBalance();
+        if (walletUpdateError) {
+          console.error('Error updating wallet:', walletUpdateError);
+          throw new Error('Failed to debit wallet');
         }
+
+        // Create debit transaction (we will attach order_id once we have it)
+        const { data: txnRow, error: txnError } = await supabase
+          .from('user_wallet_transactions')
+          .insert({
+            user_id: user.id,
+            type: 'debit',
+            amount: walletAmountToUse,
+            description: `Used for order at ${cartRestaurantName}`,
+          })
+          .select('id')
+          .single();
+
+        if (txnError) {
+          console.error('Error creating transaction:', txnError);
+          return null;
+        }
+
+        refreshBalance();
+        return (txnRow as any)?.id ?? null;
       };
 
       // If wallet covers full amount, skip Razorpay
       if (totalAmount === 0 && walletAmountToUse > 0) {
         // Process wallet payment directly
-        await processWalletDebit();
+        const walletTxnId = await processWalletDebit();
 
         // Create order directly
         const { data: orderResult, error: orderError } = await supabase
@@ -283,6 +287,14 @@ export const Checkout = () => {
 
         if (orderError) {
           throw new Error(orderError.message || 'Failed to create order');
+        }
+
+        // Attach order_id to the wallet debit transaction
+        if (walletTxnId && orderResult?.id) {
+          await supabase
+            .from('user_wallet_transactions')
+            .update({ order_id: orderResult.id })
+            .eq('id', walletTxnId);
         }
 
         if (orderResult) {
@@ -326,37 +338,46 @@ export const Checkout = () => {
         handler: async function (response: any) {
           console.log('Payment successful:', response);
           
-          try {
-            // Process wallet debit if applicable
-            await processWalletDebit();
+            try {
+              // Process wallet debit if applicable
+              const walletTxnId = await processWalletDebit();
 
-            // Verify payment and create order
-            const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verify-razorpay-payment', {
-              body: {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                order_data: orderData
+              // Verify payment and create order
+              const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verify-razorpay-payment', {
+                body: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  order_data: orderData
+                }
+              });
+
+              if (verifyError || !verifyResult?.success) {
+                throw new Error(verifyError?.message || verifyResult?.error || 'Payment verification failed');
               }
-            });
 
-            if (verifyError || !verifyResult?.success) {
-              throw new Error(verifyError?.message || verifyResult?.error || 'Payment verification failed');
-            }
+              // Attach order_id to wallet debit transaction (if any)
+              const createdOrderId = verifyResult?.order?.id;
+              if (walletTxnId && createdOrderId) {
+                await supabase
+                  .from('user_wallet_transactions')
+                  .update({ order_id: createdOrderId })
+                  .eq('id', walletTxnId);
+              }
 
-            // Set active order for tracking
-            if (verifyResult.order) {
-              setActiveOrder(verifyResult.order);
-            }
+              // Set active order for tracking
+              if (verifyResult.order) {
+                setActiveOrder(verifyResult.order);
+              }
 
-            clearCart();
-            toast({
-              title: "Order Placed Successfully!",
-              description: "Your order has been placed and will be processed soon."
-            });
+              clearCart();
+              toast({
+                title: "Order Placed Successfully!",
+                description: "Your order has been placed and will be processed soon."
+              });
 
-            navigate('/');
-          } catch (error: any) {
+              navigate('/');
+            } catch (error: any) {
             console.error('Error verifying payment:', error);
             toast({
               title: "Payment Verification Failed",

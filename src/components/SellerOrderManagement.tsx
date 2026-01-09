@@ -402,77 +402,20 @@ export const SellerOrderManagement = () => {
         console.log('Update data:', updateData);
       }
 
-      // Handle rejection - credit user wallet
+      // Handle rejection - credit user wallet via edge function
       if (newStatus === 'rejected') {
-        // First get the order to get user_id and total_amount
-        const { data: orderData, error: orderFetchError } = await supabase
-          .from('orders')
-          .select('user_id, total_amount, seller_name')
-          .eq('id', orderId)
-          .single();
+        const { data: refundResult, error: refundError } = await supabase.functions.invoke('refund-rejected-order', {
+          body: { order_id: orderId }
+        });
 
-        if (orderFetchError) {
-          console.error('Error fetching order for refund:', orderFetchError);
-        } else if (orderData) {
-          const userId = orderData.user_id;
-          const refundAmount = orderData.total_amount;
-
-          // Check if wallet exists
-          const { data: walletData, error: walletError } = await supabase
-            .from('user_wallets')
-            .select('balance')
-            .eq('user_id', userId)
-            .single();
-
-          if (walletError && walletError.code !== 'PGRST116') {
-            console.error('Error fetching wallet:', walletError);
-          }
-
-          const currentBalance = (walletData as any)?.balance || 0;
-
-          if (!walletData) {
-            // Create wallet
-            const { error: createError } = await supabase
-              .from('user_wallets')
-              .insert({
-                user_id: userId,
-                balance: refundAmount,
-              });
-            if (createError) {
-              console.error('Error creating wallet:', createError);
-            }
-          } else {
-            // Update wallet balance
-            const { error: updateError } = await supabase
-              .from('user_wallets')
-              .update({ 
-                balance: currentBalance + refundAmount,
-                updated_at: new Date().toISOString()
-              })
-              .eq('user_id', userId);
-            if (updateError) {
-              console.error('Error updating wallet:', updateError);
-            }
-          }
-
-          // Create credit transaction
-          const { error: txnError } = await supabase
-            .from('user_wallet_transactions')
-            .insert({
-              user_id: userId,
-              type: 'credit',
-              amount: refundAmount,
-              description: `Refund for Order #${orderId.slice(-6)}`,
-              order_id: orderId,
-            });
-          if (txnError) {
-            console.error('Error creating transaction:', txnError);
-          }
-
-          // Update order status to refunded
-          updateData.status = 'refunded';
-          updateData.refund_id = `WALLET_${Date.now()}`;
+        if (refundError || !refundResult?.success) {
+          console.error('Refund edge function error:', refundError || refundResult);
+          throw new Error(refundError?.message || refundResult?.error || 'Failed to refund to wallet');
         }
+
+        // Update order status to refunded
+        updateData.status = 'refunded';
+        updateData.refund_id = refundResult.refund_id || `WALLET_${Date.now()}`;
       }
 
       const {
