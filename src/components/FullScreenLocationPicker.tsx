@@ -296,7 +296,7 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-none"
+              mapContainerClassName="w-full h-full touch-auto"
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={(m) => {
@@ -342,7 +342,7 @@ const FullScreenLocationPicker = ({
       </div>
       
       {/* Bottom Sheet */}
-      <div className="relative z-20 bg-background rounded-t-3xl shadow-2xl p-5 pb-8">
+      <div className="relative z-20 bg-background rounded-t-3xl shadow-2xl p-5 pb-8 pointer-events-auto">
         <p className="text-sm text-muted-foreground mb-1">Place the pin at exact delivery location</p>
         <p className="text-xs text-muted-foreground mb-3">Order will be delivered here</p>
 
