@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, AlertCircle, Menu, Crown } from "lucide-react";
+import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, AlertCircle, Menu, Crown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useZippyPass } from "@/hooks/useZippyPass";
+import { useUserWallet } from "@/hooks/useUserWallet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
@@ -47,6 +48,7 @@ export const Header = () => {
     getTotalItems
   } = useCart();
   const { hasActivePass, getDaysRemaining } = useZippyPass();
+  const { balance: walletBalance } = useUserWallet();
   const navigateToPage = useNavigate();
 
   useEffect(() => {
@@ -412,6 +414,17 @@ export const Header = () => {
                   <DropdownMenuItem className="flex items-center space-x-2 py-2" onClick={() => navigateToPage('/my-orders')}>
                     <FileText className="h-4 w-4" />
                     <span>My Orders</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="flex items-center justify-between py-2" onClick={() => navigateToPage('/my-wallet')}>
+                    <div className="flex items-center space-x-2">
+                      <Wallet className="h-4 w-4" />
+                      <span>My Wallet</span>
+                    </div>
+                    {walletBalance > 0 && (
+                      <Badge className="bg-green-500 text-white text-xs px-1.5 py-0">
+                        ₹{walletBalance}
+                      </Badge>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem className="flex items-center space-x-2 py-2">
                     <Settings className="h-4 w-4" />
