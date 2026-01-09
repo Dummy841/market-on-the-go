@@ -638,17 +638,7 @@ export const SellerOrderManagement = () => {
                 </div>
 
                 {/* Show Pickup PIN if order is packed */}
-                {(order as any).seller_status === 'packed' && (order as any).pickup_pin && <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-yellow-800">Pickup PIN</p>
-                        <p className="text-xs text-yellow-600">Share this PIN with delivery partner</p>
-                      </div>
-                      <div className="text-2xl font-bold text-yellow-800 bg-yellow-100 px-3 py-1 rounded">
-                        {(order as any).pickup_pin}
-                      </div>
-                    </div>
-                  </div>}
+                {(order as any).seller_status === 'packed' && (order as any).pickup_pin}
 
                 <div className="flex justify-between items-center">
                   <div className="text-xs text-muted-foreground">
