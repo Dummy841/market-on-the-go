@@ -5,10 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
-import { Calendar, TrendingUp, IndianRupee, ShoppingBag, XCircle } from 'lucide-react';
+import { format, startOfDay, endOfDay, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
+import { Calendar, TrendingUp, ShoppingBag, XCircle } from 'lucide-react';
 interface Order {
   id: string;
   created_at: string;
@@ -71,6 +72,53 @@ const SellerEarningsDashboard = () => {
       setLoading(false);
     }
   };
+  // Get today's stats (only current day orders)
+  const getTodayStats = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const franchisePercentage = seller?.franchise_percentage || 0;
+    const REJECTION_PENALTY = 10;
+    
+    const todayOrders = orders.filter(order => 
+      format(parseISO(order.created_at), 'yyyy-MM-dd') === today
+    );
+    
+    let deliveredCount = 0;
+    let rejectedCount = 0;
+    let earnings = 0;
+    let penalty = 0;
+    
+    todayOrders.forEach(order => {
+      const isRejected = order.status === 'rejected' || order.seller_status === 'rejected';
+      if (isRejected) {
+        rejectedCount++;
+        penalty += REJECTION_PENALTY;
+      } else {
+        deliveredCount++;
+        if (Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const itemTotal = (item.seller_price || 0) * (item.quantity || 1);
+            const deduction = itemTotal * franchisePercentage / 100;
+            earnings += itemTotal - deduction;
+          });
+        }
+      }
+    });
+    
+    return { deliveredCount, rejectedCount, earnings: earnings - penalty, penalty };
+  };
+
+  const todayStats = getTodayStats();
+
+  // Get all days of current month for display
+  const getAllMonthDays = () => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    return eachDayOfInterval({ start: monthStart, end: monthEnd });
+  };
+
+  const monthDays = getAllMonthDays();
+
   const calculateEarnings = (ordersData: Order[]) => {
     const franchisePercentage = seller?.franchise_percentage || 0;
     const REJECTION_PENALTY = 10; // ₹10 per rejected order
@@ -135,6 +183,12 @@ const SellerEarningsDashboard = () => {
       totalPenalty
     });
   };
+
+  // Get daily earning for a specific date
+  const getDayEarning = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    return dailyEarnings.find(d => d.date === dateKey);
+  };
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -186,79 +240,84 @@ const SellerEarningsDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <ShoppingBag className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Delivered Orders</p>
-                <p className="text-2xl font-bold">{totalStats.totalOrders}</p>
-              </div>
+      {/* Today's Summary Cards - Only Current Day */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 rounded-full">
+              <ShoppingBag className="h-4 w-4 text-primary" />
             </div>
-          </CardContent>
+            <div>
+              <p className="text-xs text-muted-foreground">Delivered Orders</p>
+              <p className="text-lg font-bold">{todayStats.deliveredCount}</p>
+            </div>
+          </div>
         </Card>
         
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-red-500/10 rounded-full">
-                <XCircle className="h-6 w-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Rejected Orders</p>
-                <p className="text-2xl font-bold text-red-600">{totalStats.rejectedOrders}</p>
-                {totalStats.rejectedOrders > 0 && <p className="text-xs text-red-500">-{formatCurrency(totalStats.totalPenalty)} penalty</p>}
-              </div>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-red-500/10 rounded-full">
+              <XCircle className="h-4 w-4 text-red-500" />
             </div>
-          </CardContent>
+            <div>
+              <p className="text-xs text-muted-foreground">Rejected Orders</p>
+              <p className="text-lg font-bold text-red-600">{todayStats.rejectedCount}</p>
+              {todayStats.rejectedCount > 0 && <p className="text-xs text-red-500">-{formatCurrency(todayStats.penalty)} penalty</p>}
+            </div>
+          </div>
         </Card>
         
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-500/10 rounded-full">
-                <TrendingUp className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Net Earnings</p>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(totalStats.totalEarnings)}</p>
-              </div>
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-green-500/10 rounded-full">
+              <TrendingUp className="h-4 w-4 text-green-500" />
             </div>
-          </CardContent>
+            <div>
+              <p className="text-xs text-muted-foreground">Net Earnings</p>
+              <p className="text-lg font-bold text-green-600">{formatCurrency(todayStats.earnings)}</p>
+            </div>
+          </div>
         </Card>
       </div>
 
-      {/* Daily Earnings Cards */}
+      {/* Daily Earnings Cards - All Month Days with Horizontal Scroll */}
       <Card>
-        <CardHeader>
-          <CardTitle>Daily Earnings Summary</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Daily Earnings Summary</CardTitle>
         </CardHeader>
-        <CardContent>
-          {loading ? <p className="text-muted-foreground">Loading...</p> : dailyEarnings.length === 0 ? <p className="text-muted-foreground">No orders in this date range.</p> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dailyEarnings.map(day => {
-            const netEarnings = day.sellerEarnings - day.rejectionPenalty;
-            return <Card key={day.date} className="border-l-4 border-l-primary">
-                    <CardContent className="pt-4">
-                      <p className="text-sm font-medium text-muted-foreground">
-                        {format(parseISO(day.date), 'dd MMM yyyy')}
+        <CardContent className="pb-3">
+          {loading ? (
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          ) : (
+            <ScrollArea className="w-full whitespace-nowrap">
+              <div className="flex gap-2 pb-2">
+                {monthDays.map(day => {
+                  const dayEarning = getDayEarning(day);
+                  const netEarnings = dayEarning ? dayEarning.sellerEarnings - dayEarning.rejectionPenalty : 0;
+                  const hasData = !!dayEarning;
+                  const isTodayDate = isToday(day);
+                  
+                  return (
+                    <div 
+                      key={format(day, 'yyyy-MM-dd')} 
+                      className={`flex-shrink-0 border-l-2 ${isTodayDate ? 'border-l-green-500 bg-green-50' : hasData ? 'border-l-primary' : 'border-l-muted'} rounded-md p-2 min-w-[100px] ${hasData ? 'bg-card' : 'bg-muted/30'}`}
+                    >
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {format(day, 'dd MMM')}
                       </p>
-                      <div className="mt-2 space-y-1">
-                        <p className="text-lg font-bold text-green-600">
-                          {formatCurrency(netEarnings)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {day.totalOrders} delivered{day.rejectedOrders > 0 && `, ${day.rejectedOrders} rejected`}
-                        </p>
-                        {day.rejectionPenalty > 0}
-                      </div>
-                    </CardContent>
-                  </Card>;
-          })}
-            </div>}
+                      <p className={`text-sm font-bold ${hasData ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {hasData ? formatCurrency(netEarnings) : '₹0'}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {hasData ? `${dayEarning.totalOrders} del${dayEarning.rejectedOrders > 0 ? `, ${dayEarning.rejectedOrders} rej` : ''}` : 'No orders'}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
 
