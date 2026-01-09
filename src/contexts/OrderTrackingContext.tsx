@@ -23,6 +23,7 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
 
   const getDisplayStatus = useCallback((order: any) => {
     if (!order) return null;
+    if (order.status === 'refunded') return 'refunded';
     if (order.status === 'rejected' || order.seller_status === 'rejected') return 'rejected';
     return order.status;
   }, []);
@@ -44,12 +45,13 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
       if (data && !error) {
         const displayStatus = getDisplayStatus(data);
 
-        // Include delivered orders for 30 minutes after delivery
+        // Include delivered orders for 30 minutes after delivery, exclude refunded orders
         const activeStatuses = ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery'];
+        const isRefunded = data.status === 'refunded';
         const isDeliveredRecently = data.status === 'delivered' && data.delivered_at && 
           (new Date().getTime() - new Date(data.delivered_at).getTime()) < 30 * 60000;
         
-        if (activeStatuses.includes(data.status) || isDeliveredRecently) {
+        if (!isRefunded && (activeStatuses.includes(data.status) || isDeliveredRecently)) {
           console.log('Setting active order with status:', data.status);
           previousStatusRef.current = displayStatus;
           setActiveOrderState(data);
