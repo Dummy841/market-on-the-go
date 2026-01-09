@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserAuth } from '@/contexts/UserAuthContext';
+
+const VILLAGE_OPTIONS = ['Atmakur', 'Dudyala', 'Karivena'];
 interface AddressDetailsFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +41,7 @@ const AddressDetailsForm = ({
   } = useUserAuth();
   const [houseNumber, setHouseNumber] = useState('');
   const [apartmentArea, setApartmentArea] = useState('');
+  const [villageCity, setVillageCity] = useState('');
   const [directions, setDirections] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [selectedLabel, setSelectedLabel] = useState('Home');
@@ -261,6 +265,25 @@ const AddressDetailsForm = ({
                 APARTMENT / ROAD / AREA <span className="text-muted-foreground">(RECOMMENDED)</span>
               </Label>
               <Input id="apartment" value={apartmentArea} onChange={e => setApartmentArea(e.target.value)} placeholder="Enter apartment/road/area details" className="h-12" />
+            </div>
+
+            {/* Village/City */}
+            <div className="space-y-2">
+              <Label htmlFor="village" className="text-sm font-medium text-muted-foreground uppercase">
+                VILLAGE / CITY
+              </Label>
+              <Select value={villageCity} onValueChange={setVillageCity}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Select village/city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {VILLAGE_OPTIONS.map((village) => (
+                    <SelectItem key={village} value={village}>
+                      {village}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Mobile Number */}
