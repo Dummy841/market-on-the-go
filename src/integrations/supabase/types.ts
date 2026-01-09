@@ -187,6 +187,7 @@ export type Database = {
           pickup_pin: string | null
           pickup_status: string | null
           platform_fee: number
+          refund_id: string | null
           seller_accepted_at: string | null
           seller_id: string
           seller_name: string
@@ -220,6 +221,7 @@ export type Database = {
           pickup_pin?: string | null
           pickup_status?: string | null
           platform_fee?: number
+          refund_id?: string | null
           seller_accepted_at?: string | null
           seller_id: string
           seller_name: string
@@ -253,6 +255,7 @@ export type Database = {
           pickup_pin?: string | null
           pickup_status?: string | null
           platform_fee?: number
+          refund_id?: string | null
           seller_accepted_at?: string | null
           seller_id?: string
           seller_name?: string
