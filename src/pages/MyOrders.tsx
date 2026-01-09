@@ -180,10 +180,11 @@ export const MyOrders = () => {
             </CardContent>
           </Card> : <div className="space-y-4">
             {orders.map(order => {
+              const wasRejectedBySeller = order.status === 'rejected' || order.seller_status === 'rejected';
               const displayStatus =
                 order.status === 'refunded'
                   ? 'refunded'
-                  : order.status === 'rejected' || order.seller_status === 'rejected'
+                  : wasRejectedBySeller
                     ? 'rejected'
                     : order.status;
 
@@ -231,8 +232,8 @@ export const MyOrders = () => {
                       <strong>Instructions:</strong> {order.instructions}
                     </div>}
 
-                  {/* Rejected Order Message */}
-                  {displayStatus === 'rejected' && (
+                  {/* Seller Rejected Message (show even if refunded) */}
+                  {wasRejectedBySeller && (
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                       <p className="text-sm text-orange-700 font-medium">
                         Order Rejected by Seller - Your amount will be refunded shortly
