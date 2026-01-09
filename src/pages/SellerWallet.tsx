@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Banknote } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 interface WalletTransaction {
   id: string;
@@ -15,12 +17,6 @@ interface WalletTransaction {
   amount: number;
   description: string;
   created_at: string;
-}
-
-interface SellerWithdrawal {
-  id: string;
-  seller_id: string;
-  last_withdrawal_date: string;
 }
 
 const SellerWallet = () => {
@@ -33,6 +29,8 @@ const SellerWallet = () => {
   const [withdrawing, setWithdrawing] = useState(false);
   const [canWithdraw, setCanWithdraw] = useState(false);
   const [withdrawDisabledReason, setWithdrawDisabledReason] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
 
   useEffect(() => {
     if (!loading && !seller) {
@@ -64,13 +62,22 @@ const SellerWallet = () => {
       }
       setWalletBalance((walletData as any)?.balance || 0);
 
-      // Fetch transactions
-      const { data: txnData, error: txnError } = await supabase
+      // Fetch transactions with optional date filter
+      let query = supabase
         .from('seller_wallet_transactions')
         .select('*')
         .eq('seller_id', seller.id)
         .order('created_at', { ascending: false })
         .limit(100);
+
+      if (filterFrom) {
+        query = query.gte('created_at', startOfDay(parseISO(filterFrom)).toISOString());
+      }
+      if (filterTo) {
+        query = query.lte('created_at', endOfDay(parseISO(filterTo)).toISOString());
+      }
+
+      const { data: txnData, error: txnError } = await query;
 
       if (txnError) {
         console.error('Error fetching transactions:', txnError);
@@ -176,6 +183,16 @@ const SellerWallet = () => {
     }
   };
 
+  const handleApplyFilter = () => {
+    fetchWalletData();
+  };
+
+  const handleClearFilter = () => {
+    setFilterFrom('');
+    setFilterTo('');
+    fetchWalletData();
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -213,63 +230,90 @@ const SellerWallet = () => {
       </header>
 
       <main className="max-w-4xl mx-auto p-4 space-y-6">
-        {/* Balance Card */}
-        <Card className="bg-gradient-to-r from-primary to-orange-500 text-white">
-          <CardContent className="p-6">
-            <p className="text-sm opacity-90">Available Balance</p>
-            <p className="text-4xl font-bold mt-1">{formatCurrency(walletBalance)}</p>
-            <p className="text-xs mt-3 opacity-75 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Daily earnings added by 11:59 PM
-            </p>
-          </CardContent>
-        </Card>
+        {/* Balance Card with Bank Details and Withdraw - Sticky */}
+        <div className="sticky top-0 z-10 bg-background pb-2">
+          <Card className="bg-gradient-to-r from-primary to-orange-500 text-white">
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                {/* Left: Balance */}
+                <div>
+                  <p className="text-sm opacity-90">Available Balance</p>
+                  <p className="text-3xl font-bold">{formatCurrency(walletBalance)}</p>
+                  <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Daily earnings added by 11:59 PM
+                  </p>
+                </div>
 
-        {/* Withdraw Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Banknote className="h-5 w-5" />
-              Withdraw to Bank
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p>Bank: {seller.bank_name}</p>
-              <p>Account: ****{seller.account_number.slice(-4)}</p>
-              <p>IFSC: {seller.ifsc_code}</p>
-            </div>
-
-            <Button
-              onClick={handleWithdraw}
-              disabled={!canWithdraw || walletBalance <= 0 || withdrawing}
-              className="w-full"
-              size="lg"
-            >
-              {withdrawing ? 'Processing...' : `Withdraw ${formatCurrency(walletBalance)}`}
-            </Button>
-
-            {withdrawDisabledReason && (
-              <p className="text-sm text-muted-foreground text-center">{withdrawDisabledReason}</p>
-            )}
-            {walletBalance <= 0 && !withdrawDisabledReason && (
-              <p className="text-sm text-muted-foreground text-center">No balance to withdraw</p>
-            )}
-          </CardContent>
-        </Card>
+                {/* Right: Bank Details and Withdraw Button */}
+                <div className="flex flex-col items-start md:items-end gap-2">
+                  <div className="text-xs opacity-90 text-left md:text-right">
+                    <p>Bank: {seller.bank_name}</p>
+                    <p>A/C: ****{seller.account_number.slice(-4)} | IFSC: {seller.ifsc_code}</p>
+                  </div>
+                  <Button
+                    onClick={handleWithdraw}
+                    disabled={!canWithdraw || walletBalance <= 0 || withdrawing}
+                    variant="secondary"
+                    size="sm"
+                    className="whitespace-nowrap"
+                  >
+                    {withdrawing ? 'Processing...' : `Withdraw ${formatCurrency(walletBalance)}`}
+                  </Button>
+                  {withdrawDisabledReason && (
+                    <p className="text-[10px] opacity-75">{withdrawDisabledReason}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Transaction History */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="text-lg">Transaction History</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Date Filter */}
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <Label htmlFor="filterFrom" className="text-xs">From</Label>
+                <Input 
+                  id="filterFrom" 
+                  type="date" 
+                  value={filterFrom} 
+                  onChange={e => setFilterFrom(e.target.value)} 
+                  className="h-8 w-32 text-xs" 
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="filterTo" className="text-xs">To</Label>
+                <Input 
+                  id="filterTo" 
+                  type="date" 
+                  value={filterTo} 
+                  onChange={e => setFilterTo(e.target.value)} 
+                  className="h-8 w-32 text-xs" 
+                />
+              </div>
+              <Button onClick={handleApplyFilter} size="sm" className="h-8">
+                Apply
+              </Button>
+              {(filterFrom || filterTo) && (
+                <Button onClick={handleClearFilter} variant="outline" size="sm" className="h-8">
+                  Clear
+                </Button>
+              )}
+            </div>
+
             {loadingTxns ? (
               <div className="text-center py-8 text-muted-foreground">Loading...</div>
             ) : transactions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Wallet className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p>No transactions yet</p>
+                <p>No transactions found</p>
                 <p className="text-xs mt-1">Your daily earnings will appear here</p>
               </div>
             ) : (
