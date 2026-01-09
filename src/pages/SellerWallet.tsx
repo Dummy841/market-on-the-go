@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Filter } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Filter, FileText, ImageIcon, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +17,7 @@ interface WalletTransaction {
   amount: number;
   description: string;
   created_at: string;
+  receipt_url?: string | null;
 }
 
 const SellerWallet = () => {
@@ -333,6 +334,22 @@ const SellerWallet = () => {
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(txn.created_at), 'dd MMM yyyy, hh:mm a')}
                         </p>
+                        {txn.type === 'debit' && txn.receipt_url && (
+                          <a 
+                            href={txn.receipt_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                          >
+                            {txn.receipt_url.includes('.pdf') ? (
+                              <FileText className="h-3 w-3" />
+                            ) : (
+                              <ImageIcon className="h-3 w-3" />
+                            )}
+                            View Receipt
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
                       </div>
                     </div>
                     <Badge variant={txn.type === 'credit' ? 'default' : 'secondary'} className={txn.type === 'credit' ? 'bg-green-500' : 'bg-red-500'}>
