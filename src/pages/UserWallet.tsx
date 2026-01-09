@@ -5,11 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Filter } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Filter, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserAuth } from '@/contexts/UserAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 interface WalletTransaction {
   id: string;
@@ -29,6 +36,30 @@ const UserWallet = () => {
   const [loadingTxns, setLoadingTxns] = useState(true);
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+  const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
+  const [addAmount, setAddAmount] = useState('');
+  const [isAddingMoney, setIsAddingMoney] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+
+  // Load Razorpay script
+  useEffect(() => {
+    if (window.Razorpay) {
+      setRazorpayLoaded(true);
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => setRazorpayLoaded(true);
+    document.body.appendChild(script);
+    
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -52,12 +83,12 @@ const UserWallet = () => {
         .from('user_wallets')
         .select('balance')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (walletError && walletError.code !== 'PGRST116') {
+      if (walletError) {
         console.error('Error fetching wallet:', walletError);
       }
-      setWalletBalance((walletData as any)?.balance || 0);
+      setWalletBalance(walletData?.balance || 0);
 
       // Fetch transactions with optional date filter
       let query = supabase
@@ -87,6 +118,124 @@ const UserWallet = () => {
     }
   };
 
+  const handleAddMoney = async () => {
+    const amount = parseFloat(addAmount);
+    if (isNaN(amount) || amount < 1) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount (minimum ₹1)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!razorpayLoaded) {
+      toast({
+        title: "Loading...",
+        description: "Payment gateway is loading. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsAddingMoney(true);
+
+      // Create Razorpay order
+      const { data: razorpayOrder, error: orderError } = await supabase.functions.invoke('create-razorpay-order', {
+        body: {
+          amount: amount,
+          currency: 'INR',
+          receipt: `wallet_${user?.id}_${Date.now()}`
+        }
+      });
+
+      if (orderError || !razorpayOrder) {
+        throw new Error(orderError?.message || 'Failed to create payment order');
+      }
+
+      console.log('Razorpay order created:', razorpayOrder);
+      setShowAddMoneyModal(false);
+
+      // Open Razorpay checkout
+      const options = {
+        key: razorpayOrder.key_id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        name: 'Add Money to Wallet',
+        description: `Add ₹${amount} to wallet`,
+        order_id: razorpayOrder.order_id,
+        handler: async function (response: any) {
+          console.log('Payment successful:', response);
+          
+          try {
+            // Verify payment and add to wallet
+            const { data: verifyResult, error: verifyError } = await supabase.functions.invoke('verify-wallet-topup', {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                user_id: user?.id,
+                amount: amount
+              }
+            });
+
+            if (verifyError || !verifyResult?.success) {
+              throw new Error(verifyError?.message || verifyResult?.error || 'Payment verification failed');
+            }
+
+            toast({
+              title: "Money Added!",
+              description: `₹${amount} added to your wallet successfully.`
+            });
+
+            // Refresh wallet data
+            fetchWalletData();
+            setAddAmount('');
+          } catch (error: any) {
+            console.error('Error verifying payment:', error);
+            toast({
+              title: "Payment Verification Failed",
+              description: error.message || "Please contact support if amount was deducted.",
+              variant: "destructive"
+            });
+          } finally {
+            setIsAddingMoney(false);
+          }
+        },
+        prefill: {
+          name: user?.name,
+          contact: user?.mobile
+        },
+        theme: {
+          color: '#f97316'
+        },
+        modal: {
+          ondismiss: function() {
+            setIsAddingMoney(false);
+            toast({
+              title: "Payment Cancelled",
+              description: "You cancelled the payment.",
+              variant: "destructive"
+            });
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+
+    } catch (error: any) {
+      console.error('Error adding money:', error);
+      toast({
+        title: "Failed to Add Money",
+        description: error.message || "Please try again.",
+        variant: "destructive"
+      });
+      setIsAddingMoney(false);
+    }
+  };
+
   const handleApplyFilter = () => {
     fetchWalletData();
   };
@@ -105,6 +254,8 @@ const UserWallet = () => {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  const quickAmounts = [100, 200, 500, 1000];
 
   if (isLoading) {
     return (
@@ -145,6 +296,14 @@ const UserWallet = () => {
                   <Clock className="h-3 w-3" />
                   Use this balance at checkout
                 </p>
+                <Button 
+                  onClick={() => setShowAddMoneyModal(true)}
+                  className="mt-4 bg-white text-primary hover:bg-white/90"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Money
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -195,7 +354,7 @@ const UserWallet = () => {
               <div className="text-center py-8 text-muted-foreground">
                 <Wallet className="h-10 w-10 mx-auto mb-2 opacity-50" />
                 <p>No transactions yet</p>
-                <p className="text-xs mt-1">Refunds from rejected orders will appear here</p>
+                <p className="text-xs mt-1">Add money or get refunds from rejected orders</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -234,6 +393,57 @@ const UserWallet = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Add Money Modal */}
+      <Dialog open={showAddMoneyModal} onOpenChange={setShowAddMoneyModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Money to Wallet</DialogTitle>
+            <DialogDescription>
+              Enter the amount you want to add to your wallet
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount (₹)</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="Enter amount"
+                value={addAmount}
+                onChange={(e) => setAddAmount(e.target.value)}
+                min="1"
+                className="text-lg"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {quickAmounts.map((amt) => (
+                <Button
+                  key={amt}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddAmount(amt.toString())}
+                  className={addAmount === amt.toString() ? 'border-primary bg-primary/10' : ''}
+                >
+                  ₹{amt}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddMoneyModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddMoney} 
+              disabled={isAddingMoney || !addAmount}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {isAddingMoney ? 'Processing...' : `Add ₹${addAmount || '0'}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
