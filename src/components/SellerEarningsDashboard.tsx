@@ -9,7 +9,8 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfDay, endOfDay, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
-import { Calendar, TrendingUp, ShoppingBag, XCircle } from 'lucide-react';
+import { toZonedTime } from 'date-fns-tz';
+import { Calendar, TrendingUp, ShoppingBag, XCircle, Filter } from 'lucide-react';
 interface Order {
   id: string;
   created_at: string;
@@ -72,15 +73,18 @@ const SellerEarningsDashboard = () => {
       setLoading(false);
     }
   };
-  // Get today's stats (only current day orders)
+  // Get today's stats using IST timezone (only current day orders)
   const getTodayStats = () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const IST = 'Asia/Kolkata';
+    const nowIST = toZonedTime(new Date(), IST);
+    const todayIST = format(nowIST, 'yyyy-MM-dd');
     const franchisePercentage = seller?.franchise_percentage || 0;
     const REJECTION_PENALTY = 10;
     
-    const todayOrders = orders.filter(order => 
-      format(parseISO(order.created_at), 'yyyy-MM-dd') === today
-    );
+    const todayOrders = orders.filter(order => {
+      const orderDateIST = toZonedTime(parseISO(order.created_at), IST);
+      return format(orderDateIST, 'yyyy-MM-dd') === todayIST;
+    });
     
     let deliveredCount = 0;
     let rejectedCount = 0;
@@ -214,78 +218,13 @@ const SellerEarningsDashboard = () => {
     const deduction = itemsTotal * franchisePercentage / 100;
     return itemsTotal - deduction;
   };
-  return <div className="space-y-6">
-      {/* Date Filter */}
+  return <div className="space-y-4">
+      {/* Daily Earnings Summary - All Month Days with Horizontal Scroll */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Filter by Date
-          </CardTitle>
+        <CardHeader className="py-2 px-3">
+          <CardTitle className="text-sm font-medium">Daily Earnings Summary</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-40" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-40" />
-            </div>
-            <Button onClick={fetchOrders} disabled={loading}>
-              {loading ? 'Loading...' : 'Apply Filter'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Today's Summary Cards - Only Current Day */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-full">
-              <ShoppingBag className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Delivered Orders</p>
-              <p className="text-lg font-bold">{todayStats.deliveredCount}</p>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-red-500/10 rounded-full">
-              <XCircle className="h-4 w-4 text-red-500" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Rejected Orders</p>
-              <p className="text-lg font-bold text-red-600">{todayStats.rejectedCount}</p>
-              {todayStats.rejectedCount > 0 && <p className="text-xs text-red-500">-{formatCurrency(todayStats.penalty)} penalty</p>}
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-green-500/10 rounded-full">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Net Earnings</p>
-              <p className="text-lg font-bold text-green-600">{formatCurrency(todayStats.earnings)}</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Daily Earnings Cards - All Month Days with Horizontal Scroll */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Daily Earnings Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="pb-3">
+        <CardContent className="pb-2 px-3">
           {loading ? (
             <p className="text-muted-foreground text-sm">Loading...</p>
           ) : (
@@ -300,15 +239,15 @@ const SellerEarningsDashboard = () => {
                   return (
                     <div 
                       key={format(day, 'yyyy-MM-dd')} 
-                      className={`flex-shrink-0 border-l-2 ${isTodayDate ? 'border-l-green-500 bg-green-50' : hasData ? 'border-l-primary' : 'border-l-muted'} rounded-md p-2 min-w-[100px] ${hasData ? 'bg-card' : 'bg-muted/30'}`}
+                      className={`flex-shrink-0 border-l-2 ${isTodayDate ? 'border-l-green-500 bg-green-50' : hasData ? 'border-l-primary' : 'border-l-muted'} rounded-md p-1.5 min-w-[80px] ${hasData ? 'bg-card' : 'bg-muted/30'}`}
                     >
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="text-[10px] font-medium text-muted-foreground">
                         {format(day, 'dd MMM')}
                       </p>
-                      <p className={`text-sm font-bold ${hasData ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      <p className={`text-xs font-bold ${hasData ? 'text-green-600' : 'text-muted-foreground'}`}>
                         {hasData ? formatCurrency(netEarnings) : '₹0'}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-[9px] text-muted-foreground">
                         {hasData ? `${dayEarning.totalOrders} del${dayEarning.rejectedOrders > 0 ? `, ${dayEarning.rejectedOrders} rej` : ''}` : 'No orders'}
                       </p>
                     </div>
@@ -321,10 +260,68 @@ const SellerEarningsDashboard = () => {
         </CardContent>
       </Card>
 
+      {/* Compact Date Filter */}
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2">
+            <Label htmlFor="startDate" className="text-xs">From</Label>
+            <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-8 w-32 text-xs" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="endDate" className="text-xs">To</Label>
+            <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-8 w-32 text-xs" />
+          </div>
+          <Button onClick={fetchOrders} disabled={loading} size="sm" className="h-8">
+            {loading ? 'Loading...' : 'Apply'}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Today's Summary Cards - Only Current Day */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="p-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-primary/10 rounded-full">
+              <ShoppingBag className="h-3 w-3 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground">Delivered Orders</p>
+              <p className="text-base font-bold">{todayStats.deliveredCount}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-red-500/10 rounded-full">
+              <XCircle className="h-3 w-3 text-red-500" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground">Rejected Orders</p>
+              <p className="text-base font-bold text-red-600">{todayStats.rejectedCount}</p>
+              {todayStats.rejectedCount > 0 && <p className="text-[9px] text-red-500">-{formatCurrency(todayStats.penalty)} penalty</p>}
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-green-500/10 rounded-full">
+              <TrendingUp className="h-3 w-3 text-green-500" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground">Net Earnings</p>
+              <p className="text-base font-bold text-green-600">{formatCurrency(todayStats.earnings)}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       {/* Order-wise Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Order-wise Earnings</CardTitle>
+        <CardHeader className="py-3">
+          <CardTitle className="text-base">Order-wise Earnings</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? <p className="text-muted-foreground">Loading orders...</p> : orders.length === 0 ? <p className="text-muted-foreground">No orders found.</p> : <div className="overflow-x-auto">

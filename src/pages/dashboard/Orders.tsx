@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format } from "date-fns";
+import { toZonedTime } from 'date-fns-tz';
 import { Package, Clock, CheckCircle, Truck, AlertCircle, RotateCcw, Eye, Search, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import DeliveryPartnerAssignModal from "@/components/DeliveryPartnerAssignModal";
@@ -42,6 +43,12 @@ interface Order {
   };
 }
 
+interface UserInfo {
+  id: string;
+  name: string;
+  mobile: string;
+}
+
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +57,14 @@ const Orders = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [refundingOrderId, setRefundingOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [usersMap, setUsersMap] = useState<Map<string, UserInfo>>(new Map());
+
+  const IST = 'Asia/Kolkata';
+  const getTodayIST = () => format(toZonedTime(new Date(), IST), 'yyyy-MM-dd');
+  const todayIST = getTodayIST();
 
   const statusOptions = [{
     label: "All",
@@ -88,6 +100,14 @@ const Orders = () => {
       `).order('created_at', { ascending: false });
       if (error) throw error;
       setOrders((data || []) as any);
+      
+      // Fetch all users for search by name
+      const { data: usersData } = await supabase.from('users').select('id, name, mobile');
+      if (usersData) {
+        const map = new Map<string, UserInfo>();
+        usersData.forEach((u: any) => map.set(u.id, u));
+        setUsersMap(map);
+      }
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({
@@ -211,35 +231,49 @@ const Orders = () => {
     };
   }, []);
 
+  // Get orders filtered by date
+  const getOrdersForDate = (date: string) => {
+    return orders.filter(order => {
+      const orderDateIST = format(toZonedTime(new Date(order.created_at), IST), 'yyyy-MM-dd');
+      return orderDateIST === date;
+    });
+  };
+  
+  const dateFilteredOrders = dateFilter ? getOrdersForDate(dateFilter) : orders;
+
   // Filter orders by status, search, and date
   const filteredOrders = orders.filter(order => {
+    // Date filter
+    if (dateFilter) {
+      const orderDateIST = format(toZonedTime(new Date(order.created_at), IST), 'yyyy-MM-dd');
+      if (orderDateIST !== dateFilter) return false;
+    }
+    
     // Status filter
     if (selectedStatus !== "All" && order.status !== selectedStatus) {
       return false;
     }
     
-    // Search filter (order ID, customer mobile, or customer name from delivery_mobile)
+    // Search filter (order ID, customer mobile, or customer name)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesOrderId = order.id.toLowerCase().includes(query);
       const matchesMobile = order.delivery_mobile?.toLowerCase().includes(query);
-      // We can't search by customer name directly without fetching all users
-      // So we search by what's available
-      if (!matchesOrderId && !matchesMobile) {
-        return false;
-      }
-    }
-    
-    // Date filter
-    if (dateFilter) {
-      const orderDate = format(new Date(order.created_at), 'yyyy-MM-dd');
-      if (orderDate !== dateFilter) {
+      const user = usersMap.get(order.user_id);
+      const matchesName = user?.name?.toLowerCase().includes(query);
+      if (!matchesOrderId && !matchesMobile && !matchesName) {
         return false;
       }
     }
     
     return true;
   });
+  
+  // Get status count based on date filter
+  const getStatusCount = (statusVal: string) => {
+    if (statusVal === "All") return dateFilteredOrders.length;
+    return dateFilteredOrders.filter(order => order.status === statusVal).length;
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -299,24 +333,24 @@ const Orders = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold text-foreground">Orders Management</h2>
       
-      {/* Status Filter Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Status Filter Cards - based on date filtered orders */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {statusOptions.map(status => {
           const Icon = status.icon;
-          const count = status.value === "All" ? orders.length : orders.filter(order => order.status === status.value).length;
+          const count = getStatusCount(status.value);
           return (
             <Card 
               key={status.value} 
               className={`cursor-pointer transition-all hover:shadow-md ${selectedStatus === status.value ? 'ring-2 ring-primary shadow-md' : ''}`} 
               onClick={() => setSelectedStatus(status.value)}
             >
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">{status.label}</p>
-                    <p className="text-2xl font-bold">{count}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
+                    <p className="text-xl font-bold">{count}</p>
                   </div>
-                  <Icon className="h-8 w-8 text-muted-foreground" />
+                  <Icon className="h-6 w-6 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
@@ -326,16 +360,16 @@ const Orders = () => {
 
       {/* Search and Date Filter */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap gap-3 items-center">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by Order ID or Mobile No..."
+                  placeholder="Search Order ID, Mobile, or Customer Name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 h-8"
                 />
               </div>
             </div>
@@ -345,11 +379,16 @@ const Orders = () => {
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-auto"
+                className="w-auto h-8"
               />
+              {dateFilter && dateFilter !== todayIST && (
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter(todayIST)}>
+                  Today
+                </Button>
+              )}
               {dateFilter && (
-                <Button variant="ghost" size="sm" onClick={() => setDateFilter('')}>
-                  Clear
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter('')}>
+                  All
                 </Button>
               )}
             </div>
