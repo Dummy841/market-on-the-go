@@ -279,9 +279,9 @@ const UserWallet = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
-      <header className="bg-card border-b border-border p-4">
+      <header className="bg-card border-b border-border p-4 sticky top-0 z-10 pt-[calc(1rem+env(safe-area-inset-top))]">
         <div className="max-w-4xl mx-auto flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="h-5 w-5" />
