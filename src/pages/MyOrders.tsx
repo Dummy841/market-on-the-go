@@ -149,9 +149,9 @@ export const MyOrders = () => {
         </Card>
       </div>;
   }
-  return <div className="min-h-screen bg-gray-50">
+  return <div className="min-h-screen bg-gray-50 pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
+      <div className="bg-background border-b sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={() => navigate('/')}>

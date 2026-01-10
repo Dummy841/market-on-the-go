@@ -32,12 +32,14 @@ import { CartProvider } from "./contexts/CartContext";
 import { OrderTrackingProvider } from "./contexts/OrderTrackingContext";
 import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
+import { useLocationPermission } from "./hooks/useLocationPermission";
 
 const queryClient = new QueryClient();
 
 // Wrapper component to use the back button hook inside BrowserRouter
 const AppContent = () => {
   useAndroidBackButton();
+  useLocationPermission(); // Request location permission on app load
   
   return (
     <Routes>

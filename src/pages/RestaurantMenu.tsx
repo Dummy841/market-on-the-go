@@ -323,12 +323,12 @@ const RestaurantMenu = () => {
     });
   };
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <div className="fixed top-0 left-0 right-0 z-[100]">
         <Header />
       </div>
 
-      <main className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden pt-24">
+      <main className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden" style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top) + 1.5rem)' }}>
         {loading ? (
           <div className="animate-pulse">Loading restaurant...</div>
         ) : !restaurant ? (

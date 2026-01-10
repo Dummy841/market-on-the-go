@@ -24,7 +24,7 @@ const CartPage = () => {
 
   if (cartItems.length === 0) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-background flex flex-col pb-[env(safe-area-inset-bottom)]">
         <Header />
         <main className="container mx-auto px-4 flex-1 flex flex-col items-center justify-center text-center">
           <ShoppingBag className="h-24 w-24 text-muted-foreground mb-4" />
@@ -40,7 +40,7 @@ const CartPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-[env(safe-area-inset-bottom)]">
       <Header />
       <main className="container mx-auto px-4 py-6 flex-1">
         <Button variant="ghost" className="mb-4" onClick={() => navigate(-1)}>

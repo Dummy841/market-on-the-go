@@ -23,7 +23,7 @@ const Restaurants = () => {
     }
   };
 
-  return <div className="min-h-screen bg-background pb-16">
+  return <div className="min-h-screen bg-background pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <Header />
       <main>
         <UniversalSearchBar />
