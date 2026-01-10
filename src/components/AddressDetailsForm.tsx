@@ -276,7 +276,7 @@ const AddressDetailsForm = ({
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Select village/city" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[9999] bg-background">
                   {VILLAGE_OPTIONS.map((village) => (
                     <SelectItem key={village} value={village}>
                       {village}
