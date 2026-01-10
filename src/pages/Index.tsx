@@ -15,7 +15,7 @@ const Index = () => {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   
   return (
-    <div className="min-h-screen bg-background pb-16">
+    <div className="min-h-screen bg-background pb-[calc(4rem+env(safe-area-inset-bottom))]">
       <NotificationPermissionBanner />
       <Header />
       <main>
