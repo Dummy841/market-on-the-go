@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, AlertCircle, Menu, Crown, Wallet } from "lucide-react";
+import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, Crown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -7,7 +7,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { SearchResults } from "@/components/SearchResults";
 import AddressSelector from "@/components/AddressSelector";
 import { supabase } from "@/integrations/supabase/client";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useZippyPass } from "@/hooks/useZippyPass";
@@ -446,34 +446,27 @@ export const Header = () => {
                 </Button>
               </>}
             
-            {/* Mobile Menu */}
-            {!isAuthenticated && <Sheet open={showMobileMenu} onOpenChange={setShowMobileMenu}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="md:hidden">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                  <SheetHeader>
-                    <SheetTitle>Menu</SheetTitle>
-                  </SheetHeader>
-                  <div className="flex flex-col space-y-4 mt-6">
-                    <Button variant="default" className="w-full justify-start" onClick={() => {
-                  setShowMobileMenu(false);
-                  setShowRegister(true);
-                }}>
-                      Register
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start" onClick={() => {
-                  setShowMobileMenu(false);
-                  setShowLogin(true);
-                }}>
-                      <User className="h-4 w-4 mr-2" />
-                      Login
-                    </Button>
-                  </div>
-                </SheetContent>
-              </Sheet>}
+            {/* Mobile Auth Buttons */}
+            {!isAuthenticated && (
+              <div className="flex items-center gap-1 md:hidden">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setShowRegister(true)}
+                >
+                  Register
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setShowLogin(true)}
+                >
+                  Login
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

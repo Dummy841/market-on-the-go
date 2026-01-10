@@ -11,9 +11,11 @@ interface RegisterFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (user: any) => void;
+  initialMobile?: string;
 }
 
-export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) => {
+
+export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: RegisterFormProps) => {
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
@@ -32,6 +34,17 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess }: RegisterFormProps) 
     }
     return () => clearInterval(interval);
   }, [resendTimer]);
+
+  // Prefill mobile when opened from "register required" flow
+  useEffect(() => {
+    if (isOpen && initialMobile) {
+      setMobile(initialMobile);
+      setStep('register');
+      setOtp('');
+      setResendTimer(0);
+    }
+  }, [isOpen, initialMobile]);
+
 
   // Web OTP API - Auto-read SMS OTP
   useEffect(() => {

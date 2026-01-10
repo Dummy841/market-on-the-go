@@ -11,8 +11,9 @@ interface LoginFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (user: any) => void;
-  onRegisterRequired: () => void;
+  onRegisterRequired?: (mobile: string) => void;
 }
+
 
 export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: LoginFormProps) => {
   const [step, setStep] = useState<'login' | 'verify'>('login');
@@ -99,16 +100,20 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
         .maybeSingle();
 
       if (!existingUser) {
+        setIsLoading(false);
         toast({
           title: "User not found",
           description: "This mobile number is not registered. Please register first.",
           variant: "destructive",
         });
-        setIsLoading(false);
-        onClose();
-        onRegisterRequired();
+        // Keep modal open briefly to show message, then open register
+        setTimeout(() => {
+          onClose();
+          onRegisterRequired?.(mobile);
+        }, 100);
         return;
       }
+
 
       // TEST MODE: skip SMS and use default OTP
       toast({

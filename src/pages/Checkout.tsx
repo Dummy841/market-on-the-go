@@ -16,9 +16,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import AddressSelector from "@/components/AddressSelector";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { RegisterForm } from "@/components/auth/RegisterForm";
 import { ZippyPassModal } from "@/components/ZippyPassModal";
 import { AddMoreItemsModal } from "@/components/AddMoreItemsModal";
 import { DeliveryNotAvailableModal } from "@/components/DeliveryNotAvailableModal";
+
 import { calculateDistance } from "@/lib/distanceUtils";
 
 declare global {
@@ -57,6 +59,8 @@ export const Checkout = () => {
   } | null>(null);
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [registerInitialMobile, setRegisterInitialMobile] = useState<string | undefined>(undefined);
   const [showZippyPassModal, setShowZippyPassModal] = useState(false);
   const [showAddMoreItemsModal, setShowAddMoreItemsModal] = useState(false);
   const [showDeliveryNotAvailableModal, setShowDeliveryNotAvailableModal] = useState(false);
@@ -74,14 +78,7 @@ export const Checkout = () => {
     latitude?: number;
     longitude?: number;
     mobile?: string;
-  }>({
-    id: 'default',
-    label: 'Home',
-    address: '1, Welcome, Waltair Station Approach Road',
-    latitude: 17.7172,
-    longitude: 83.3150,
-    mobile: user?.mobile || ''
-  });
+  } | null>(null);
 
   // Load Razorpay script
   useEffect(() => {
@@ -129,7 +126,14 @@ export const Checkout = () => {
     }
 
     try {
-      const { data, error } = await supabase.from('user_addresses').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(1).single();
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
       if (error) throw error;
       if (data) {
         setSelectedAddress({
@@ -138,12 +142,15 @@ export const Checkout = () => {
           address: data.full_address,
           latitude: parseFloat(data.latitude.toString()),
           longitude: parseFloat(data.longitude.toString()),
-          mobile: data.mobile
+          mobile: data.mobile,
         });
+      } else {
+        setSelectedAddress(null);
       }
-    } catch (error) {
-      console.error('No saved addresses found, using default');
+    } catch {
+      setSelectedAddress(null);
     }
+
   };
 
   useEffect(() => {
@@ -186,11 +193,21 @@ export const Checkout = () => {
       toast({
         title: "Empty Cart",
         description: "Please add items to cart before placing order",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
-    
+
+    if (!selectedAddress) {
+      toast({
+        title: "Add delivery address",
+        description: "Please add a delivery address to place the order.",
+        variant: "destructive",
+      });
+      setShowAddressSelector(true);
+      return;
+    }
+
     // Only check Razorpay if we need to pay via Razorpay (totalAmount > 0)
     if (totalAmount > 0 && !razorpayLoaded) {
       toast({
@@ -213,26 +230,27 @@ export const Checkout = () => {
         ? (totalAmount > 0 ? 'razorpay+wallet' : 'wallet') 
         : 'upi';
       
-      const orderData = {
-        user_id: user.id,
-        seller_id: firstItem.seller_id,
-        seller_name: cartRestaurantName,
-        items: cartItems.map(item => ({
-          id: item.id,
-          item_name: item.item_name,
-          quantity: item.quantity,
-          seller_price: item.seller_price
-        })),
-        total_amount: grossTotal, // Store gross total
-        delivery_fee: deliveryFee,
-        platform_fee: platformFee,
-        delivery_address: `${selectedAddress.address}, Location: ${selectedAddress.latitude}, ${selectedAddress.longitude}`,
-        delivery_latitude: selectedAddress.latitude || userLocation?.lat,
-        delivery_longitude: selectedAddress.longitude || userLocation?.lng,
-        delivery_mobile: selectedAddress.mobile || user?.mobile || '',
-        instructions: instructions,
-        payment_method: paymentMethod,
-      };
+        const orderData = {
+          user_id: user.id,
+          seller_id: firstItem.seller_id,
+          seller_name: cartRestaurantName,
+          items: cartItems.map((item) => ({
+            id: item.id,
+            item_name: item.item_name,
+            quantity: item.quantity,
+            seller_price: item.seller_price,
+          })),
+          total_amount: grossTotal, // Store gross total
+          delivery_fee: deliveryFee,
+          platform_fee: platformFee,
+          delivery_address: `${selectedAddress!.address}, Location: ${selectedAddress!.latitude}, ${selectedAddress!.longitude}`,
+          delivery_latitude: selectedAddress!.latitude ?? userLocation?.lat,
+          delivery_longitude: selectedAddress!.longitude ?? userLocation?.lng,
+          delivery_mobile: selectedAddress!.mobile || user?.mobile || '',
+          instructions: instructions,
+          payment_method: paymentMethod,
+        };
+
 
       // Helper function to debit wallet and create order
       const processWalletDebit = async (): Promise<string | null> => {
@@ -432,7 +450,9 @@ export const Checkout = () => {
             </Button>
             <div>
               <h1 className="text-lg font-semibold">{cartRestaurantName}</h1>
-              <p className="text-sm text-muted-foreground">{selectedAddress.address}</p>
+              <p className="text-sm text-muted-foreground">
+                {selectedAddress?.address || "Add delivery address"}
+              </p>
             </div>
           </div>
         </div>
@@ -480,9 +500,11 @@ export const Checkout = () => {
                   <MapPin className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="font-medium">{selectedAddress.label}</p>
+                  <p className="font-medium">
+                    {selectedAddress ? selectedAddress.label : "Add Address"}
+                  </p>
                   <p className="text-sm text-muted-foreground line-clamp-2">
-                    {selectedAddress.address}
+                    {selectedAddress ? selectedAddress.address : "Tap to add a delivery address"}
                   </p>
                 </div>
               </div>
@@ -651,16 +673,38 @@ export const Checkout = () => {
       />
 
       {/* Login Modal */}
-      <LoginForm isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onSuccess={userData => {
-        login(userData);
-        setShowLoginModal(false);
-        toast({
-          title: "Login Successful",
-          description: "You can now place your order"
-        });
-      }} onRegisterRequired={() => {
-        setShowLoginModal(false);
-      }} />
+      <LoginForm
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={(userData) => {
+          login(userData);
+          setShowLoginModal(false);
+          toast({
+            title: "Login Successful",
+            description: "You can now place your order",
+          });
+        }}
+        onRegisterRequired={(mobile) => {
+          setShowLoginModal(false);
+          setRegisterInitialMobile(mobile);
+          setShowRegisterModal(true);
+        }}
+      />
+
+      {/* Register Modal */}
+      <RegisterForm
+        isOpen={showRegisterModal}
+        initialMobile={registerInitialMobile}
+        onClose={() => setShowRegisterModal(false)}
+        onSuccess={(userData) => {
+          login(userData);
+          setShowRegisterModal(false);
+          toast({
+            title: "Registration Successful",
+            description: "You can now place your order",
+          });
+        }}
+      />
 
       {/* Zippy Pass Modal */}
       <ZippyPassModal 

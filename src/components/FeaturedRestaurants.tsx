@@ -22,9 +22,10 @@ interface Restaurant {
 
 interface FeaturedRestaurantsProps {
   category?: string;
+  searchQuery?: string;
 }
 
-export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRestaurantsProps) => {
+export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = '' }: FeaturedRestaurantsProps) => {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -163,13 +164,21 @@ export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRest
         })
       );
 
-      // Filter restaurants within 10km and sort by distance
+      // Filter restaurants within 10km
       // Demo Restaurant is always shown regardless of distance
       const nearbyRestaurants = restaurantsWithDetails
-        .filter(r => r.distance <= 10 || r.seller_name === 'Demo Restaurant')
-        .sort((a, b) => a.distance - b.distance);
+        .filter(r => r.distance <= 10 || r.seller_name === 'Demo Restaurant');
       
-      setRestaurants(nearbyRestaurants);
+      // Sort: online restaurants first (by distance), then offline restaurants (by distance)
+      const sortedRestaurants = nearbyRestaurants.sort((a, b) => {
+        // First, sort by online status (online first)
+        if (a.is_online !== false && b.is_online === false) return -1;
+        if (a.is_online === false && b.is_online !== false) return 1;
+        // Then sort by distance within the same online status
+        return a.distance - b.distance;
+      });
+      
+      setRestaurants(sortedRestaurants);
     } catch (error) {
       console.error('Error fetching restaurants:', error);
     } finally {
@@ -194,17 +203,29 @@ export const FeaturedRestaurants = ({ category = 'food_delivery' }: FeaturedRest
     );
   }
 
-  if (restaurants.length === 0 && !loading) {
+  // Filter restaurants by search query
+  const filteredRestaurants = searchQuery 
+    ? restaurants.filter(r => 
+        r.seller_name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : restaurants;
+
+  if (filteredRestaurants.length === 0 && !loading) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No sellers found in this category within 10km of your location</p>
+        <p className="text-muted-foreground">
+          {searchQuery 
+            ? `No restaurants found matching "${searchQuery}"`
+            : "No sellers found in this category within 10km of your location"
+          }
+        </p>
       </div>
     );
   }
 
   return (
     <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
-      {restaurants.map(restaurant => (
+      {filteredRestaurants.map(restaurant => (
         <RestaurantCard 
           key={restaurant.id} 
           id={restaurant.id} 
