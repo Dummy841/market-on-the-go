@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +44,8 @@ const Banners = () => {
     is_active: true,
   });
   const [uploading, setUploading] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const dragOverIndex = useRef<number | null>(null);
 
   useEffect(() => {
     fetchBanners();
@@ -192,6 +194,50 @@ const Banners = () => {
     });
   };
 
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    dragOverIndex.current = index;
+  };
+
+  const handleDrop = async () => {
+    if (draggedIndex === null || dragOverIndex.current === null || draggedIndex === dragOverIndex.current) {
+      setDraggedIndex(null);
+      return;
+    }
+
+    const newBanners = [...banners];
+    const draggedBanner = newBanners[draggedIndex];
+    newBanners.splice(draggedIndex, 1);
+    newBanners.splice(dragOverIndex.current, 0, draggedBanner);
+
+    // Update display_order for all affected banners
+    const updates = newBanners.map((banner, index) => ({
+      id: banner.id,
+      display_order: index,
+    }));
+
+    setBanners(newBanners);
+    setDraggedIndex(null);
+
+    try {
+      for (const update of updates) {
+        await supabase
+          .from('banners')
+          .update({ display_order: update.display_order })
+          .eq('id', update.id);
+      }
+      toast.success('Banner order updated');
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast.error('Failed to update order');
+      fetchBanners();
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
   }
@@ -219,13 +265,12 @@ const Banners = () => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
+                <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="Welcome to Zippy"
-                  required
                 />
               </div>
               
@@ -306,10 +351,18 @@ const Banners = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {banners.map((banner) => (
-                  <TableRow key={banner.id}>
+                {banners.map((banner, index) => (
+                  <TableRow 
+                    key={banner.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={handleDrop}
+                    onDragEnd={() => setDraggedIndex(null)}
+                    className={`cursor-grab ${draggedIndex === index ? 'opacity-50' : ''}`}
+                  >
                     <TableCell>
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
                     </TableCell>
                     <TableCell>
                       {banner.image_url ? (

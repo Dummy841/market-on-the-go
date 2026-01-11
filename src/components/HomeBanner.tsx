@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Banner {
   id: string;
@@ -13,6 +12,8 @@ export const HomeBanner = () => {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
 
   useEffect(() => {
     fetchBanners();
@@ -43,6 +44,30 @@ export const HomeBanner = () => {
     setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    
+    const diff = touchStartX.current - touchEndX.current;
+    const threshold = 50;
+
+    if (diff > threshold) {
+      nextSlide();
+    } else if (diff < -threshold) {
+      prevSlide();
+    }
+
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   if (loading) {
     return (
       <div className="h-[33vh] mx-4 mt-2 bg-gradient-to-br from-primary/20 to-primary/5 animate-pulse rounded-2xl" />
@@ -63,7 +88,12 @@ export const HomeBanner = () => {
   const currentBanner = banners[currentIndex];
 
   return (
-    <div className="relative h-[33vh] overflow-hidden mx-4 mt-2 rounded-2xl">
+    <div 
+      className="relative h-[33vh] overflow-hidden mx-4 mt-2 rounded-2xl"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Banner Content */}
       <div
         className="h-full w-full flex items-center justify-center transition-all duration-500"
@@ -76,44 +106,30 @@ export const HomeBanner = () => {
         {/* Gradient overlay for readability */}
         <div className={`absolute inset-0 ${currentBanner.image_url ? 'bg-black/40' : 'bg-gradient-to-br from-primary to-primary/80'}`} />
         
-        {/* Text content */}
-        <div className="relative z-10 text-center text-white px-4">
-          <h1 className="text-3xl md:text-5xl font-bold mb-2">{currentBanner.title}</h1>
-          {currentBanner.subtitle && (
-            <p className="text-lg md:text-xl opacity-90">{currentBanner.subtitle}</p>
-          )}
-        </div>
+        {/* Text content - only show if title exists */}
+        {currentBanner.title && (
+          <div className="relative z-10 text-center text-white px-4">
+            <h1 className="text-3xl md:text-5xl font-bold mb-2">{currentBanner.title}</h1>
+            {currentBanner.subtitle && (
+              <p className="text-lg md:text-xl opacity-90">{currentBanner.subtitle}</p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Navigation arrows - only show if multiple banners */}
+      {/* Dots indicator - only show if multiple banners */}
       {banners.length > 1 && (
-        <>
-          <button
-            onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full p-2 transition-colors"
-          >
-            <ChevronLeft className="h-6 w-6 text-white" />
-          </button>
-          <button
-            onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full p-2 transition-colors"
-          >
-            <ChevronRight className="h-6 w-6 text-white" />
-          </button>
-
-          {/* Dots indicator */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-            {banners.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentIndex(index)}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentIndex ? 'bg-white' : 'bg-white/50'
-                }`}
-              />
-            ))}
-          </div>
-        </>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          {banners.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentIndex(index)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                index === currentIndex ? 'bg-white' : 'bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

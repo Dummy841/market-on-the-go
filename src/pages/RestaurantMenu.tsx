@@ -350,60 +350,78 @@ const RestaurantMenu = () => {
               Back to restaurants
             </Button>
 
-            {/* Restaurant Header */}
-            <div className="bg-card rounded-lg p-6 mb-8 shadow-card">
+            {/* Search Bar - Top */}
+            <div className="relative w-full mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Restaurant Header - Compact */}
+            <div className="bg-card rounded-lg p-3 mb-6 shadow-card">
               {restaurant.is_online === false && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-4">
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="destructive">Currently Offline</Badge>
-                    <span className="text-sm text-muted-foreground">
-                      This restaurant is not taking orders right now
+                    <Badge variant="destructive" className="text-xs">Offline</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      Not taking orders now
                     </span>
                   </div>
                 </div>
               )}
-              <div className="flex items-start gap-4">
+              <div className="flex items-center gap-3">
                 <img
                   src={restaurant.profile_photo_url || restaurant1}
                   alt={restaurant.seller_name}
-                  className={`w-24 h-24 rounded-lg object-cover flex-shrink-0 ${
+                  className={`w-16 h-16 rounded-lg object-cover flex-shrink-0 ${
                     restaurant.is_online === false ? 'grayscale' : ''
                   }`}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h1 className="font-bold text-card-foreground text-lg">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="font-semibold text-card-foreground text-sm line-clamp-1">
                       {restaurant.seller_name}
                     </h1>
                     <Badge
                       variant={restaurant.is_online !== false ? 'default' : 'secondary'}
-                      className="flex-shrink-0"
+                      className="flex-shrink-0 text-[10px] px-1.5 py-0"
                     >
                       {restaurant.is_online !== false ? 'Online' : 'Offline'}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">
+                  <p className="text-xs text-muted-foreground mb-1">
                     Owner: {restaurant.owner_name}
                   </p>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-food-green fill-current flex-shrink-0" />
-                      <span className="font-thin text-xs">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-0.5">
+                      <Star className="h-3 w-3 text-food-green fill-current flex-shrink-0" />
+                      <span>
                         {restaurant.average_rating > 0 ? restaurant.average_rating : 'New'}
-                        {restaurant.total_ratings > 0 && ` (${restaurant.total_ratings})`}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-xs">
+                    <div className="flex items-center gap-0.5">
+                      <Clock className="h-3 w-3 flex-shrink-0" />
+                      <span>
                         {restaurant.is_online !== false
                           ? restaurant.deliveryTime || '25-35 min'
                           : 'Offline'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-xs">
+                    <div className="flex items-center gap-0.5">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span>
                         {formatDistance(restaurant.distance || 0)}
                       </span>
                     </div>
@@ -414,26 +432,7 @@ const RestaurantMenu = () => {
 
             {/* Menu Items */}
             <section className="mb-12">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <h2 className="text-2xl font-bold text-foreground">Menu Items</h2>
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search items..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 pr-9"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
+              <h2 className="text-xl font-bold text-foreground mb-4">Menu Items</h2>
               {filteredMenuItems.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">

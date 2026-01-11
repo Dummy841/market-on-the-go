@@ -494,7 +494,14 @@ export const Checkout = () => {
         <Card className="mb-6">
           <CardContent className="p-4">
             <h3 className="font-semibold mb-4">Delivery Address</h3>
-            <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setShowAddressSelector(true)}>
+            <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => {
+              // If user is not logged in, show login modal first
+              if (!isAuthenticated) {
+                setShowLoginModal(true);
+                return;
+              }
+              setShowAddressSelector(true);
+            }}>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-full">
                   <MapPin className="h-4 w-4 text-green-600" />
