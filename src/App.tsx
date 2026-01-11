@@ -16,6 +16,8 @@ import Settlements from "./pages/dashboard/Settlements";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import SellerSalesPage from "./pages/dashboard/SellerSalesPage";
 import Banners from "./pages/dashboard/Banners";
+import SupportChats from "./pages/dashboard/SupportChats";
+import Help from "./pages/Help";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
 import SellerWallet from "./pages/SellerWallet";
@@ -50,6 +52,7 @@ const AppContent = () => {
       <Route path="/cart" element={<CartPage />} />
       <Route path="/my-orders" element={<MyOrders />} />
       <Route path="/my-wallet" element={<UserWallet />} />
+      <Route path="/help" element={<Help />} />
       <Route path="/seller-login" element={<SellerLogin />} />
       <Route path="/seller-dashboard" element={<SellerDashboard />} />
       <Route path="/seller-wallet" element={<SellerWallet />} />
@@ -65,6 +68,7 @@ const AppContent = () => {
         <Route path="refunds" element={<Refunds />} />
         <Route path="delivery-partners" element={<DeliveryPartners />} />
         <Route path="banners" element={<Banners />} />
+        <Route path="support-chats" element={<SupportChats />} />
       </Route>
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />

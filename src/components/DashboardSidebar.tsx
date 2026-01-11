@@ -1,4 +1,4 @@
-import { Users, Store, Truck, ChevronDown, BarChart3, Settings, FileText, Image, RotateCcw, Wallet } from "lucide-react";
+import { Users, Store, Truck, ChevronDown, BarChart3, Settings, FileText, Image, RotateCcw, Wallet, MessageCircle } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -32,6 +32,7 @@ const menuItems = [
       { title: "Refunds", url: "/dashboard/refunds", icon: RotateCcw },
       { title: "Delivery Partners", url: "/dashboard/delivery-partners", icon: Truck },
       { title: "Banners", url: "/dashboard/banners", icon: Image },
+      { title: "Support Chats", url: "/dashboard/support-chats", icon: MessageCircle },
     ]
   }
 ];
