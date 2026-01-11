@@ -19,6 +19,17 @@ export const HomeBanner = () => {
     fetchBanners();
   }, []);
 
+  // Auto-scroll every 2 seconds
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [banners.length]);
+
   const fetchBanners = async () => {
     try {
       const { data, error } = await supabase

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, User, LogOut, CreditCard, Heart, FileText, Settings, ChevronDown, Crown, Wallet } from "lucide-react";
+import { MapPin, User, LogOut, FileText, ChevronDown, Crown, Wallet, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -403,14 +403,6 @@ export const Header = () => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2">
-                    <CreditCard className="h-4 w-4" />
-                    <span>Payment Modes</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2">
-                    <Heart className="h-4 w-4" />
-                    <span>Favourites</span>
-                  </DropdownMenuItem>
                   <DropdownMenuItem className="flex items-center space-x-2 py-2" onClick={() => navigateToPage('/my-orders')}>
                     <FileText className="h-4 w-4" />
                     <span>My Orders</span>
@@ -426,9 +418,9 @@ export const Header = () => {
                       </Badge>
                     )}
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2">
-                    <Settings className="h-4 w-4" />
-                    <span>Account Settings</span>
+                  <DropdownMenuItem className="flex items-center space-x-2 py-2" onClick={() => navigateToPage('/help')}>
+                    <HelpCircle className="h-4 w-4" />
+                    <span>Help</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="flex items-center space-x-2 py-2 text-destructive focus:text-destructive" onClick={handleLogout}>

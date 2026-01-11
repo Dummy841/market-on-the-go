@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { formatDistanceToNow } from "date-fns";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, ArrowLeft, Star, MapPin } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, AlertCircle, ArrowLeft, Star, MapPin, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { RatingModal } from "@/components/RatingModal";
@@ -289,22 +289,40 @@ export const MyOrders = () => {
                     </div>
                   )}
 
-                  {/* Rate Order Button */}
-                  {displayStatus === 'delivered' && !order.is_rated && (
-                    <div className="mt-3 pt-3 border-t">
+                  {/* View Invoice and Rate Order Buttons */}
+                  {displayStatus === 'delivered' && (
+                    <div className="mt-3 pt-3 border-t flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="flex-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedOrder(order);
-                          setShowRatingModal(true);
+                          // For now, show invoice details in a toast
+                          toast({
+                            title: "Invoice",
+                            description: `Order #${order.id} - Total: ₹${order.total_amount}`,
+                          });
                         }}
                       >
-                        <Star className="h-4 w-4 mr-2" />
-                        Rate Your Experience
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Invoice
                       </Button>
+                      {!order.is_rated && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order);
+                            setShowRatingModal(true);
+                          }}
+                        >
+                          <Star className="h-4 w-4 mr-2" />
+                          Rate Experience
+                        </Button>
+                      )}
                     </div>
                   )}
 

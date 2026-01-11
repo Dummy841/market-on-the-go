@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, RotateCcw, Wallet } from "lucide-react";
+import { FileText, RotateCcw, Wallet, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const DashboardHome = () => {
@@ -9,6 +9,7 @@ const DashboardHome = () => {
   const [pendingOrders, setPendingOrders] = useState(0);
   const [pendingRefunds, setPendingRefunds] = useState(0);
   const [pendingSettlements, setPendingSettlements] = useState(0);
+  const [openChats, setOpenChats] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,6 +43,14 @@ const DashboardHome = () => {
         .like("description", "%Pending%");
       
       setPendingSettlements(settlementsCount || 0);
+
+      // Fetch open support chats count
+      const { count: chatsCount } = await supabase
+        .from("support_chats")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "open");
+      
+      setOpenChats(chatsCount || 0);
     } catch (error) {
       console.error("Error fetching counts:", error);
     } finally {
@@ -73,6 +82,14 @@ const DashboardHome = () => {
       label: "Pending",
       color: "bg-orange-500",
       path: "/dashboard/refunds",
+    },
+    {
+      title: "Support Chats",
+      icon: MessageCircle,
+      count: openChats,
+      label: "Open",
+      color: "bg-purple-500",
+      path: "/dashboard/support-chats",
     },
   ];
 

@@ -498,6 +498,71 @@ export type Database = {
         }
         Relationships: []
       }
+      support_chats: {
+        Row: {
+          created_at: string | null
+          id: string
+          order_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          user_mobile: string | null
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          user_mobile?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          order_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          user_mobile?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          chat_id: string
+          created_at: string | null
+          id: string
+          message: string
+          sender_type: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string | null
+          id?: string
+          message: string
+          sender_type: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string | null
+          id?: string
+          message?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "support_chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_addresses: {
         Row: {
           apartment_area: string | null
