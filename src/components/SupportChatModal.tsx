@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, X } from "lucide-react";
+import { Send, X, Image, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -37,7 +37,10 @@ export const SupportChatModal = ({
   const [chatId, setChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -85,7 +88,7 @@ export const SupportChatModal = ({
   const initializeChat = async () => {
     setLoading(true);
     try {
-      // Check for existing open chat
+      // Check for existing open chat for this specific order
       let existingChat = null;
       
       if (orderId) {
@@ -155,18 +158,18 @@ export const SupportChatModal = ({
     setMessages((data || []) as Message[]);
   };
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !chatId || sending) return;
+  const sendMessage = async (messageText?: string) => {
+    const text = messageText || newMessage.trim();
+    if (!text || !chatId || sending) return;
 
-    const messageText = newMessage.trim();
     setSending(true);
-    setNewMessage("");
+    if (!messageText) setNewMessage("");
     
     try {
       const { data, error } = await supabase.from('support_messages').insert({
         chat_id: chatId,
         sender_type: 'user',
-        message: messageText,
+        message: text,
       }).select().single();
 
       if (error) throw error;
@@ -180,7 +183,7 @@ export const SupportChatModal = ({
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setNewMessage(messageText); // Restore message on error
+      if (!messageText) setNewMessage(text); // Restore message on error
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -191,12 +194,55 @@ export const SupportChatModal = ({
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!chatId) return;
+    
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${chatId}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('seller-profiles')
+        .upload(`support-chat/${fileName}`, file);
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('seller-profiles')
+        .getPublicUrl(`support-chat/${fileName}`);
+
+      // Send the image URL as a message
+      await sendMessage(`[Image] ${urlData.publicUrl}`);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+    e.target.value = '';
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
+
+  const isImageMessage = (message: string) => message.startsWith('[Image]');
+  const getImageUrl = (message: string) => message.replace('[Image] ', '');
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -241,7 +287,16 @@ export const SupportChatModal = ({
                         : 'bg-muted'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    {isImageMessage(msg.message) ? (
+                      <img 
+                        src={getImageUrl(msg.message)} 
+                        alt="Shared image" 
+                        className="max-w-full rounded cursor-pointer"
+                        onClick={() => window.open(getImageUrl(msg.message), '_blank')}
+                      />
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    )}
                     <p
                       className={`text-xs mt-1 ${
                         msg.sender_type === 'user'
@@ -260,17 +315,52 @@ export const SupportChatModal = ({
 
         <div className="p-4 border-t flex-shrink-0">
           <div className="flex gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              ref={cameraInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImage || sending}
+            >
+              <Image className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={uploadingImage || sending}
+            >
+              <Camera className="h-4 w-4" />
+            </Button>
             <Input
               placeholder="Type your message..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={sending}
+              disabled={sending || uploadingImage}
+              className="flex-1"
             />
-            <Button onClick={sendMessage} disabled={!newMessage.trim() || sending}>
+            <Button onClick={() => sendMessage()} disabled={!newMessage.trim() || sending || uploadingImage}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
+          {uploadingImage && (
+            <p className="text-xs text-muted-foreground text-center mt-2">Uploading image...</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

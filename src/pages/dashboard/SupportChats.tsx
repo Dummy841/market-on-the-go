@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Send, X, MessageCircle, User } from "lucide-react";
+import { Send, X, MessageCircle, User, Package, MapPin, Phone, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 interface Chat {
   id: string;
@@ -29,6 +29,28 @@ interface Message {
   created_at: string;
 }
 
+interface OrderItem {
+  item_name: string;
+  quantity: number;
+  franchise_price: number;
+  seller_price: number;
+}
+
+interface OrderDetails {
+  id: string;
+  seller_name: string;
+  status: string;
+  total_amount: number;
+  delivery_address: string;
+  delivery_mobile: string | null;
+  items: OrderItem[];
+  created_at: string;
+  payment_method: string;
+  delivery_fee: number;
+  platform_fee: number;
+  gst_charges: number;
+}
+
 const SupportChats = () => {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -37,6 +59,7 @@ const SupportChats = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState<'open' | 'closed'>('open');
+  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,9 +81,19 @@ const SupportChats = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedChat) return;
+    if (!selectedChat) {
+      setOrderDetails(null);
+      return;
+    }
 
     loadMessages(selectedChat.id);
+    
+    // Fetch order details if chat has an order_id
+    if (selectedChat.order_id) {
+      fetchOrderDetails(selectedChat.order_id);
+    } else {
+      setOrderDetails(null);
+    }
 
     // Subscribe to messages for selected chat
     const channel = supabase
@@ -107,6 +140,28 @@ const SupportChats = () => {
       console.error('Error fetching chats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrderDetails = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+      
+      // Parse items JSON
+      const items = Array.isArray(data.items) ? data.items : [];
+      setOrderDetails({
+        ...data,
+        items: items as unknown as OrderItem[],
+      });
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      setOrderDetails(null);
     }
   };
 
@@ -196,6 +251,20 @@ const SupportChats = () => {
   };
 
   const filteredChats = chats.filter((chat) => chat.status === activeTab);
+  
+  const isImageMessage = (message: string) => message.startsWith('[Image]');
+  const getImageUrl = (message: string) => message.replace('[Image] ', '');
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'rejected': case 'refunded': return 'bg-red-100 text-red-800';
+      case 'out_for_delivery': return 'bg-blue-100 text-blue-800';
+      case 'packed': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -247,8 +316,8 @@ const SupportChats = () => {
                         {chat.user_mobile}
                       </div>
                       {chat.order_id && (
-                        <div className="text-xs text-muted-foreground">
-                          Order: #{chat.order_id.slice(-6)}
+                        <div className="text-xs text-muted-foreground font-medium text-primary">
+                          Order: #{chat.order_id}
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground mt-1">
@@ -262,19 +331,19 @@ const SupportChats = () => {
           </CardContent>
         </Card>
 
-        {/* Chat Messages */}
+        {/* Chat Messages + Order Details */}
         <Card className="lg:col-span-2 flex flex-col">
           {selectedChat ? (
             <>
-              <CardHeader className="pb-3 flex-shrink-0 flex flex-row items-center justify-between">
-                <div>
+              <CardHeader className="pb-3 flex-shrink-0 flex flex-row items-start justify-between gap-4">
+                <div className="flex-1">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <User className="h-5 w-5" />
                     {selectedChat.user_name || 'Unknown User'}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {selectedChat.user_mobile}
-                    {selectedChat.order_id && ` • Order #${selectedChat.order_id.slice(-6)}`}
+                    {selectedChat.order_id && ` • Order #${selectedChat.order_id}`}
                   </p>
                 </div>
                 {selectedChat.status === 'open' && (
@@ -284,9 +353,79 @@ const SupportChats = () => {
                   </Button>
                 )}
               </CardHeader>
+
+              {/* Order Details Card */}
+              {orderDetails && (
+                <div className="px-4 pb-3 flex-shrink-0">
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Package className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">Order Details</span>
+                        <Badge className={`text-xs ${getStatusColor(orderDetails.status)}`}>
+                          {orderDetails.status.replace(/_/g, ' ')}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                        <div>
+                          <span className="text-muted-foreground">Restaurant:</span>
+                          <span className="ml-1 font-medium">{orderDetails.seller_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total:</span>
+                          <span className="ml-1 font-medium">₹{orderDetails.total_amount}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Payment:</span>
+                          <span className="ml-1">{orderDetails.payment_method}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span>{format(new Date(orderDetails.created_at), 'dd MMM, hh:mm a')}</span>
+                        </div>
+                      </div>
+
+                      {/* Items */}
+                      <div className="border-t pt-2 mt-2">
+                        <span className="text-xs text-muted-foreground">Items:</span>
+                        <div className="mt-1 space-y-1">
+                          {orderDetails.items.map((item, idx) => (
+                            <div key={idx} className="text-xs flex justify-between">
+                              <span>{item.quantity}x {item.item_name}</span>
+                              <span>₹{item.franchise_price * item.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Delivery Info */}
+                      <div className="border-t pt-2 mt-2 text-xs">
+                        <div className="flex items-start gap-1 mb-1">
+                          <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
+                          <span className="text-muted-foreground line-clamp-2">{orderDetails.delivery_address}</span>
+                        </div>
+                        {orderDetails.delivery_mobile && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span>{orderDetails.delivery_mobile}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Charges Breakdown */}
+                      <div className="border-t pt-2 mt-2 grid grid-cols-3 gap-1 text-xs text-muted-foreground">
+                        <div>Delivery: ₹{orderDetails.delivery_fee}</div>
+                        <div>Platform: ₹{orderDetails.platform_fee}</div>
+                        <div>GST: ₹{orderDetails.gst_charges}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
               
               <CardContent className="flex-1 overflow-hidden p-0">
-                <ScrollArea className="h-[calc(100vh-420px)] p-4" ref={scrollRef}>
+                <ScrollArea className="h-[calc(100vh-520px)] p-4" ref={scrollRef}>
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       No messages yet
@@ -305,7 +444,16 @@ const SupportChats = () => {
                                 : 'bg-muted'
                             }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                            {isImageMessage(msg.message) ? (
+                              <img 
+                                src={getImageUrl(msg.message)} 
+                                alt="Shared image" 
+                                className="max-w-full max-h-48 rounded cursor-pointer"
+                                onClick={() => window.open(getImageUrl(msg.message), '_blank')}
+                              />
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                            )}
                             <p
                               className={`text-xs mt-1 ${
                                 msg.sender_type === 'admin'
