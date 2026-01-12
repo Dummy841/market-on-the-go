@@ -127,18 +127,29 @@ const SupportChats = () => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChat || sending) return;
 
+    const messageText = newMessage.trim();
     setSending(true);
+    setNewMessage("");
+    
     try {
-      const { error } = await supabase.from('support_messages').insert({
+      const { data, error } = await supabase.from('support_messages').insert({
         chat_id: selectedChat.id,
         sender_type: 'admin',
-        message: newMessage.trim(),
-      });
+        message: messageText,
+      }).select().single();
 
       if (error) throw error;
-      setNewMessage("");
+      
+      // Add message to local state immediately
+      if (data) {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === data.id)) return prev;
+          return [...prev, data as Message];
+        });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      setNewMessage(messageText); // Restore message on error
       toast({
         title: "Error",
         description: "Failed to send message",
