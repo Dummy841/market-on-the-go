@@ -125,6 +125,11 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    /* Disable pinch-to-zoom on Android/iOS */
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   /* Safe area support for mobile devices */
@@ -144,5 +149,11 @@ All colors MUST be HSL.
   html {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
+  }
+
+  /* Allow text selection in inputs and textareas */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }

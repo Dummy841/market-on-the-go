@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ArrowLeft, MapPin, Search } from 'lucide-react';
+import { ArrowLeft, MapPin, Locate } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
-
 
 interface FullScreenLocationPickerProps {
   open: boolean;
@@ -26,18 +24,17 @@ const FullScreenLocationPicker = ({
   const [locationName, setLocationName] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLocating, setIsLocating] = useState(false);
-  const [searchResults, setSearchResults] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const { isLoaded, loadError } = useGoogleMaps();
+  const mapInitialized = useRef(false);
   
   // When the picker opens, get current location immediately
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      mapInitialized.current = false;
+      return;
+    }
 
-    setSearchQuery("");
     setIsLocating(true);
 
     // Start with stored location or initial coords immediately (no waiting)
@@ -58,21 +55,16 @@ const FullScreenLocationPicker = ({
     setSelectedLat(startLat);
     setSelectedLng(startLng);
     reverseGeocode(startLat, startLng);
+    setIsLocating(false);
 
     // Now try to get fresh device location (don't block UI)
     if (navigator.geolocation) {
-      const timeoutId = window.setTimeout(() => {
-        setIsLocating(false);
-      }, 3000);
-
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          window.clearTimeout(timeoutId);
           const { latitude, longitude, accuracy } = pos.coords;
           // Only use location if accuracy is reasonable (< 5km)
           if (accuracy && accuracy > 5000) {
             console.warn('Location accuracy too low:', accuracy, 'm');
-            setIsLocating(false);
             return;
           }
           setSelectedLat(latitude);
@@ -80,19 +72,13 @@ const FullScreenLocationPicker = ({
           reverseGeocode(latitude, longitude);
           if (map) {
             map.panTo({ lat: latitude, lng: longitude });
-            map.setZoom(17);
           }
-          setIsLocating(false);
         },
         (err) => {
-          window.clearTimeout(timeoutId);
           console.error('Error getting current location:', err);
-          setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
       );
-    } else {
-      setIsLocating(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -174,11 +160,7 @@ const FullScreenLocationPicker = ({
 
   const onLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
-    // Initialize places service for search
-    if (window.google?.maps?.places) {
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
-      placesServiceRef.current = new google.maps.places.PlacesService(mapInstance);
-    }
+    mapInitialized.current = true;
   }, []);
 
   const onUnmount = useCallback(() => {
@@ -214,53 +196,27 @@ const FullScreenLocationPicker = ({
     onClose();
   };
 
-  // Handle search input
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) return;
     
-    if (!value.trim() || !autocompleteServiceRef.current) {
-      setSearchResults([]);
-      return;
-    }
-
-    autocompleteServiceRef.current.getPlacePredictions(
-      { 
-        input: value,
-        componentRestrictions: { country: 'in' }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setSelectedLat(latitude);
+        setSelectedLng(longitude);
+        reverseGeocode(latitude, longitude);
+        if (map) {
+          map.panTo({ lat: latitude, lng: longitude });
+          map.setZoom(17);
+        }
+        setIsLocating(false);
       },
-      (predictions, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-          setSearchResults(predictions);
-        } else {
-          setSearchResults([]);
-        }
-      }
-    );
-  };
-
-  // Handle place selection from search
-  const handlePlaceSelect = (placeId: string) => {
-    if (!placesServiceRef.current) return;
-
-    placesServiceRef.current.getDetails(
-      { placeId, fields: ['geometry', 'formatted_address', 'name'] },
-      (place, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-          const lat = place.geometry.location.lat();
-          const lng = place.geometry.location.lng();
-          
-          setSelectedLat(lat);
-          setSelectedLng(lng);
-          setSearchQuery('');
-          setSearchResults([]);
-          reverseGeocode(lat, lng);
-
-          if (map) {
-            map.panTo({ lat, lng });
-            map.setZoom(17);
-          }
-        }
-      }
+      (err) => {
+        console.error('Error getting location:', err);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -268,8 +224,8 @@ const FullScreenLocationPicker = ({
 
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col touch-auto">
-      {/* Header with Search */}
-      <div className="relative z-20 bg-background p-3 flex items-center gap-3 border-b">
+      {/* Header */}
+      <div className="relative z-20 bg-background pt-[env(safe-area-inset-top)] px-3 pb-2 flex items-center gap-3 border-b">
         <Button
           variant="ghost"
           size="icon"
@@ -278,37 +234,11 @@ const FullScreenLocationPicker = ({
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search an area or address"
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10 h-11 rounded-full bg-muted/50"
-          />
-          {/* Search Results Dropdown */}
-          {searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-60 overflow-y-auto z-30">
-              {searchResults.map((result) => (
-                <button
-                  key={result.place_id}
-                  onClick={() => handlePlaceSelect(result.place_id)}
-                  className="w-full text-left px-4 py-3 hover:bg-muted border-b last:border-b-0 flex items-start gap-3"
-                >
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{result.structured_formatting.main_text}</p>
-                    <p className="text-xs text-muted-foreground truncate">{result.structured_formatting.secondary_text}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <h1 className="text-lg font-semibold">Select Delivery Location</h1>
       </div>
       
-      {/* Map Container - 75% height */}
-      <div className="h-[60vh] relative">
+      {/* Map Container - Takes most of the space */}
+      <div className="flex-1 relative">
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -347,6 +277,9 @@ const FullScreenLocationPicker = ({
               onClick={handleMapClick}
               options={{
                 zoomControl: true,
+                zoomControlOptions: {
+                  position: google.maps.ControlPosition.RIGHT_CENTER
+                },
                 streetViewControl: false,
                 mapTypeControl: false,
                 fullscreenControl: false,
@@ -365,27 +298,35 @@ const FullScreenLocationPicker = ({
                 }}
               />
             </GoogleMap>
+            
+            {/* Locate Me Button */}
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={handleLocateMe}
+              disabled={isLocating}
+              className="absolute bottom-4 right-4 h-12 w-12 rounded-full shadow-lg bg-background border z-10"
+            >
+              <Locate className={`h-5 w-5 ${isLocating ? 'animate-pulse' : ''}`} />
+            </Button>
           </>
         )}
       </div>
       
-      {/* Bottom Sheet - remaining 25% */}
-      <div className="flex-1 relative z-20 bg-background rounded-t-3xl shadow-2xl p-4 pointer-events-auto flex flex-col">
-        <p className="text-sm text-muted-foreground">Place the pin at exact delivery location</p>
-        <p className="text-xs text-muted-foreground mb-2">Order will be delivered here</p>
-
-        <div className="flex items-start gap-3 mb-4">
+      {/* Compact Bottom Sheet */}
+      <div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pointer-events-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="flex items-start gap-3 mb-3">
           <MapPin className="h-5 w-5 shrink-0 text-primary mt-0.5" />
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold">{locationName || 'Loading...'}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-2">{locationAddress}</p>
+            <h3 className="font-semibold text-sm">{locationName || 'Loading...'}</h3>
+            <p className="text-xs text-muted-foreground line-clamp-1">{locationAddress}</p>
           </div>
         </div>
 
         <Button
           type="button"
           onClick={handleConfirm}
-          className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl mt-auto"
+          className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl"
         >
           Confirm & proceed
         </Button>
