@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, TrendingUp, Wallet, RotateCcw, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock, X, CalendarIcon } from "lucide-react";
+import { IndianRupee, TrendingUp, Wallet, RotateCcw, ArrowUpRight, ArrowDownRight, X, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -18,6 +18,8 @@ interface RevenueStats {
   penaltiesCollected: number;
   needToSettleToSellers: number;
   zippyPassRevenue: number;
+  commissionEarned: number;
+  smallCartFees: number;
 }
 
 const Revenue = () => {
@@ -30,7 +32,9 @@ const Revenue = () => {
     platformFees: 0,
     penaltiesCollected: 0,
     needToSettleToSellers: 0,
-    zippyPassRevenue: 0
+    zippyPassRevenue: 0,
+    commissionEarned: 0,
+    smallCartFees: 0
   });
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
@@ -57,28 +61,41 @@ const Revenue = () => {
       const { data: deliveredOrders, error: ordersError } = await ordersQuery;
       if (ordersError) throw ordersError;
 
-      // Calculate total revenue from delivered orders
-      let totalRevenue = 0;
+      // Calculate totals from delivered orders
+      let totalOrderAmount = 0;
       let deliveryFees = 0;
       let platformFees = 0;
       let totalSellerEarnings = 0;
+      let commissionEarned = 0;
+      let smallCartFees = 0;
 
       // Get all sellers for franchise percentage
       const { data: sellers } = await supabase.from("sellers").select("id, franchise_percentage");
       const sellerFranchiseMap = new Map(sellers?.map(s => [s.id, s.franchise_percentage || 0]) || []);
 
       (deliveredOrders || []).forEach(order => {
-        totalRevenue += order.total_amount || 0;
+        totalOrderAmount += order.total_amount || 0;
         deliveryFees += order.delivery_fee || 0;
         platformFees += order.platform_fee || 0;
 
-        // Calculate seller earnings (seller_price after commission)
+        // Calculate item totals and small cart fee
         const items = Array.isArray(order.items) ? order.items : [];
+        let itemSubtotal = 0;
         const franchisePercentage = sellerFranchiseMap.get(order.seller_id) || 0;
+        
         items.forEach((item: any) => {
           const itemTotal = (item.seller_price || 0) * (item.quantity || 1);
+          itemSubtotal += itemTotal;
+          // Commission earned from each item
+          commissionEarned += itemTotal * (franchisePercentage / 100);
+          // Seller earnings (after commission)
           totalSellerEarnings += itemTotal * (1 - franchisePercentage / 100);
         });
+
+        // Small cart fee: ₹10 for orders with item subtotal < ₹100
+        if (itemSubtotal < 100) {
+          smallCartFees += 10;
+        }
       });
 
       // Fetch settled amounts to sellers
@@ -135,11 +152,14 @@ const Revenue = () => {
       const { data: zippyPassSubs } = await zippyPassQuery;
       const zippyPassRevenue = (zippyPassSubs || []).reduce((sum, sub) => sum + (sub.amount || 0), 0);
 
+      // Total Revenue = Delivered orders total_amount + Penalties collected + Zippy Pass revenue
+      const totalRevenue = totalOrderAmount + penaltiesCollected + zippyPassRevenue;
+
       // Need to settle = seller earnings - already settled - penalties
       const needToSettleToSellers = Math.max(0, totalSellerEarnings - settledToSellers - penaltiesCollected);
 
-      // Total profit includes penalties and Zippy Pass revenue
-      const totalProfit = platformFees + deliveryFees + penaltiesCollected + zippyPassRevenue;
+      // Total Profit = Commission + Delivery Fees + Platform Fees + Small Cart Fees + Zippy Pass Revenue
+      const totalProfit = commissionEarned + deliveryFees + platformFees + smallCartFees + zippyPassRevenue;
 
       setStats({
         totalRevenue,
@@ -150,7 +170,9 @@ const Revenue = () => {
         platformFees,
         penaltiesCollected,
         needToSettleToSellers,
-        zippyPassRevenue
+        zippyPassRevenue,
+        commissionEarned,
+        smallCartFees
       });
     } catch (error) {
       console.error("Error fetching revenue stats:", error);
@@ -176,8 +198,8 @@ const Revenue = () => {
     {
       title: "Total Revenue",
       value: stats.totalRevenue,
-      icon: DollarSign,
-      description: "All payments received from users",
+      icon: IndianRupee,
+      description: "Orders + Penalties + Zippy Pass",
       color: "bg-green-500",
       textColor: "text-green-600",
       trend: "up"
@@ -204,7 +226,7 @@ const Revenue = () => {
       title: "Total Profit",
       value: stats.totalProfit,
       icon: TrendingUp,
-      description: "Platform fees + Delivery fees + Commission + Zippy Pass",
+      description: "Commission + Fees + Zippy Pass",
       color: "bg-purple-500",
       textColor: "text-purple-600",
       trend: "up"
@@ -212,6 +234,11 @@ const Revenue = () => {
   ];
 
   const breakdownCards = [
+    {
+      title: "Commission Earned",
+      value: stats.commissionEarned,
+      description: "Commission from seller items"
+    },
     {
       title: "Delivery Fees",
       value: stats.deliveryFees,
@@ -223,14 +250,19 @@ const Revenue = () => {
       description: "Platform service charges"
     },
     {
-      title: "Penalties Collected",
-      value: stats.penaltiesCollected,
-      description: "Penalties from rejected orders"
+      title: "Small Cart Fees",
+      value: stats.smallCartFees,
+      description: "Fees from orders under ₹100"
     },
     {
       title: "Zippy Pass Revenue",
       value: stats.zippyPassRevenue,
       description: "Revenue from Zippy Pass subscriptions"
+    },
+    {
+      title: "Penalties Collected",
+      value: stats.penaltiesCollected,
+      description: "Penalties from rejected orders"
     },
     {
       title: "Need to Settle",

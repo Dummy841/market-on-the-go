@@ -298,11 +298,7 @@ export const MyOrders = () => {
                         className="flex-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // For now, show invoice details in a toast
-                          toast({
-                            title: "Invoice",
-                            description: `Order #${order.id} - Total: ₹${order.total_amount}`,
-                          });
+                          navigate(`/order/${order.id}`);
                         }}
                       >
                         <FileText className="h-4 w-4 mr-2" />
