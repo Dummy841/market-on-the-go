@@ -17,6 +17,7 @@ interface RevenueStats {
   platformFees: number;
   penaltiesCollected: number;
   needToSettleToSellers: number;
+  zippyPassRevenue: number;
 }
 
 const Revenue = () => {
@@ -28,7 +29,8 @@ const Revenue = () => {
     deliveryFees: 0,
     platformFees: 0,
     penaltiesCollected: 0,
-    needToSettleToSellers: 0
+    needToSettleToSellers: 0,
+    zippyPassRevenue: 0
   });
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
@@ -120,11 +122,24 @@ const Revenue = () => {
       const { data: penaltyOrders } = await penaltyQuery;
       const penaltiesCollected = (penaltyOrders?.length || 0) * 10;
 
-      // Need to settle = seller earnings - already settled
-      const needToSettleToSellers = Math.max(0, totalSellerEarnings - settledToSellers);
+      // Fetch Zippy Pass subscription revenue
+      let zippyPassQuery = supabase.from("zippy_pass_subscriptions").select("amount, created_at");
+      
+      if (startDate) {
+        zippyPassQuery = zippyPassQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));
+      }
+      if (endDate) {
+        zippyPassQuery = zippyPassQuery.lte("created_at", format(endDate, "yyyy-MM-dd") + "T23:59:59");
+      }
 
-      // Total profit includes penalties
-      const totalProfit = platformFees + deliveryFees + penaltiesCollected;
+      const { data: zippyPassSubs } = await zippyPassQuery;
+      const zippyPassRevenue = (zippyPassSubs || []).reduce((sum, sub) => sum + (sub.amount || 0), 0);
+
+      // Need to settle = seller earnings - already settled - penalties
+      const needToSettleToSellers = Math.max(0, totalSellerEarnings - settledToSellers - penaltiesCollected);
+
+      // Total profit includes penalties and Zippy Pass revenue
+      const totalProfit = platformFees + deliveryFees + penaltiesCollected + zippyPassRevenue;
 
       setStats({
         totalRevenue,
@@ -134,7 +149,8 @@ const Revenue = () => {
         deliveryFees,
         platformFees,
         penaltiesCollected,
-        needToSettleToSellers
+        needToSettleToSellers,
+        zippyPassRevenue
       });
     } catch (error) {
       console.error("Error fetching revenue stats:", error);
@@ -212,9 +228,14 @@ const Revenue = () => {
       description: "Penalties from rejected orders"
     },
     {
+      title: "Zippy Pass Revenue",
+      value: stats.zippyPassRevenue,
+      description: "Revenue from Zippy Pass subscriptions"
+    },
+    {
       title: "Need to Settle",
       value: stats.needToSettleToSellers,
-      description: "Pending seller earnings"
+      description: "Pending seller earnings (after penalties)"
     }
   ];
 

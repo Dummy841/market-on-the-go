@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { UserOrdersModal } from "@/components/UserOrdersModal";
 import { formatDistanceToNow } from "date-fns";
-import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus } from "lucide-react";
+import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface User {
@@ -17,6 +17,7 @@ interface User {
   is_verified: boolean;
   created_at: string;
   updated_at: string;
+  hasZippyPass?: boolean;
 }
 
 const Users = () => {
@@ -36,7 +37,24 @@ const Users = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+
+      // Fetch active Zippy Pass subscriptions
+      const now = new Date().toISOString();
+      const { data: zippyPassUsers } = await supabase
+        .from('zippy_pass_subscriptions')
+        .select('user_id')
+        .eq('is_active', true)
+        .gte('end_date', now);
+
+      const zippyPassUserIds = new Set((zippyPassUsers || []).map(sub => sub.user_id));
+
+      // Mark users with active Zippy Pass
+      const usersWithPass = (data || []).map(user => ({
+        ...user,
+        hasZippyPass: zippyPassUserIds.has(user.id)
+      }));
+
+      setUsers(usersWithPass);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -153,12 +171,26 @@ const Users = () => {
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm font-medium">
-                          {user.name.charAt(0).toUpperCase()}
-                        </span>
+                      <div className="relative">
+                        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm font-medium">
+                            {user.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        {user.hasZippyPass && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center border border-white">
+                            <Crown className="h-2.5 w-2.5 text-white" />
+                          </div>
+                        )}
                       </div>
-                      <span className="font-medium">{user.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{user.name}</span>
+                        {user.hasZippyPass && (
+                          <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                            Zippy Pass
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>{user.mobile}</TableCell>
