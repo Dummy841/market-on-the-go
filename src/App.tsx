@@ -16,7 +16,9 @@ import Settlements from "./pages/dashboard/Settlements";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import SellerSalesPage from "./pages/dashboard/SellerSalesPage";
 import Banners from "./pages/dashboard/Banners";
+import Modules from "./pages/dashboard/Modules";
 import SupportChats from "./pages/dashboard/SupportChats";
+import Revenue from "./pages/dashboard/Revenue";
 import Help from "./pages/Help";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -35,6 +37,7 @@ import { OrderTrackingProvider } from "./contexts/OrderTrackingContext";
 import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { useLocationPermission } from "./hooks/useLocationPermission";
+import { useStatusBar } from "./hooks/useStatusBar";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +45,7 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   useAndroidBackButton();
   useLocationPermission(); // Request location permission on app load
+  useStatusBar(); // Configure status bar for Android
   
   return (
     <Routes>
@@ -60,6 +64,7 @@ const AppContent = () => {
       <Route path="/delivery-dashboard" element={<DeliveryPartnerDashboard />} />
       <Route path="/dashboard" element={<Dashboard />}>
         <Route index element={<DashboardHome />} />
+        <Route path="revenue" element={<Revenue />} />
         <Route path="users" element={<Users />} />
         <Route path="sellers" element={<Sellers />} />
         <Route path="sellers/:sellerId/sales" element={<SellerSalesPage />} />
@@ -68,6 +73,7 @@ const AppContent = () => {
         <Route path="refunds" element={<Refunds />} />
         <Route path="delivery-partners" element={<DeliveryPartners />} />
         <Route path="banners" element={<Banners />} />
+        <Route path="modules" element={<Modules />} />
         <Route path="support-chats" element={<SupportChats />} />
       </Route>
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

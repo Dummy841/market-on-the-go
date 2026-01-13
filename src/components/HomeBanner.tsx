@@ -114,8 +114,10 @@ export const HomeBanner = () => {
           backgroundPosition: 'center',
         }}
       >
-        {/* Gradient overlay for readability */}
-        <div className={`absolute inset-0 ${currentBanner.image_url ? 'bg-black/40' : 'bg-gradient-to-br from-primary to-primary/80'}`} />
+        {/* Gradient overlay only for fallback, no overlay when image exists */}
+        {!currentBanner.image_url && (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/80" />
+        )}
         
         {/* Text content - only show if title exists */}
         {currentBanner.title && (

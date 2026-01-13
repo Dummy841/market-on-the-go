@@ -7,6 +7,7 @@ import { Send, X, Image, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
 
 interface Message {
   id: string;
@@ -41,6 +42,7 @@ export const SupportChatModal = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { playNotificationSound } = useChatNotificationSound();
 
   useEffect(() => {
     if (isOpen) {
@@ -69,6 +71,10 @@ export const SupportChatModal = ({
             if (prev.find((m) => m.id === newMsg.id)) return prev;
             return [...prev, newMsg];
           });
+          // Play notification sound for admin messages (incoming)
+          if (newMsg.sender_type === 'admin') {
+            playNotificationSound();
+          }
         }
       )
       .subscribe();

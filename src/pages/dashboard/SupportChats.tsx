@@ -9,6 +9,7 @@ import { Send, X, MessageCircle, User, Package, MapPin, Phone, Clock } from "luc
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
+import { useChatNotificationSound } from "@/hooks/useChatNotificationSound";
 
 interface Chat {
   id: string;
@@ -61,6 +62,7 @@ const SupportChats = () => {
   const [activeTab, setActiveTab] = useState<'open' | 'closed'>('open');
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { playNotificationSound } = useChatNotificationSound();
 
   useEffect(() => {
     fetchChats();
@@ -112,6 +114,10 @@ const SupportChats = () => {
             if (prev.find((m) => m.id === newMsg.id)) return prev;
             return [...prev, newMsg];
           });
+          // Play notification sound for user messages (incoming to admin)
+          if (newMsg.sender_type === 'user') {
+            playNotificationSound();
+          }
         }
       )
       .subscribe();

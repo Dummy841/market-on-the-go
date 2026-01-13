@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,6 +13,12 @@ import { supabase } from '@/integrations/supabase/client';
 import LocationPicker from './LocationPicker';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 
+interface ServiceModule {
+  id: string;
+  title: string;
+  slug: string;
+}
+
 const sellerSchema = z.object({
   owner_name: z.string().min(2, 'Owner name must be at least 2 characters'),
   seller_name: z.string().min(2, 'Seller name must be at least 2 characters'),
@@ -25,7 +31,7 @@ const sellerSchema = z.object({
   seller_longitude: z.number().optional(),
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['active', 'inactive']).default('active'),
-  category: z.enum(['food_delivery', 'instamart', 'dairy', 'services']).default('food_delivery'),
+  category: z.string().default('food_delivery'),
 });
 
 type SellerFormData = z.infer<typeof sellerSchema>;
@@ -42,6 +48,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [isBankVerified, setIsBankVerified] = useState(false);
   const [isVerifyingBank, setIsVerifyingBank] = useState(false);
+  const [modules, setModules] = useState<ServiceModule[]>([]);
   const { toast } = useToast();
   
   const form = useForm<SellerFormData>({
@@ -52,6 +59,32 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
       category: 'food_delivery'
     }
   });
+
+  useEffect(() => {
+    fetchModules();
+  }, []);
+
+  const fetchModules = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('service_modules')
+        .select('id, title, slug')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setModules(data || []);
+    } catch (error) {
+      console.error('Error fetching modules:', error);
+      // Fallback modules
+      setModules([
+        { id: '1', title: 'Food Delivery', slug: 'food_delivery' },
+        { id: '2', title: 'Instamart', slug: 'instamart' },
+        { id: '3', title: 'Dairy', slug: 'dairy' },
+        { id: '4', title: 'Services', slug: 'services' },
+      ]);
+    }
+  };
 
   const {
     register,
@@ -411,16 +444,17 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             <Label htmlFor="category">Category</Label>
             <Select
               value={watch('category')}
-              onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dairy' | 'services')}
+              onValueChange={(value) => setValue('category', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent className="z-[9999]">
-                <SelectItem value="food_delivery">Food Delivery</SelectItem>
-                <SelectItem value="instamart">Instamart</SelectItem>
-                <SelectItem value="dairy">Dairy</SelectItem>
-                <SelectItem value="services">Services</SelectItem>
+                {modules.map((module) => (
+                  <SelectItem key={module.id} value={module.slug}>
+                    {module.title}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
