@@ -42,19 +42,32 @@ const Subcategories = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchSubcategories();
     fetchModules();
+    fetchSubcategories();
   }, []);
 
   const fetchModules = async () => {
-    const { data, error } = await supabase
-      .from("service_modules")
-      .select("id, title, slug")
-      .eq("is_active", true)
-      .order("display_order");
+    // Hardcode all 4 categories to ensure they're always available
+    const defaultCategories = [
+      { id: '1', title: 'FOOD DELIVERY', slug: 'food_delivery' },
+      { id: '2', title: 'INSTAMART', slug: 'instamart' },
+      { id: '3', title: 'DAIRY PRODUCTS', slug: 'dairy' },
+      { id: '4', title: 'SERVICES', slug: 'services' }
+    ];
+    
+    try {
+      const { data, error } = await supabase
+        .from("service_modules")
+        .select("id, title, slug")
+        .order("display_order");
 
-    if (!error && data) {
-      setModules(data);
+      if (!error && data && data.length > 0) {
+        setModules(data);
+      } else {
+        setModules(defaultCategories);
+      }
+    } catch (e) {
+      setModules(defaultCategories);
     }
   };
 

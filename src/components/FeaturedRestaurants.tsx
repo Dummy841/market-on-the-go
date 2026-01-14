@@ -18,6 +18,7 @@ interface Restaurant {
   distance?: number;
   deliveryTime?: string;
   category?: string;
+  subcategory?: string;
 }
 
 interface FeaturedRestaurantsProps {
@@ -125,7 +126,7 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
       setLoading(true);
       let query = supabase
         .from('sellers')
-        .select('id, seller_name, profile_photo_url, status, is_online, seller_latitude, seller_longitude, category')
+        .select('id, seller_name, profile_photo_url, status, is_online, seller_latitude, seller_longitude, category, subcategory')
         .eq('status', 'approved');
       
       // Filter by category
@@ -169,11 +170,45 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
       const nearbyRestaurants = restaurantsWithDetails
         .filter(r => r.distance <= 10 || r.seller_name === 'Demo Restaurant');
       
+      // Get current time in IST for time-based sorting
+      const now = new Date();
+      const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+      const istTime = new Date(now.getTime() + istOffset);
+      const currentHour = istTime.getUTCHours();
+      const currentMinutes = istTime.getUTCMinutes();
+      const timeInMinutes = currentHour * 60 + currentMinutes;
+      
+      // 6:00 AM = 360 minutes, 11:30 AM = 690 minutes, 11:59 AM = 719 minutes
+      const isMorningTime = timeInMinutes >= 360 && timeInMinutes < 690; // 6:00 AM to 11:30 AM
+      const isLunchDinnerTime = timeInMinutes >= 719 || timeInMinutes < 360; // 11:59 AM to 11:59 PM (and overnight to 6 AM)
+      
       // Sort: online restaurants first (by distance), then offline restaurants (by distance)
+      // Also prioritize by subcategory based on time of day (only for food_delivery category)
       const sortedRestaurants = nearbyRestaurants.sort((a, b) => {
         // First, sort by online status (online first)
         if (a.is_online !== false && b.is_online === false) return -1;
         if (a.is_online === false && b.is_online !== false) return 1;
+        
+        // Time-based subcategory prioritization (only for food_delivery category)
+        if (category === 'food_delivery') {
+          const aSubcategory = a.subcategory?.toLowerCase() || '';
+          const bSubcategory = b.subcategory?.toLowerCase() || '';
+          
+          if (isMorningTime) {
+            // Morning: prioritize tiffins
+            const aIsTiffin = aSubcategory.includes('tiffin') || aSubcategory.includes('breakfast');
+            const bIsTiffin = bSubcategory.includes('tiffin') || bSubcategory.includes('breakfast');
+            if (aIsTiffin && !bIsTiffin) return -1;
+            if (!aIsTiffin && bIsTiffin) return 1;
+          } else if (isLunchDinnerTime) {
+            // Lunch/Dinner time: prioritize lunch and dinner
+            const aIsLunchDinner = aSubcategory.includes('lunch') || aSubcategory.includes('dinner') || aSubcategory.includes('meals');
+            const bIsLunchDinner = bSubcategory.includes('lunch') || bSubcategory.includes('dinner') || bSubcategory.includes('meals');
+            if (aIsLunchDinner && !bIsLunchDinner) return -1;
+            if (!aIsLunchDinner && bIsLunchDinner) return 1;
+          }
+        }
+        
         // Then sort by distance within the same online status
         return a.distance - b.distance;
       });
