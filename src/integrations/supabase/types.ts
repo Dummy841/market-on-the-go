@@ -452,6 +452,7 @@ export type Database = {
           seller_longitude: number | null
           seller_name: string
           status: string
+          subcategory: string | null
           updated_at: string
         }
         Insert: {
@@ -473,6 +474,7 @@ export type Database = {
           seller_longitude?: number | null
           seller_name: string
           status?: string
+          subcategory?: string | null
           updated_at?: string
         }
         Update: {
@@ -494,6 +496,7 @@ export type Database = {
           seller_longitude?: number | null
           seller_name?: string
           status?: string
+          subcategory?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -533,6 +536,36 @@ export type Database = {
           slug?: string
           subtitle?: string | null
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subcategories: {
+        Row: {
+          category: string
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
           updated_at?: string
         }
         Relationships: []

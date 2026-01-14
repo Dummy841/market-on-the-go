@@ -98,8 +98,8 @@ const Revenue = () => {
         }
       });
 
-      // Fetch settled amounts to sellers
-      let settlementsQuery = supabase.from("seller_wallet_transactions").select("amount, created_at").eq("type", "withdrawal").not("description", "like", "%Pending%");
+      // Fetch settled amounts to sellers (type = 'settled' or description contains 'Settled')
+      let settlementsQuery = supabase.from("seller_wallet_transactions").select("amount, created_at").or("type.eq.settled,description.ilike.%settled%");
       
       if (startDate) {
         settlementsQuery = settlementsQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));

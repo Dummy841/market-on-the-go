@@ -19,6 +19,12 @@ interface ServiceModule {
   slug: string;
 }
 
+interface Subcategory {
+  id: string;
+  name: string;
+  category: string;
+}
+
 const sellerSchema = z.object({
   owner_name: z.string().min(2, 'Owner name must be at least 2 characters'),
   seller_name: z.string().min(2, 'Seller name must be at least 2 characters'),
@@ -29,9 +35,12 @@ const sellerSchema = z.object({
   bank_name: z.string().min(2, 'Bank name is required'),
   seller_latitude: z.number().optional(),
   seller_longitude: z.number().optional(),
+  manual_latitude: z.string().optional(),
+  manual_longitude: z.string().optional(),
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['active', 'inactive']).default('active'),
   category: z.string().default('food_delivery'),
+  subcategory: z.string().optional(),
 });
 
 type SellerFormData = z.infer<typeof sellerSchema>;
@@ -49,6 +58,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
   const [isBankVerified, setIsBankVerified] = useState(false);
   const [isVerifyingBank, setIsVerifyingBank] = useState(false);
   const [modules, setModules] = useState<ServiceModule[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const { toast } = useToast();
   
   const form = useForm<SellerFormData>({
@@ -56,12 +66,16 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     defaultValues: {
       status: 'active',
       franchise_percentage: 0,
-      category: 'food_delivery'
+      category: 'food_delivery',
+      manual_latitude: '',
+      manual_longitude: '',
+      subcategory: ''
     }
   });
 
   useEffect(() => {
     fetchModules();
+    fetchSubcategories();
   }, []);
 
   const fetchModules = async () => {
@@ -86,6 +100,21 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     }
   };
 
+  const fetchSubcategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subcategories')
+        .select('id, name, category')
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (error) throw error;
+      setSubcategories(data || []);
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+    }
+  };
+
   const {
     register,
     handleSubmit,
@@ -94,6 +123,9 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     watch,
     setValue
   } = form;
+
+  const selectedCategory = watch('category');
+  const filteredSubcategories = subcategories.filter(s => s.category === selectedCategory);
 
   const accountNumber = watch('account_number');
   const ifscCode = watch('ifsc_code');
@@ -203,6 +235,31 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     }
   };
 
+  const applyManualCoordinates = () => {
+    const manualLat = watch('manual_latitude');
+    const manualLng = watch('manual_longitude');
+    
+    if (manualLat && manualLng) {
+      const lat = parseFloat(manualLat);
+      const lng = parseFloat(manualLng);
+      
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        setValue('seller_latitude', lat);
+        setValue('seller_longitude', lng);
+        toast({
+          title: "Coordinates Applied",
+          description: `Location set to ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Invalid Coordinates",
+          description: "Please enter valid latitude (-90 to 90) and longitude (-180 to 180)",
+        });
+      }
+    }
+  };
+
   const onSubmit = async (data: SellerFormData) => {
     if (!isBankVerified) {
       toast({
@@ -231,6 +288,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             status: data.status === 'active' ? 'approved' : 'inactive',
             profile_photo_url: profilePhotoUrl || null,
             category: data.category,
+            subcategory: data.subcategory || null,
             is_bank_verified: true,
           },
         ]);
@@ -422,6 +480,37 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
                 Select on Map
               </Button>
             </div>
+            
+            {/* Manual Latitude/Longitude Entry */}
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <Label htmlFor="manual_latitude" className="text-xs text-muted-foreground">Latitude</Label>
+                <Input
+                  id="manual_latitude"
+                  {...register('manual_latitude')}
+                  placeholder="e.g., 17.385044"
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label htmlFor="manual_longitude" className="text-xs text-muted-foreground">Longitude</Label>
+                <Input
+                  id="manual_longitude"
+                  {...register('manual_longitude')}
+                  placeholder="e.g., 78.486671"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={applyManualCoordinates}
+              className="mt-1"
+            >
+              Apply Manual Coordinates
+            </Button>
           </div>
 
           <div className="space-y-2">
@@ -444,7 +533,10 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             <Label htmlFor="category">Category</Label>
             <Select
               value={watch('category')}
-              onValueChange={(value) => setValue('category', value)}
+              onValueChange={(value) => {
+                setValue('category', value);
+                setValue('subcategory', ''); // Reset subcategory when category changes
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select category" />
@@ -458,6 +550,27 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
               </SelectContent>
             </Select>
           </div>
+
+          {filteredSubcategories.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="subcategory">Subcategory</Label>
+              <Select
+                value={watch('subcategory') || ''}
+                onValueChange={(value) => setValue('subcategory', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subcategory (optional)" />
+                </SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  {filteredSubcategories.map((sub) => (
+                    <SelectItem key={sub.id} value={sub.name}>
+                      {sub.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex items-center space-x-2">
             <Switch
