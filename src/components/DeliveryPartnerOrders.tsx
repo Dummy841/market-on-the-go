@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
-import { Package, MapPin, Phone, CreditCard, AlertCircle, Navigation, Filter, Clock, CheckCircle } from "lucide-react";
+import { Package, MapPin, Phone, CreditCard, AlertCircle, Navigation, Filter, Clock, CheckCircle, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
+import DeliveryCustomerChat from "./DeliveryCustomerChat";
 interface Order {
   id: string;
   user_id: string;
@@ -38,9 +39,11 @@ interface Order {
 }
 interface DeliveryPartnerOrdersProps {
   partnerId: string;
+  partnerName?: string;
 }
 const DeliveryPartnerOrders = ({
-  partnerId
+  partnerId,
+  partnerName = "Delivery Partner"
 }: DeliveryPartnerOrdersProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,9 @@ const DeliveryPartnerOrders = ({
   const [expectedDeliveryPin, setExpectedDeliveryPin] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [chatOrderId, setChatOrderId] = useState("");
+  const [chatUserId, setChatUserId] = useState("");
   const {
     toast
   } = useToast();
@@ -431,13 +437,16 @@ const DeliveryPartnerOrders = ({
               </div>
             </div>
 
-            <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm text-muted-foreground">Delivery Address</p>
-                <p className="text-sm">{order.delivery_address}</p>
+            {/* Show delivery address only after pickup */}
+            {(order.pickup_status === 'picked_up' || order.pickup_status === 'going_for_delivery' || order.status === 'delivered') && (
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Delivery Address</p>
+                  <p className="text-sm">{order.delivery_address}</p>
+                </div>
               </div>
-            </div>
+            )}
 
             {order.instructions && <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
@@ -494,13 +503,28 @@ const DeliveryPartnerOrders = ({
                 </>}
 
               <Button variant="outline" size="sm" onClick={() => {
-            toast({
-              title: "Contact Customer",
-              description: "Feature coming soon..."
-            });
-          }}>
+                setChatOrderId(order.id);
+                setChatUserId(order.user_id);
+                setChatModalOpen(true);
+              }}>
+                <MessageSquare className="h-4 w-4 mr-1" />
+                Chat
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={() => {
+                // Open phone dialer with delivery mobile
+                if ((order as any).delivery_mobile) {
+                  window.open(`tel:${(order as any).delivery_mobile}`, '_self');
+                } else {
+                  toast({
+                    title: "Contact unavailable",
+                    description: "Customer phone number not available",
+                    variant: "destructive"
+                  });
+                }
+              }}>
                 <Phone className="h-4 w-4 mr-1" />
-                Contact
+                Call
               </Button>
             </div>
           </CardContent>
@@ -511,6 +535,16 @@ const DeliveryPartnerOrders = ({
       
       {/* Delivery PIN Verification Modal */}
       {selectedOrder && <DeliveryPinVerificationModal open={deliveryPinModalOpen} onOpenChange={setDeliveryPinModalOpen} expectedPin={expectedDeliveryPin || (selectedOrder?.delivery_pin ?? '')} onSuccess={handleDeliverySuccess} orderNumber={selectedOrder.id} />}
+
+      {/* Chat Modal */}
+      <DeliveryCustomerChat
+        open={chatModalOpen}
+        onOpenChange={setChatModalOpen}
+        orderId={chatOrderId}
+        deliveryPartnerId={partnerId}
+        userId={chatUserId}
+        deliveryPartnerName={partnerName}
+      />
     </div>;
 };
 export default DeliveryPartnerOrders;

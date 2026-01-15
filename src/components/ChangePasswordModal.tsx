@@ -92,6 +92,31 @@ const ChangePasswordModal = ({ open, onOpenChange, userType, userId, currentPass
         return;
       }
 
+      // Update localStorage with new password hash
+      if (userType === 'delivery_partner') {
+        const storedPartner = localStorage.getItem('delivery_partner');
+        if (storedPartner) {
+          try {
+            const partnerData = JSON.parse(storedPartner);
+            partnerData.password_hash = hashedNewPassword;
+            localStorage.setItem('delivery_partner', JSON.stringify(partnerData));
+          } catch (e) {
+            console.error('Error updating localStorage:', e);
+          }
+        }
+      } else if (userType === 'seller') {
+        const storedSeller = localStorage.getItem('seller');
+        if (storedSeller) {
+          try {
+            const sellerData = JSON.parse(storedSeller);
+            sellerData.password_hash = hashedNewPassword;
+            localStorage.setItem('seller', JSON.stringify(sellerData));
+          } catch (e) {
+            console.error('Error updating localStorage:', e);
+          }
+        }
+      }
+
       toast({
         title: "Password Updated",
         description: "Your password has been successfully updated",
