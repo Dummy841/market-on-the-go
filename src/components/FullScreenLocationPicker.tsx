@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { GoogleMap, Marker } from '@react-google-maps/api';
+import { GoogleMap } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MapPin, Locate } from 'lucide-react';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
@@ -23,21 +23,25 @@ const FullScreenLocationPicker = ({
   const [selectedLng, setSelectedLng] = useState(initialLng ?? 78.486671);
   const [locationName, setLocationName] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
-  const mapInitialized = useRef(false);
   
-  // When the picker opens, get current location immediately
+  // Track if map has been initialized (to stop controlling center after first render)
+  const [mapReady, setMapReady] = useState(false);
+  const [initialCenter, setInitialCenter] = useState<{ lat: number; lng: number }>({ 
+    lat: initialLat ?? 17.385044, 
+    lng: initialLng ?? 78.486671 
+  });
+  
+  // Set initial center when picker opens
   useEffect(() => {
     if (!open) {
-      mapInitialized.current = false;
+      setMapReady(false);
       return;
     }
 
-    setIsLocating(true);
-
-    // Start with stored location or initial coords immediately (no waiting)
+    // Determine starting position
     const storedLat = localStorage.getItem("currentLat");
     const storedLng = localStorage.getItem("currentLng");
     
@@ -52,17 +56,16 @@ const FullScreenLocationPicker = ({
       startLng = initialLng;
     }
     
+    setInitialCenter({ lat: startLat, lng: startLng });
     setSelectedLat(startLat);
     setSelectedLng(startLng);
     reverseGeocode(startLat, startLng);
-    setIsLocating(false);
 
-    // Now try to get fresh device location (don't block UI)
+    // Try to get fresh device location (don't block UI)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
-          // Only use location if accuracy is reasonable (< 5km)
           if (accuracy && accuracy > 5000) {
             console.warn('Location accuracy too low:', accuracy, 'm');
             return;
@@ -70,8 +73,8 @@ const FullScreenLocationPicker = ({
           setSelectedLat(latitude);
           setSelectedLng(longitude);
           reverseGeocode(latitude, longitude);
-          if (map) {
-            map.panTo({ lat: latitude, lng: longitude });
+          if (mapRef.current) {
+            mapRef.current.panTo({ lat: latitude, lng: longitude });
           }
         },
         (err) => {
@@ -85,7 +88,6 @@ const FullScreenLocationPicker = ({
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      // Prefer in-browser Google Maps Geocoder when Maps is loaded (most accurate)
       if (
         isLoaded &&
         typeof window !== "undefined" &&
@@ -117,7 +119,7 @@ const FullScreenLocationPicker = ({
         }
       }
 
-      // Fallback to Nominatim for reverse geocoding
+      // Fallback to Nominatim
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         { headers: { "accept-language": "en" } }
@@ -127,7 +129,6 @@ const FullScreenLocationPicker = ({
         const data = await response.json();
         const address = data.address;
 
-        // Priority order: hamlet > village > locality > neighbourhood > suburb > town > city
         const areaName =
           address?.hamlet ||
           address?.village ||
@@ -139,17 +140,11 @@ const FullScreenLocationPicker = ({
           "Selected Location";
 
         setLocationName(areaName);
-
-        const fullAddress = [
-          areaName,
-          address?.state,
-          address?.postcode,
-          address?.country,
-        ]
-          .filter(Boolean)
-          .join(", ");
-
-        setLocationAddress(fullAddress);
+        setLocationAddress(
+          [areaName, address?.state, address?.postcode, address?.country]
+            .filter(Boolean)
+            .join(", ")
+        );
       }
     } catch (error) {
       console.error("Reverse geocoding error:", error);
@@ -158,34 +153,29 @@ const FullScreenLocationPicker = ({
     }
   };
 
-  const onLoad = useCallback((mapInstance: google.maps.Map) => {
-    setMap(mapInstance);
-    mapInitialized.current = true;
+  const handleMapLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+    // Mark map as ready so we stop controlling center prop
+    setMapReady(true);
   }, []);
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
+  const handleMapUnmount = useCallback(() => {
+    mapRef.current = null;
   }, []);
 
-  const handleMapClick = (e: google.maps.MapMouseEvent) => {
-    if (e.latLng) {
-      const lat = e.latLng.lat();
-      const lng = e.latLng.lng();
+  // When map stops moving, get center and reverse geocode
+  const handleMapIdle = useCallback(() => {
+    if (!mapRef.current) return;
+    
+    const center = mapRef.current.getCenter();
+    if (center) {
+      const lat = center.lat();
+      const lng = center.lng();
       setSelectedLat(lat);
       setSelectedLng(lng);
       reverseGeocode(lat, lng);
     }
-  };
-
-  const handleMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
-    if (e.latLng) {
-      const lat = e.latLng.lat();
-      const lng = e.latLng.lng();
-      setSelectedLat(lat);
-      setSelectedLng(lng);
-      reverseGeocode(lat, lng);
-    }
-  };
+  }, [isLoaded]);
 
   const handleConfirm = () => {
     onLocationSelect(
@@ -206,9 +196,9 @@ const FullScreenLocationPicker = ({
         setSelectedLat(latitude);
         setSelectedLng(longitude);
         reverseGeocode(latitude, longitude);
-        if (map) {
-          map.panTo({ lat: latitude, lng: longitude });
-          map.setZoom(17);
+        if (mapRef.current) {
+          mapRef.current.panTo({ lat: latitude, lng: longitude });
+          mapRef.current.setZoom(17);
         }
         setIsLocating(false);
       },
@@ -222,8 +212,11 @@ const FullScreenLocationPicker = ({
 
   if (!open) return null;
 
+  // Only use controlled center before map is ready; after that let user drag freely
+  const controlledCenter = mapReady ? undefined : initialCenter;
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-background flex flex-col touch-auto">
+    <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
       {/* Header */}
       <div className="relative z-20 bg-background pt-[env(safe-area-inset-top)] px-3 pb-2 flex items-center gap-3 border-b">
         <Button
@@ -237,15 +230,14 @@ const FullScreenLocationPicker = ({
         <h1 className="text-lg font-semibold">Select Delivery Location</h1>
       </div>
       
-      {/* Map Container - Takes most of the space */}
+      {/* Map Container */}
       <div className="flex-1 relative">
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
               <p className="font-semibold text-foreground">Map not available</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Google Maps is blocked by your API key settings. Console shows a billing error.
-                Enable billing for the Google project linked to this key, then reload.
+                Google Maps is blocked by your API key settings.
               </p>
               <Button
                 variant="outline"
@@ -266,16 +258,14 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-auto"
-              center={{ lat: selectedLat, lng: selectedLng }}
-              zoom={16}
-              onLoad={(m) => {
-                onLoad(m);
-                m.setOptions({ gestureHandling: 'greedy' });
-              }}
-              onUnmount={onUnmount}
-              onClick={handleMapClick}
+              mapContainerClassName="w-full h-full"
+              center={controlledCenter}
+              zoom={17}
+              onLoad={handleMapLoad}
+              onUnmount={handleMapUnmount}
+              onIdle={handleMapIdle}
               options={{
+                disableDefaultUI: false,
                 zoomControl: true,
                 zoomControlOptions: {
                   position: google.maps.ControlPosition.RIGHT_CENTER
@@ -285,19 +275,19 @@ const FullScreenLocationPicker = ({
                 fullscreenControl: false,
                 clickableIcons: false,
                 gestureHandling: 'greedy',
-                draggable: true,
               }}
+            />
+            
+            {/* Fixed Center Pin Overlay */}
+            <div 
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 pointer-events-none z-10"
+              style={{ transform: 'translate(-50%, -100%)' }}
             >
-              <Marker
-                position={{ lat: selectedLat, lng: selectedLng }}
-                draggable={true}
-                onDragEnd={handleMarkerDragEnd}
-                icon={{
-                  url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                  scaledSize: new google.maps.Size(50, 50),
-                }}
-              />
-            </GoogleMap>
+              <div className="relative">
+                <MapPin className="h-12 w-12 text-primary drop-shadow-lg" fill="hsl(var(--primary))" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-1 bg-black/30 rounded-full" />
+              </div>
+            </div>
             
             {/* Locate Me Button */}
             <Button
@@ -313,8 +303,8 @@ const FullScreenLocationPicker = ({
         )}
       </div>
       
-      {/* Compact Bottom Sheet */}
-      <div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pointer-events-auto pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      {/* Bottom Sheet */}
+      <div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="flex items-start gap-3 mb-3">
           <MapPin className="h-5 w-5 shrink-0 text-primary mt-0.5" />
           <div className="flex-1 min-w-0">

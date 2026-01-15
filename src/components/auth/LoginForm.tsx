@@ -228,7 +228,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md z-[10000]">
+      <DialogContent className="sm:max-w-md z-[10000] rounded-2xl">
         <DialogHeader>
           <DialogTitle>
             {step === 'login' ? 'Login' : 'Verify OTP'}

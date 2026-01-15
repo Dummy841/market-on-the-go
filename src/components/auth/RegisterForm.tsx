@@ -239,7 +239,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md z-[10000]">
+      <DialogContent className="sm:max-w-md z-[10000] rounded-2xl">
         <DialogHeader>
           <DialogTitle>
             {step === 'register' ? 'Register' : 'Verify OTP'}

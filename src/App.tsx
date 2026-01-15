@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,6 +33,8 @@ import { MyOrders } from "./pages/MyOrders";
 import OrderDetails from "./pages/OrderDetails";
 import CartPage from "./pages/CartPage";
 import UserWallet from "./pages/UserWallet";
+import Profile from "./pages/Profile";
+import SplashScreen from "./components/SplashScreen";
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
@@ -59,6 +62,7 @@ const AppContent = () => {
       <Route path="/my-orders" element={<MyOrders />} />
       <Route path="/order/:orderId" element={<OrderDetails />} />
       <Route path="/my-wallet" element={<UserWallet />} />
+      <Route path="/profile" element={<Profile />} />
       <Route path="/help" element={<Help />} />
       <Route path="/seller-login" element={<SellerLogin />} />
       <Route path="/seller-dashboard" element={<SellerDashboard />} />
@@ -86,26 +90,44 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <GoogleMapsProvider>
-      <UserAuthProvider>
-        <SellerAuthProvider>
-          <CartProvider>
-            <OrderTrackingProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <AppContent />
-                </BrowserRouter>
-              </TooltipProvider>
-            </OrderTrackingProvider>
-          </CartProvider>
-        </SellerAuthProvider>
-      </UserAuthProvider>
-    </GoogleMapsProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Check if we should show splash (only on first load)
+    const hasShownSplash = sessionStorage.getItem('splashShown');
+    if (hasShownSplash) {
+      setShowSplash(false);
+    }
+  }, []);
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('splashShown', 'true');
+    setShowSplash(false);
+  };
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <GoogleMapsProvider>
+        <UserAuthProvider>
+          <SellerAuthProvider>
+            <CartProvider>
+              <OrderTrackingProvider>
+                <TooltipProvider>
+                  {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <AppContent />
+                  </BrowserRouter>
+                </TooltipProvider>
+              </OrderTrackingProvider>
+            </CartProvider>
+          </SellerAuthProvider>
+        </UserAuthProvider>
+      </GoogleMapsProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

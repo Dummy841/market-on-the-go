@@ -8,10 +8,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Seller } from '@/contexts/SellerAuthContext';
 import LocationPicker from './LocationPicker';
+
+interface ServiceModule {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+interface Subcategory {
+  id: string;
+  name: string;
+  category: string;
+}
 
 const editSellerSchema = z.object({
   owner_name: z.string().min(2, 'Owner name must be at least 2 characters'),
@@ -25,7 +38,7 @@ const editSellerSchema = z.object({
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['approved', 'pending', 'inactive']),
   is_online: z.boolean(),
-  category: z.enum(['food_delivery', 'instamart', 'dairy', 'services']),
+  category: z.string().min(1, 'Category is required'),
 });
 
 type EditSellerFormData = z.infer<typeof editSellerSchema>;
@@ -41,6 +54,9 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
   const [uploading, setUploading] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>('');
+  const [modules, setModules] = useState<ServiceModule[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const { toast } = useToast();
   
   const form = useForm<EditSellerFormData>({
@@ -55,6 +71,25 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
     watch,
     setValue
   } = form;
+
+  const selectedCategory = watch('category');
+
+  // Fetch modules and subcategories
+  useEffect(() => {
+    const fetchData = async () => {
+      const [modulesRes, subcategoriesRes] = await Promise.all([
+        supabase.from('service_modules').select('id, title, slug').eq('is_active', true).order('display_order'),
+        supabase.from('subcategories').select('id, name, category').eq('is_active', true).order('display_order')
+      ]);
+      
+      if (modulesRes.data) setModules(modulesRes.data);
+      if (subcategoriesRes.data) setSubcategories(subcategoriesRes.data);
+    };
+    
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (seller && open) {
@@ -73,8 +108,22 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
         category: (seller as any).category || 'food_delivery',
       });
       setProfilePhotoUrl(seller.profile_photo_url || '');
+      
+      // Parse existing subcategories
+      const existingSubcategories = (seller as any).subcategory;
+      if (existingSubcategories) {
+        const parsed = existingSubcategories.split(',').map((s: string) => s.trim()).filter(Boolean);
+        setSelectedSubcategories(parsed);
+      } else {
+        setSelectedSubcategories([]);
+      }
     }
   }, [seller, open, reset]);
+
+  // Filter subcategories based on selected category
+  const filteredSubcategories = subcategories.filter(
+    sub => sub.category === selectedCategory
+  );
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -133,6 +182,7 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
           is_online: data.is_online,
           profile_photo_url: profilePhotoUrl || null,
           category: data.category,
+          subcategory: selectedSubcategories.join(', '),
           updated_at: new Date().toISOString(),
         })
         .eq('id', seller.id);
@@ -313,22 +363,60 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">Category (Module)</Label>
               <Select
                 value={watch('category')}
-                onValueChange={(value) => setValue('category', value as 'food_delivery' | 'instamart' | 'dairy' | 'services')}
+                onValueChange={(value) => {
+                  setValue('category', value);
+                  setSelectedSubcategories([]); // Reset subcategories when category changes
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="food_delivery">Food Delivery</SelectItem>
-                  <SelectItem value="instamart">Instamart</SelectItem>
-                  <SelectItem value="dairy">Dairy</SelectItem>
-                  <SelectItem value="services">Services</SelectItem>
+                <SelectContent className="z-[9999]">
+                  {modules.map((module) => (
+                    <SelectItem key={module.id} value={module.slug}>
+                      {module.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {filteredSubcategories.length > 0 && (
+              <div className="space-y-2">
+                <Label>Subcategories</Label>
+                <div className="border rounded-md p-3 space-y-2 max-h-40 overflow-y-auto">
+                  {filteredSubcategories.map((subcategory) => (
+                    <div key={subcategory.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`subcategory-${subcategory.id}`}
+                        checked={selectedSubcategories.includes(subcategory.name)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedSubcategories([...selectedSubcategories, subcategory.name]);
+                          } else {
+                            setSelectedSubcategories(selectedSubcategories.filter(s => s !== subcategory.name));
+                          }
+                        }}
+                      />
+                      <Label 
+                        htmlFor={`subcategory-${subcategory.id}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {subcategory.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                {selectedSubcategories.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedSubcategories.join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center space-x-2">
               <Switch

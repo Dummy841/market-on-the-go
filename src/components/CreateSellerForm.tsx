@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import LocationPicker from './LocationPicker';
@@ -40,7 +41,7 @@ const sellerSchema = z.object({
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['active', 'inactive']).default('active'),
   category: z.string().default('food_delivery'),
-  subcategory: z.string().optional(),
+  subcategories: z.array(z.string()).default([]),
 });
 
 type SellerFormData = z.infer<typeof sellerSchema>;
@@ -69,7 +70,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
       category: 'food_delivery',
       manual_latitude: '',
       manual_longitude: '',
-      subcategory: ''
+      subcategories: []
     }
   });
 
@@ -288,7 +289,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             status: data.status === 'active' ? 'approved' : 'inactive',
             profile_photo_url: profilePhotoUrl || null,
             category: data.category,
-            subcategory: data.subcategory || null,
+            subcategory: data.subcategories.length > 0 ? data.subcategories.join(', ') : null,
             is_bank_verified: true,
           },
         ]);
@@ -535,7 +536,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
               value={watch('category')}
               onValueChange={(value) => {
                 setValue('category', value);
-                setValue('subcategory', ''); // Reset subcategory when category changes
+                setValue('subcategories', []); // Reset subcategories when category changes
               }}
             >
               <SelectTrigger>
@@ -553,22 +554,41 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
 
           {filteredSubcategories.length > 0 && (
             <div className="space-y-2">
-              <Label htmlFor="subcategory">Subcategory</Label>
-              <Select
-                value={watch('subcategory') || ''}
-                onValueChange={(value) => setValue('subcategory', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subcategory (optional)" />
-                </SelectTrigger>
-                <SelectContent className="z-[9999]">
-                  {filteredSubcategories.map((sub) => (
-                    <SelectItem key={sub.id} value={sub.name}>
-                      {sub.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Subcategories (Select multiple)</Label>
+              <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
+                {filteredSubcategories.map((sub) => {
+                  const selectedSubcategories = watch('subcategories') || [];
+                  const isChecked = selectedSubcategories.includes(sub.name);
+                  
+                  return (
+                    <div key={sub.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`subcategory-${sub.id}`}
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          const current = watch('subcategories') || [];
+                          if (checked) {
+                            setValue('subcategories', [...current, sub.name]);
+                          } else {
+                            setValue('subcategories', current.filter(s => s !== sub.name));
+                          }
+                        }}
+                      />
+                      <Label 
+                        htmlFor={`subcategory-${sub.id}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {sub.name}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+              {(watch('subcategories') || []).length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {(watch('subcategories') || []).join(', ')}
+                </p>
+              )}
             </div>
           )}
 
