@@ -94,14 +94,9 @@ const DeliveryPartnerDashboard = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Welcome Card */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-xl">Welcome back, {partner.name}!</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Ready to start delivering? Check your orders and earnings below.
-              </p>
-            </CardContent>
           </Card>
 
           {/* Quick Stats */}
@@ -149,7 +144,7 @@ const DeliveryPartnerDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <DeliveryPartnerOrders partnerId={partner.id} />
+                <DeliveryPartnerOrders partnerId={partner.id} partnerName={partner.name} />
               </CardContent>
             </Card>
           )}

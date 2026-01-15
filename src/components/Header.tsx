@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, User, LogOut, FileText, ChevronDown, Crown, Wallet, HelpCircle } from "lucide-react";
+import { MapPin, User, LogOut, FileText, ChevronDown, Crown, Wallet, HelpCircle, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SearchResults } from "@/components/SearchResults";
 import AddressSelector from "@/components/AddressSelector";
+import NotificationsModal from "@/components/NotificationsModal";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useZippyPass } from "@/hooks/useZippyPass";
 import { useUserWallet } from "@/hooks/useUserWallet";
+import { useUserNotifications } from "@/hooks/useUserNotifications";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
@@ -23,6 +25,7 @@ export const Header = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showAddressSelector, setShowAddressSelector] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [currentLocation, setCurrentLocation] = useState("Detecting...");
   const [locationGranted, setLocationGranted] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{
@@ -49,6 +52,7 @@ export const Header = () => {
   } = useCart();
   const { hasActivePass, getDaysRemaining } = useZippyPass();
   const { balance: walletBalance } = useUserWallet();
+  const { unreadCount: notificationCount } = useUserNotifications(user?.id);
   const navigateToPage = useNavigate();
 
   useEffect(() => {
@@ -361,6 +365,25 @@ export const Header = () => {
 
           {/* User Actions */}
           <div className="flex items-center space-x-2">
+            {/* Notifications Bell */}
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-10 w-10"
+                onClick={() => setShowNotifications(true)}
+              >
+                <Bell className="h-5 w-5" />
+                {notificationCount > 0 && (
+                  <Badge 
+                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive"
+                  >
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </Badge>
+                )}
+              </Button>
+            )}
+            
             {isAuthenticated ? <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-2 h-10 px-3">
@@ -491,6 +514,15 @@ export const Header = () => {
             label: selectedAddress.label,
             address: selectedAddress.address
           } : undefined}
+        />
+      )}
+
+      {/* Notifications Modal */}
+      {isAuthenticated && user && (
+        <NotificationsModal
+          open={showNotifications}
+          onOpenChange={setShowNotifications}
+          userId={user.id}
         />
       )}
     </header>;
