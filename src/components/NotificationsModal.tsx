@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bell, Package, RefreshCw, MessageSquare, Star, Check, CheckCheck } from "lucide-react";
+import { Bell, Package, RefreshCw, MessageSquare, Star, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import UserDeliveryChat from "./UserDeliveryChat";
 
 interface Notification {
   id: string;
@@ -27,6 +28,8 @@ interface NotificationsModalProps {
 const NotificationsModal = ({ open, onOpenChange, userId }: NotificationsModalProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const fetchNotifications = async () => {
     try {
@@ -180,7 +183,16 @@ const NotificationsModal = ({ open, onOpenChange, userId }: NotificationsModalPr
                       ? 'bg-background hover:bg-muted/50'
                       : 'bg-primary/5 hover:bg-primary/10'
                   }`}
-                  onClick={() => !notification.is_read && markAsRead(notification.id)}
+                  onClick={() => {
+                    if (!notification.is_read) {
+                      markAsRead(notification.id);
+                    }
+                    // Open chat for chat notifications
+                    if (notification.type === 'chat' && notification.reference_id) {
+                      setSelectedOrderId(notification.reference_id);
+                      setChatOpen(true);
+                    }
+                  }}
                 >
                   <div className="flex gap-3">
                     <div className="flex-shrink-0 mt-1">
@@ -200,9 +212,16 @@ const NotificationsModal = ({ open, onOpenChange, userId }: NotificationsModalPr
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                        </p>
+                        {notification.type === 'chat' && notification.reference_id && (
+                          <Badge variant="outline" className="text-xs py-0">
+                            Tap to reply
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -210,6 +229,16 @@ const NotificationsModal = ({ open, onOpenChange, userId }: NotificationsModalPr
             </div>
           )}
         </ScrollArea>
+
+        {/* User Delivery Chat Modal */}
+        {selectedOrderId && (
+          <UserDeliveryChat
+            open={chatOpen}
+            onOpenChange={setChatOpen}
+            orderId={selectedOrderId}
+            userId={userId}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

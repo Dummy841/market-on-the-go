@@ -5,11 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, Package, Truck, Phone, Star } from 'lucide-react';
+import { CheckCircle2, Package, Truck, Phone, Star, MessageCircle } from 'lucide-react';
 import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
+import UserDeliveryChat from './UserDeliveryChat';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
   const { activeOrder } = useOrderTracking();
   const { isLoaded } = useGoogleMaps();
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
   const [deliveryPartnerLocation, setDeliveryPartnerLocation] = useState<{lat: number, lng: number} | null>(null);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
 
@@ -437,18 +439,29 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                     <p className="text-sm text-muted-foreground">Delivery Partner</p>
                   </div>
                 </div>
-                <Button 
-                  size="icon" 
-                  variant="outline"
-                  onClick={() => {
-                    const mobile = activeOrder.delivery_partners?.mobile;
-                    if (mobile) {
-                      window.location.href = `tel:${mobile}`;
-                    }
-                  }}
-                >
-                  <Phone className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    size="icon" 
+                    variant="outline"
+                    onClick={() => setShowChatModal(true)}
+                    title="Chat with delivery partner"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    variant="outline"
+                    onClick={() => {
+                      const mobile = activeOrder.delivery_partners?.mobile;
+                      if (mobile) {
+                        window.location.href = `tel:${mobile}`;
+                      }
+                    }}
+                    title="Call delivery partner"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </Card>
           )}
@@ -488,6 +501,16 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
           onRatingSubmit={() => {
             setShowRatingModal(false);
           }}
+        />
+      )}
+
+      {/* Chat Modal */}
+      {activeOrder && (
+        <UserDeliveryChat
+          open={showChatModal}
+          onOpenChange={setShowChatModal}
+          orderId={activeOrder.id}
+          userId={activeOrder.user_id}
         />
       )}
     </Dialog>
