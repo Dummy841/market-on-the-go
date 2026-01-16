@@ -231,7 +231,7 @@ const FullScreenLocationPicker = ({
       </div>
       
       {/* Map Container */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative" style={{ touchAction: 'none' }}>
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -259,6 +259,7 @@ const FullScreenLocationPicker = ({
           <>
             <GoogleMap
               mapContainerClassName="w-full h-full"
+              mapContainerStyle={{ touchAction: 'auto' }}
               center={controlledCenter}
               zoom={17}
               onLoad={handleMapLoad}
@@ -275,6 +276,9 @@ const FullScreenLocationPicker = ({
                 fullscreenControl: false,
                 clickableIcons: false,
                 gestureHandling: 'greedy',
+                draggable: true,
+                scrollwheel: true,
+                disableDoubleClickZoom: false,
               }}
             />
             

@@ -154,7 +154,7 @@ const LocationPicker = ({
       </div>
       
       {/* Map Container */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative" style={{ touchAction: 'none' }}>
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -174,7 +174,8 @@ const LocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full touch-auto"
+              mapContainerClassName="w-full h-full"
+              mapContainerStyle={{ touchAction: 'auto' }}
               center={{ lat: selectedLat, lng: selectedLng }}
               zoom={16}
               onLoad={onLoad}
@@ -188,6 +189,8 @@ const LocationPicker = ({
                 clickableIcons: false,
                 gestureHandling: 'greedy',
                 draggable: true,
+                scrollwheel: true,
+                disableDoubleClickZoom: false,
               }}
             >
               <Marker

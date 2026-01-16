@@ -394,11 +394,6 @@ export const Header = () => {
                           {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
-                      {hasActivePass && (
-                        <div className="absolute -top-1 -right-1 bg-orange-500 rounded-full p-0.5">
-                          <Crown className="h-2.5 w-2.5 text-white" />
-                        </div>
-                      )}
                     </div>
                     <div className="hidden md:flex flex-col items-start">
                       <span className="text-sm font-medium">{user?.name}</span>
