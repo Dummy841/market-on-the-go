@@ -965,6 +965,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_notifications: { Args: never; Returns: undefined }
       compute_seller_daily_net_earnings: {
         Args: { p_date: string; p_seller_id: string }
         Returns: number
