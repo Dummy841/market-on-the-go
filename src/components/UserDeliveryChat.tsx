@@ -1,0 +1,385 @@
+import { useState, useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Send, Loader2, ArrowLeft, Phone } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from "date-fns";
+
+interface Message {
+  id: string;
+  chat_id: string;
+  sender_type: string;
+  message: string;
+  created_at: string;
+}
+
+interface DeliveryPartner {
+  id: string;
+  name: string;
+  mobile: string;
+  profile_photo_url: string | null;
+}
+
+interface UserDeliveryChatProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  orderId: string;
+  userId: string;
+}
+
+const UserDeliveryChat = ({
+  open,
+  onOpenChange,
+  orderId,
+  userId,
+}: UserDeliveryChatProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deliveryPartner, setDeliveryPartner] = useState<DeliveryPartner | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  // Find existing chat for this order
+  const findChat = async () => {
+    try {
+      setLoading(true);
+      
+      // Find chat for this order
+      const { data: chat, error: fetchError } = await supabase
+        .from('delivery_customer_chats')
+        .select(`
+          id,
+          delivery_partner_id,
+          delivery_partners (
+            id,
+            name,
+            mobile,
+            profile_photo_url
+          )
+        `)
+        .eq('order_id', orderId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (chat) {
+        setChatId(chat.id);
+        setDeliveryPartner(chat.delivery_partners as unknown as DeliveryPartner);
+        return chat.id;
+      }
+
+      // No chat exists yet - check if order has delivery partner assigned
+      const { data: order } = await supabase
+        .from('orders')
+        .select('assigned_delivery_partner_id, delivery_partners(id, name, mobile, profile_photo_url)')
+        .eq('id', orderId)
+        .single();
+
+      if (order?.assigned_delivery_partner_id) {
+        setDeliveryPartner(order.delivery_partners as unknown as DeliveryPartner);
+        
+        // Create chat
+        const { data: newChat, error: createError } = await supabase
+          .from('delivery_customer_chats')
+          .insert({
+            order_id: orderId,
+            delivery_partner_id: order.assigned_delivery_partner_id,
+            user_id: userId,
+          })
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+
+        setChatId(newChat.id);
+        return newChat.id;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load chat",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch messages
+  const fetchMessages = async (chatIdToUse: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('delivery_customer_messages')
+        .select('*')
+        .eq('chat_id', chatIdToUse)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // Send message
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !chatId) return;
+
+    try {
+      setSending(true);
+      
+      const messageData = {
+        chat_id: chatId,
+        sender_type: 'user',
+        message: newMessage.trim(),
+      };
+
+      // Optimistically add message
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
+        ...messageData,
+        created_at: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, optimisticMessage]);
+      setNewMessage("");
+
+      const { error: insertError } = await supabase
+        .from('delivery_customer_messages')
+        .insert(messageData);
+
+      if (insertError) throw insertError;
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      });
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => !m.id.startsWith('temp-')));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Initialize chat when modal opens
+  useEffect(() => {
+    if (open && orderId && userId) {
+      findChat().then(chatIdResult => {
+        if (chatIdResult) {
+          fetchMessages(chatIdResult);
+        }
+      });
+    }
+  }, [open, orderId, userId]);
+
+  // Subscribe to realtime messages
+  useEffect(() => {
+    if (!chatId) return;
+
+    const channel = supabase
+      .channel(`user-chat-${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'delivery_customer_messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as Message;
+          // Don't add if it's our optimistic message
+          setMessages(prev => {
+            const exists = prev.some(m => 
+              m.message === newMsg.message && 
+              m.sender_type === newMsg.sender_type &&
+              (m.id === newMsg.id || m.id.startsWith('temp-'))
+            );
+            if (exists) {
+              return prev.map(m => 
+                m.id.startsWith('temp-') && 
+                m.message === newMsg.message && 
+                m.sender_type === newMsg.sender_type
+                  ? newMsg
+                  : m
+              );
+            }
+            return [...prev, newMsg];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId]);
+
+  const handleCall = () => {
+    if (deliveryPartner?.mobile) {
+      window.location.href = `tel:${deliveryPartner.mobile}`;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md h-[80vh] flex flex-col p-0">
+        {/* Header */}
+        <div className="flex items-center gap-3 p-4 border-b">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenChange(false)}
+            className="h-8 w-8"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          
+          {deliveryPartner ? (
+            <div className="flex items-center gap-3 flex-1">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={deliveryPartner.profile_photo_url || ''} />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {deliveryPartner.name?.charAt(0) || 'D'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm">{deliveryPartner.name}</h3>
+                <p className="text-xs text-muted-foreground">Delivery Partner</p>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCall}
+                className="h-9 w-9 rounded-full"
+              >
+                <Phone className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex-1">
+              <h3 className="font-semibold">Chat with Delivery Partner</h3>
+            </div>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : !deliveryPartner ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center">
+              <p className="text-muted-foreground">No delivery partner assigned yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Chat will be available once a delivery partner is assigned
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+              <div className="space-y-3 py-4">
+                {messages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No messages yet</p>
+                    <p className="text-sm">Send a message to your delivery partner</p>
+                  </div>
+                ) : (
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex gap-2 ${
+                        msg.sender_type === 'user'
+                          ? 'justify-end'
+                          : 'justify-start'
+                      }`}
+                    >
+                      {msg.sender_type === 'delivery_partner' && (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={deliveryPartner.profile_photo_url || ''} />
+                          <AvatarFallback className="bg-muted">
+                            {deliveryPartner.name?.charAt(0) || 'D'}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div
+                        className={`max-w-[70%] rounded-2xl px-3 py-2 ${
+                          msg.sender_type === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-br-sm'
+                            : 'bg-muted rounded-bl-sm'
+                        }`}
+                      >
+                        <p className="text-sm">{msg.message}</p>
+                        <p className={`text-xs mt-1 ${
+                          msg.sender_type === 'user'
+                            ? 'text-primary-foreground/70'
+                            : 'text-muted-foreground'
+                        }`}>
+                          {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                      {msg.sender_type === 'user' && (
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            U
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="flex gap-2 p-4 border-t bg-background">
+              <Input
+                placeholder="Type a message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                disabled={sending}
+                className="rounded-full"
+              />
+              <Button 
+                onClick={sendMessage} 
+                disabled={sending || !newMessage.trim()}
+                size="icon"
+                className="rounded-full h-10 w-10"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default UserDeliveryChat;
