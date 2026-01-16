@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useRef, useC
 import { supabase } from '@/integrations/supabase/client';
 import { useUserAuth } from './UserAuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useNativeNotifications } from '@/hooks/useNativeNotifications';
 
 interface OrderTrackingContextType {
   activeOrder: any | null;
@@ -20,6 +21,7 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
   const activeOrderIdRef = useRef<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
   const { permission, requestPermission, showOrderStatusNotification } = useNotifications();
+  const { showOrderStatusNotification: showNativeOrderNotification, isNative } = useNativeNotifications();
 
   const getDisplayStatus = useCallback((order: any) => {
     if (!order) return null;
@@ -27,6 +29,40 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
     if (order.status === 'rejected' || order.seller_status === 'rejected') return 'rejected';
     return order.status;
   }, []);
+
+  const getNotificationTitle = (status: string): string => {
+    const titles: Record<string, string> = {
+      pending: '🍽️ Order Placed!',
+      accepted: '✅ Order Accepted!',
+      preparing: '👨‍🍳 Order Being Prepared',
+      packed: '📦 Order Packed!',
+      assigned: '🚴 Delivery Partner Assigned',
+      going_for_pickup: '🏃 On The Way to Pickup',
+      picked_up: '📍 Order Picked Up',
+      going_for_delivery: '🚚 Out for Delivery!',
+      delivered: '🎉 Order Delivered!',
+      rejected: '❌ Order Rejected',
+      refunded: '💰 Refund Processed',
+    };
+    return titles[status] || 'Order Update';
+  };
+
+  const getNotificationMessage = (status: string, sellerName: string): string => {
+    const messages: Record<string, string> = {
+      pending: `Your order from ${sellerName} has been placed successfully.`,
+      accepted: `${sellerName} has accepted your order and is preparing it.`,
+      preparing: `${sellerName} is preparing your delicious food.`,
+      packed: `Your order from ${sellerName} is packed and ready for pickup.`,
+      assigned: `A delivery partner has been assigned for your order.`,
+      going_for_pickup: `Delivery partner is heading to ${sellerName} to pick up your order.`,
+      picked_up: `Your order has been picked up from ${sellerName}.`,
+      going_for_delivery: `Your order from ${sellerName} is on its way to you.`,
+      delivered: `Enjoy your food from ${sellerName}! Don't forget to rate.`,
+      rejected: `Sorry, ${sellerName} couldn't accept your order. Refund will be processed.`,
+      refunded: `Your refund for the order from ${sellerName} has been processed.`,
+    };
+    return messages[status] || 'Your order status has been updated.';
+  };
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -142,6 +178,24 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
               if (previousStatus && displayStatus && displayStatus !== previousStatus) {
                 console.log('Status changed from', previousStatus, 'to', displayStatus);
                 showOrderStatusNotification(displayStatus, newOrder.seller_name);
+                
+                // Also show native notification on Android
+                if (isNative) {
+                  showNativeOrderNotification(displayStatus, newOrder.seller_name, newOrder.id);
+                }
+                
+                // Save notification to database for history
+                try {
+                  await supabase.from('user_notifications').insert({
+                    user_id: user!.id,
+                    title: getNotificationTitle(displayStatus),
+                    message: getNotificationMessage(displayStatus, newOrder.seller_name),
+                    type: 'order_status',
+                    reference_id: newOrder.id,
+                  });
+                } catch (err) {
+                  console.error('Error saving notification:', err);
+                }
               }
               
               previousStatusRef.current = displayStatus;
