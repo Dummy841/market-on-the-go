@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNativeNotifications } from "./useNativeNotifications";
 
 interface Notification {
   id: string;
@@ -16,8 +17,9 @@ export const useUserNotifications = (userId: string | undefined) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { showChatNotification, showNativeNotification, isNative } = useNativeNotifications();
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     if (!userId) return;
 
     try {
@@ -32,7 +34,7 @@ export const useUserNotifications = (userId: string | undefined) => {
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -50,7 +52,38 @@ export const useUserNotifications = (userId: string | undefined) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const newNotification = payload.new as Notification;
+          fetchUnreadCount();
+          
+          // Show native notification for chat messages
+          if (isNative && newNotification.type === 'chat') {
+            showChatNotification(
+              'Delivery Partner',
+              newNotification.message,
+              newNotification.reference_id || undefined
+            );
+          } else if (isNative && newNotification.type === 'order_status') {
+            // Order status notifications are already handled in OrderTrackingContext
+          } else if (isNative) {
+            // Generic notification
+            showNativeNotification({
+              title: newNotification.title,
+              body: newNotification.message,
+              data: { type: newNotification.type, reference_id: newNotification.reference_id },
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
           schema: 'public',
           table: 'user_notifications',
           filter: `user_id=eq.${userId}`,
@@ -64,7 +97,7 @@ export const useUserNotifications = (userId: string | undefined) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, fetchUnreadCount, isNative, showChatNotification, showNativeNotification]);
 
   const sendNotification = async (
     targetUserId: string,
