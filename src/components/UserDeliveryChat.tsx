@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Loader2, ArrowLeft, Phone } from "lucide-react";
+import { Send, Loader2, ArrowLeft, Phone, Check, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -15,6 +15,7 @@ interface Message {
   sender_type: string;
   message: string;
   created_at: string;
+  read_at: string | null;
 }
 
 interface DeliveryPartner {
@@ -128,6 +129,18 @@ const UserDeliveryChat = ({
 
       if (error) throw error;
       setMessages(data || []);
+      
+      // Mark delivery partner messages as read
+      const unreadIds = (data || [])
+        .filter(m => m.sender_type === 'delivery_partner' && !m.read_at)
+        .map(m => m.id);
+      
+      if (unreadIds.length > 0) {
+        await supabase
+          .from('delivery_customer_messages')
+          .update({ read_at: new Date().toISOString() })
+          .in('id', unreadIds);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -151,6 +164,7 @@ const UserDeliveryChat = ({
         id: `temp-${Date.now()}`,
         ...messageData,
         created_at: new Date().toISOString(),
+        read_at: null,
       };
       setMessages(prev => [...prev, optimisticMessage]);
       setNewMessage("");
@@ -193,7 +207,7 @@ const UserDeliveryChat = ({
     }
   }, [open, orderId, userId]);
 
-  // Subscribe to realtime messages
+  // Subscribe to realtime messages and updates
   useEffect(() => {
     if (!chatId) return;
 
@@ -207,7 +221,7 @@ const UserDeliveryChat = ({
           table: 'delivery_customer_messages',
           filter: `chat_id=eq.${chatId}`,
         },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new as Message;
           // Don't add if it's our optimistic message
           setMessages(prev => {
@@ -227,6 +241,27 @@ const UserDeliveryChat = ({
             }
             return [...prev, newMsg];
           });
+          
+          // Mark delivery partner messages as read immediately
+          if (newMsg.sender_type === 'delivery_partner' && !newMsg.read_at) {
+            await supabase
+              .from('delivery_customer_messages')
+              .update({ read_at: new Date().toISOString() })
+              .eq('id', newMsg.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'delivery_customer_messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          const updatedMsg = payload.new as Message;
+          setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
         }
       )
       .subscribe();
@@ -332,13 +367,22 @@ const UserDeliveryChat = ({
                         }`}
                       >
                         <p className="text-sm">{msg.message}</p>
-                        <p className={`text-xs mt-1 ${
+                        <div className={`flex items-center gap-1 mt-1 ${
                           msg.sender_type === 'user'
-                            ? 'text-primary-foreground/70'
+                            ? 'text-primary-foreground/70 justify-end'
                             : 'text-muted-foreground'
                         }`}>
-                          {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                        </p>
+                          <span className="text-xs">
+                            {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                          </span>
+                          {msg.sender_type === 'user' && !msg.id.startsWith('temp-') && (
+                            msg.read_at ? (
+                              <CheckCheck className="h-3 w-3 text-blue-400" />
+                            ) : (
+                              <Check className="h-3 w-3" />
+                            )
+                          )}
+                        </div>
                       </div>
                       {msg.sender_type === 'user' && (
                         <Avatar className="h-8 w-8">
