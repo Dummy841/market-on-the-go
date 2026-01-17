@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,6 +8,10 @@ import { Send, Loader2, ArrowLeft, Phone, Check, CheckCheck } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useVoiceCall } from "@/hooks/useVoiceCall";
+import { useIncomingCall } from "@/hooks/useIncomingCall";
+import VoiceCallModal from "./VoiceCallModal";
 
 interface Message {
   id: string;
@@ -46,6 +50,29 @@ const UserDeliveryChat = ({
   const [deliveryPartner, setDeliveryPartner] = useState<DeliveryPartner | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Typing indicator
+  const { isPartnerTyping, sendTyping } = useTypingIndicator({
+    chatId,
+    myType: 'user',
+  });
+
+  // Voice call
+  const voiceCall = useVoiceCall({
+    chatId,
+    myId: userId,
+    myType: 'user',
+    partnerId: deliveryPartner?.id || '',
+    partnerName: deliveryPartner?.name || 'Delivery Partner',
+  });
+
+  // Listen for incoming calls
+  useIncomingCall({
+    chatId,
+    myId: userId,
+    myType: 'user',
+    onIncomingCall: voiceCall.handleIncomingCall,
+  });
 
   // Find existing chat for this order
   const findChat = async () => {
@@ -189,6 +216,21 @@ const UserDeliveryChat = ({
     }
   };
 
+  // Handle input change with typing indicator
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    if (e.target.value.trim()) {
+      sendTyping();
+    }
+  };
+
+  // Handle call button
+  const handleCall = () => {
+    if (chatId && deliveryPartner) {
+      voiceCall.startCall();
+    }
+  };
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -271,158 +313,177 @@ const UserDeliveryChat = ({
     };
   }, [chatId]);
 
-  const handleCall = () => {
-    if (deliveryPartner?.mobile) {
-      window.location.href = `tel:${deliveryPartner.mobile}`;
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md h-[80vh] flex flex-col p-0">
-        {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onOpenChange(false)}
-            className="h-8 w-8"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          
-          {deliveryPartner ? (
-            <div className="flex items-center gap-3 flex-1">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={deliveryPartner.profile_photo_url || ''} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {deliveryPartner.name?.charAt(0) || 'D'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <h3 className="font-semibold text-sm">{deliveryPartner.name}</h3>
-                <p className="text-xs text-muted-foreground">Delivery Partner</p>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md h-[80vh] flex flex-col p-0">
+          {/* Header */}
+          <div className="flex items-center gap-3 p-4 border-b">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            
+            {deliveryPartner ? (
+              <div className="flex items-center gap-3 flex-1">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={deliveryPartner.profile_photo_url || ''} />
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {deliveryPartner.name?.charAt(0) || 'D'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm">{deliveryPartner.name}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {isPartnerTyping ? (
+                      <span className="text-primary animate-pulse">typing...</span>
+                    ) : (
+                      'Delivery Partner'
+                    )}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCall}
+                  className="h-9 w-9 rounded-full"
+                  title="Voice Call"
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleCall}
-                className="h-9 w-9 rounded-full"
-              >
-                <Phone className="h-4 w-4" />
-              </Button>
+            ) : (
+              <div className="flex-1">
+                <h3 className="font-semibold">Chat with Delivery Partner</h3>
+              </div>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : !deliveryPartner ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="text-center">
+                <p className="text-muted-foreground">No delivery partner assigned yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Chat will be available once a delivery partner is assigned
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="flex-1">
-              <h3 className="font-semibold">Chat with Delivery Partner</h3>
-            </div>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : !deliveryPartner ? (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="text-center">
-              <p className="text-muted-foreground">No delivery partner assigned yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Chat will be available once a delivery partner is assigned
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <ScrollArea className="flex-1 px-4" ref={scrollRef}>
-              <div className="space-y-3 py-4">
-                {messages.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No messages yet</p>
-                    <p className="text-sm">Send a message to your delivery partner</p>
-                  </div>
-                ) : (
-                  messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex gap-2 ${
-                        msg.sender_type === 'user'
-                          ? 'justify-end'
-                          : 'justify-start'
-                      }`}
-                    >
-                      {msg.sender_type === 'delivery_partner' && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={deliveryPartner.profile_photo_url || ''} />
-                          <AvatarFallback className="bg-muted">
-                            {deliveryPartner.name?.charAt(0) || 'D'}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
+            <>
+              <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+                <div className="space-y-3 py-4">
+                  {messages.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No messages yet</p>
+                      <p className="text-sm">Send a message to your delivery partner</p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
                       <div
-                        className={`max-w-[70%] rounded-2xl px-3 py-2 ${
+                        key={msg.id}
+                        className={`flex gap-2 ${
                           msg.sender_type === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-br-sm'
-                            : 'bg-muted rounded-bl-sm'
+                            ? 'justify-end'
+                            : 'justify-start'
                         }`}
                       >
-                        <p className="text-sm">{msg.message}</p>
-                        <div className={`flex items-center gap-1 mt-1 ${
-                          msg.sender_type === 'user'
-                            ? 'text-primary-foreground/70 justify-end'
-                            : 'text-muted-foreground'
-                        }`}>
-                          <span className="text-xs">
-                            {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                          </span>
-                          {msg.sender_type === 'user' && !msg.id.startsWith('temp-') && (
-                            msg.read_at ? (
-                              <CheckCheck className="h-3 w-3 text-blue-400" />
-                            ) : (
-                              <Check className="h-3 w-3" />
-                            )
-                          )}
+                        {msg.sender_type === 'delivery_partner' && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={deliveryPartner.profile_photo_url || ''} />
+                            <AvatarFallback className="bg-muted">
+                              {deliveryPartner.name?.charAt(0) || 'D'}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div
+                          className={`max-w-[70%] rounded-2xl px-3 py-2 ${
+                            msg.sender_type === 'user'
+                              ? 'bg-primary text-primary-foreground rounded-br-sm'
+                              : 'bg-muted rounded-bl-sm'
+                          }`}
+                        >
+                          <p className="text-sm">{msg.message}</p>
+                          <div className={`flex items-center gap-1 mt-1 ${
+                            msg.sender_type === 'user'
+                              ? 'text-primary-foreground/70 justify-end'
+                              : 'text-muted-foreground'
+                          }`}>
+                            <span className="text-xs">
+                              {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                            </span>
+                            {msg.sender_type === 'user' && !msg.id.startsWith('temp-') && (
+                              msg.read_at ? (
+                                <CheckCheck className="h-3 w-3 text-blue-400" />
+                              ) : (
+                                <Check className="h-3 w-3" />
+                              )
+                            )}
+                          </div>
                         </div>
+                        {msg.sender_type === 'user' && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                              U
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
                       </div>
-                      {msg.sender_type === 'user' && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            U
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
 
-            <div className="flex gap-2 p-4 border-t bg-background">
-              <Input
-                placeholder="Type a message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                disabled={sending}
-                className="rounded-full"
-              />
-              <Button 
-                onClick={sendMessage} 
-                disabled={sending || !newMessage.trim()}
-                size="icon"
-                className="rounded-full h-10 w-10"
-              >
-                {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+              <div className="flex gap-2 p-4 border-t bg-background">
+                <Input
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  disabled={sending}
+                  className="rounded-full"
+                />
+                <Button 
+                  onClick={sendMessage} 
+                  disabled={sending || !newMessage.trim()}
+                  size="icon"
+                  className="rounded-full h-10 w-10"
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Voice Call Modal */}
+      <VoiceCallModal
+        open={voiceCall.state.status !== 'idle'}
+        status={voiceCall.state.status}
+        partnerName={deliveryPartner?.name || 'Delivery Partner'}
+        partnerAvatar={deliveryPartner?.profile_photo_url}
+        duration={voiceCall.state.duration}
+        isMuted={voiceCall.state.isMuted}
+        isIncoming={voiceCall.state.callerType === 'delivery_partner'}
+        onAnswer={voiceCall.answerCall}
+        onDecline={voiceCall.declineCall}
+        onEnd={voiceCall.endCall}
+        onToggleMute={voiceCall.toggleMute}
+        onClose={() => {}}
+      />
+    </>
   );
 };
 

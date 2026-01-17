@@ -4,10 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Loader2, Check, CheckCheck } from "lucide-react";
+import { Send, Loader2, Check, CheckCheck, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useVoiceCall } from "@/hooks/useVoiceCall";
+import { useIncomingCall } from "@/hooks/useIncomingCall";
+import VoiceCallModal from "./VoiceCallModal";
 
 interface Message {
   id: string;
@@ -42,6 +46,29 @@ const DeliveryCustomerChat = ({
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Typing indicator
+  const { isPartnerTyping, sendTyping } = useTypingIndicator({
+    chatId,
+    myType: 'delivery_partner',
+  });
+
+  // Voice call
+  const voiceCall = useVoiceCall({
+    chatId,
+    myId: deliveryPartnerId,
+    myType: 'delivery_partner',
+    partnerId: userId,
+    partnerName: 'Customer',
+  });
+
+  // Listen for incoming calls
+  useIncomingCall({
+    chatId,
+    myId: deliveryPartnerId,
+    myType: 'delivery_partner',
+    onIncomingCall: voiceCall.handleIncomingCall,
+  });
 
   // Get or create chat
   const getOrCreateChat = async () => {
@@ -171,6 +198,21 @@ const DeliveryCustomerChat = ({
     }
   };
 
+  // Handle input change with typing indicator
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    if (e.target.value.trim()) {
+      sendTyping();
+    }
+  };
+
+  // Handle call button
+  const handleCall = () => {
+    if (chatId) {
+      voiceCall.startCall();
+    }
+  };
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -254,96 +296,130 @@ const DeliveryCustomerChat = ({
   }, [chatId]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md h-[70vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Chat with Customer</DialogTitle>
-        </DialogHeader>
-
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <>
-            <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
-              <div className="space-y-3 py-4">
-                {messages.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No messages yet</p>
-                    <p className="text-sm">Start the conversation!</p>
-                  </div>
-                ) : (
-                  messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex gap-2 ${
-                        msg.sender_type === 'delivery_partner'
-                          ? 'justify-end'
-                          : 'justify-start'
-                      }`}
-                    >
-                      {msg.sender_type === 'user' && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>U</AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div
-                        className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                          msg.sender_type === 'delivery_partner'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        <p className="text-sm">{msg.message}</p>
-                        <div className={`flex items-center gap-1 mt-1 ${
-                          msg.sender_type === 'delivery_partner'
-                            ? 'text-primary-foreground/70 justify-end'
-                            : 'text-muted-foreground'
-                        }`}>
-                          <span className="text-xs">
-                            {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                          </span>
-                          {msg.sender_type === 'delivery_partner' && !msg.id.startsWith('temp-') && (
-                            msg.read_at ? (
-                              <CheckCheck className="h-3 w-3 text-blue-400" />
-                            ) : (
-                              <Check className="h-3 w-3" />
-                            )
-                          )}
-                        </div>
-                      </div>
-                      {msg.sender_type === 'delivery_partner' && (
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>{deliveryPartnerName.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  ))
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md h-[70vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <DialogTitle>Chat with Customer</DialogTitle>
+                {isPartnerTyping && (
+                  <p className="text-xs text-primary animate-pulse mt-1">Customer is typing...</p>
                 )}
               </div>
-            </ScrollArea>
-
-            <div className="flex gap-2 pt-2 border-t">
-              <Input
-                placeholder="Type a message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                disabled={sending}
-              />
-              <Button onClick={sendMessage} disabled={sending || !newMessage.trim()}>
-                {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCall}
+                className="h-9 w-9 rounded-full ml-2"
+                title="Voice Call"
+              >
+                <Phone className="h-4 w-4" />
               </Button>
             </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+          </DialogHeader>
+
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
+                <div className="space-y-3 py-4">
+                  {messages.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No messages yet</p>
+                      <p className="text-sm">Start the conversation!</p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex gap-2 ${
+                          msg.sender_type === 'delivery_partner'
+                            ? 'justify-end'
+                            : 'justify-start'
+                        }`}
+                      >
+                        {msg.sender_type === 'user' && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>U</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div
+                          className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                            msg.sender_type === 'delivery_partner'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                          }`}
+                        >
+                          <p className="text-sm">{msg.message}</p>
+                          <div className={`flex items-center gap-1 mt-1 ${
+                            msg.sender_type === 'delivery_partner'
+                              ? 'text-primary-foreground/70 justify-end'
+                              : 'text-muted-foreground'
+                          }`}>
+                            <span className="text-xs">
+                              {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                            </span>
+                            {msg.sender_type === 'delivery_partner' && !msg.id.startsWith('temp-') && (
+                              msg.read_at ? (
+                                <CheckCheck className="h-3 w-3 text-blue-400" />
+                              ) : (
+                                <Check className="h-3 w-3" />
+                              )
+                            )}
+                          </div>
+                        </div>
+                        {msg.sender_type === 'delivery_partner' && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>{deliveryPartnerName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+
+              <div className="flex gap-2 pt-2 border-t">
+                <Input
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  disabled={sending}
+                />
+                <Button onClick={sendMessage} disabled={sending || !newMessage.trim()}>
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Voice Call Modal */}
+      <VoiceCallModal
+        open={voiceCall.state.status !== 'idle'}
+        status={voiceCall.state.status}
+        partnerName="Customer"
+        partnerAvatar={null}
+        duration={voiceCall.state.duration}
+        isMuted={voiceCall.state.isMuted}
+        isIncoming={voiceCall.state.callerType === 'user'}
+        onAnswer={voiceCall.answerCall}
+        onDecline={voiceCall.declineCall}
+        onEnd={voiceCall.endCall}
+        onToggleMute={voiceCall.toggleMute}
+        onClose={() => {}}
+      />
+    </>
   );
 };
 
