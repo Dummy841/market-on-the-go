@@ -927,6 +927,53 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_calls: {
+        Row: {
+          caller_id: string
+          caller_type: string
+          chat_id: string
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          receiver_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          caller_id: string
+          caller_type: string
+          chat_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          receiver_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          caller_id?: string
+          caller_type?: string
+          chat_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          receiver_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_calls_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_customer_chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zippy_pass_subscriptions: {
         Row: {
           amount: number
