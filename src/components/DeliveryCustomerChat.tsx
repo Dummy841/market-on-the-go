@@ -44,8 +44,25 @@ const DeliveryCustomerChat = ({
   const [sending, setSending] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [customerName, setCustomerName] = useState<string>('Customer');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Fetch customer name
+  useEffect(() => {
+    const fetchCustomerName = async () => {
+      if (!userId) return;
+      const { data: user } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .single();
+      if (user?.name) {
+        setCustomerName(user.name);
+      }
+    };
+    fetchCustomerName();
+  }, [userId]);
 
   // Typing indicator
   const { isPartnerTyping, sendTyping } = useTypingIndicator({
@@ -59,7 +76,7 @@ const DeliveryCustomerChat = ({
     myId: deliveryPartnerId,
     myType: 'delivery_partner',
     partnerId: userId,
-    partnerName: 'Customer',
+    partnerName: customerName,
   });
 
   // Listen for incoming calls
@@ -408,15 +425,17 @@ const DeliveryCustomerChat = ({
       <VoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
-        partnerName="Customer"
+        partnerName={customerName}
         partnerAvatar={null}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
+        isSpeaker={voiceCall.state.isSpeaker}
         isIncoming={voiceCall.state.callerType === 'user'}
         onAnswer={voiceCall.answerCall}
         onDecline={voiceCall.declineCall}
         onEnd={voiceCall.endCall}
         onToggleMute={voiceCall.toggleMute}
+        onToggleSpeaker={voiceCall.toggleSpeaker}
         onClose={() => {}}
       />
     </>

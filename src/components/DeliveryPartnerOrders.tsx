@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
 import DeliveryCustomerChat from "./DeliveryCustomerChat";
+import { useVoiceCall } from "@/hooks/useVoiceCall";
+import { useIncomingCall } from "@/hooks/useIncomingCall";
+import VoiceCallModal from "./VoiceCallModal";
+
 interface Order {
   id: string;
   user_id: string;
@@ -57,9 +61,89 @@ const DeliveryPartnerOrders = ({
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [chatOrderId, setChatOrderId] = useState("");
   const [chatUserId, setChatUserId] = useState("");
+  const [voiceCallChatId, setVoiceCallChatId] = useState<string | null>(null);
+  const [voiceCallCustomerName, setVoiceCallCustomerName] = useState("Customer");
+  const [voiceCallUserId, setVoiceCallUserId] = useState("");
   const {
     toast
   } = useToast();
+
+  // Voice call hook
+  const voiceCall = useVoiceCall({
+    chatId: voiceCallChatId,
+    myId: partnerId,
+    myType: 'delivery_partner',
+    partnerId: voiceCallUserId,
+    partnerName: voiceCallCustomerName,
+  });
+
+  // Listen for incoming calls - we need to listen on all chats for this partner
+  // For simplicity, we'll listen when a specific chat is active
+  useIncomingCall({
+    chatId: voiceCallChatId,
+    myId: partnerId,
+    myType: 'delivery_partner',
+    onIncomingCall: voiceCall.handleIncomingCall,
+  });
+
+  // Get or create chat and start voice call
+  const handleVoiceCall = useCallback(async (order: Order) => {
+    try {
+      // Fetch customer name
+      const { data: user } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', order.user_id)
+        .single();
+      
+      const customerName = user?.name || 'Customer';
+      setVoiceCallCustomerName(customerName);
+      setVoiceCallUserId(order.user_id);
+
+      // Get or create chat
+      const { data: existingChat } = await supabase
+        .from('delivery_customer_chats')
+        .select('id')
+        .eq('order_id', order.id)
+        .eq('delivery_partner_id', partnerId)
+        .maybeSingle();
+
+      let chatId: string;
+      
+      if (existingChat) {
+        chatId = existingChat.id;
+      } else {
+        const { data: newChat } = await supabase
+          .from('delivery_customer_chats')
+          .insert({
+            order_id: order.id,
+            delivery_partner_id: partnerId,
+            user_id: order.user_id,
+          })
+          .select('id')
+          .single();
+
+        if (!newChat) {
+          throw new Error('Failed to create chat');
+        }
+        chatId = newChat.id;
+      }
+
+      setVoiceCallChatId(chatId);
+      
+      // Small delay to ensure state is updated before starting call
+      setTimeout(() => {
+        voiceCall.startCall();
+      }, 100);
+    } catch (error) {
+      console.error('Error starting voice call:', error);
+      toast({
+        title: "Error",
+        description: "Could not start call. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [partnerId, voiceCall, toast]);
   const statusOptions = [{
     value: "all",
     label: "All Orders",
@@ -511,18 +595,7 @@ const DeliveryPartnerOrders = ({
                 Chat
               </Button>
 
-              <Button variant="outline" size="sm" onClick={() => {
-                // Open phone dialer with delivery mobile
-                if ((order as any).delivery_mobile) {
-                  window.open(`tel:${(order as any).delivery_mobile}`, '_self');
-                } else {
-                  toast({
-                    title: "Contact unavailable",
-                    description: "Customer phone number not available",
-                    variant: "destructive"
-                  });
-                }
-              }}>
+              <Button variant="outline" size="sm" onClick={() => handleVoiceCall(order)}>
                 <Phone className="h-4 w-4 mr-1" />
                 Call
               </Button>
@@ -544,6 +617,24 @@ const DeliveryPartnerOrders = ({
         deliveryPartnerId={partnerId}
         userId={chatUserId}
         deliveryPartnerName={partnerName}
+      />
+
+      {/* Voice Call Modal */}
+      <VoiceCallModal
+        open={voiceCall.state.status !== 'idle'}
+        status={voiceCall.state.status}
+        partnerName={voiceCallCustomerName}
+        partnerAvatar={null}
+        duration={voiceCall.state.duration}
+        isMuted={voiceCall.state.isMuted}
+        isSpeaker={voiceCall.state.isSpeaker}
+        isIncoming={voiceCall.state.callerType === 'user'}
+        onAnswer={voiceCall.answerCall}
+        onDecline={voiceCall.declineCall}
+        onEnd={voiceCall.endCall}
+        onToggleMute={voiceCall.toggleMute}
+        onToggleSpeaker={voiceCall.toggleSpeaker}
+        onClose={() => {}}
       />
     </div>;
 };

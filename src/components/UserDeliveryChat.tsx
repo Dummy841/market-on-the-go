@@ -472,15 +472,21 @@ const UserDeliveryChat = ({
       <VoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
-        partnerName={deliveryPartner?.name || 'Delivery Partner'}
+        partnerName={
+          voiceCall.state.callerType === 'delivery_partner' 
+            ? 'Zippy Delivery Partner'
+            : deliveryPartner?.name || 'Delivery Partner'
+        }
         partnerAvatar={deliveryPartner?.profile_photo_url}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
+        isSpeaker={voiceCall.state.isSpeaker}
         isIncoming={voiceCall.state.callerType === 'delivery_partner'}
         onAnswer={voiceCall.answerCall}
         onDecline={voiceCall.declineCall}
         onEnd={voiceCall.endCall}
         onToggleMute={voiceCall.toggleMute}
+        onToggleSpeaker={voiceCall.toggleSpeaker}
         onClose={() => {}}
       />
     </>
