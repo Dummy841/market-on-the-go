@@ -14,18 +14,14 @@ export const useIncomingCall = ({
   myType,
   onIncomingCall,
 }: UseIncomingCallProps) => {
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const processedCallsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!chatId || !myId) return;
 
-    // Subscribe to all calls for this chat
-    const channel = supabase.channel(`incoming-calls-${chatId}-${myId}`);
-    channelRef.current = channel;
-
-    // Also listen to database changes for voice_calls
+    // Listen to database changes for voice_calls
     const dbChannel = supabase
-      .channel(`voice-calls-db-${chatId}`)
+      .channel(`voice-calls-db-${chatId}-${myId}`)
       .on(
         'postgres_changes',
         {
@@ -37,12 +33,13 @@ export const useIncomingCall = ({
         async (payload) => {
           const call = payload.new as any;
           
-          // Only handle calls where we are the receiver
-          if (call.receiver_id === myId && call.status === 'ringing') {
-            console.log('New incoming call detected from database');
+          // Only handle calls where we are the receiver and haven't processed this call
+          if (call.receiver_id === myId && call.status === 'ringing' && !processedCallsRef.current.has(call.id)) {
+            console.log('New incoming call detected from database:', call.id);
+            processedCallsRef.current.add(call.id);
             
             // Subscribe to this call's signaling channel to get the offer
-            const callChannel = supabase.channel(`call-${call.id}`);
+            const callChannel = supabase.channel(`call-incoming-${call.id}`);
             
             callChannel
               .on('broadcast', { event: 'offer' }, ({ payload: offerPayload }) => {
@@ -65,10 +62,6 @@ export const useIncomingCall = ({
       .subscribe();
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
       supabase.removeChannel(dbChannel);
     };
   }, [chatId, myId, myType, onIncomingCall]);

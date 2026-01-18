@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Phone, PhoneOff, Mic, MicOff, PhoneIncoming } from "lucide-react";
+import { Phone, PhoneOff, Mic, MicOff, PhoneIncoming, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface VoiceCallModalProps {
@@ -11,11 +11,13 @@ interface VoiceCallModalProps {
   partnerAvatar?: string | null;
   duration: number;
   isMuted: boolean;
+  isSpeaker: boolean;
   isIncoming: boolean;
   onAnswer: () => void;
   onDecline: () => void;
   onEnd: () => void;
   onToggleMute: () => void;
+  onToggleSpeaker: () => void;
   onClose: () => void;
 }
 
@@ -32,11 +34,13 @@ const VoiceCallModal = ({
   partnerAvatar,
   duration,
   isMuted,
+  isSpeaker,
   isIncoming,
   onAnswer,
   onDecline,
   onEnd,
   onToggleMute,
+  onToggleSpeaker,
   onClose,
 }: VoiceCallModalProps) => {
   const [pulseAnimation, setPulseAnimation] = useState(true);
@@ -55,7 +59,7 @@ const VoiceCallModal = ({
       case 'calling':
         return 'Calling...';
       case 'ringing':
-        return 'Incoming Call';
+        return isIncoming ? 'Incoming Call' : 'Ringing...';
       case 'ongoing':
         return formatDuration(duration);
       case 'ended':
@@ -74,10 +78,11 @@ const VoiceCallModal = ({
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="sm:max-w-sm bg-gradient-to-b from-slate-900 to-slate-800 border-0 text-white"
+        className="fixed inset-0 w-screen h-screen max-w-none m-0 p-0 rounded-none bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-0 text-white z-[100]"
         onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <div className="flex flex-col items-center py-8 space-y-6">
+        <div className="flex flex-col items-center justify-center h-full py-12 px-6 space-y-8">
           {/* Avatar with pulse animation */}
           <div className="relative">
             <div 
@@ -86,78 +91,158 @@ const VoiceCallModal = ({
                   ? 'animate-ping' 
                   : ''
               }`}
-              style={{ transform: 'scale(1.2)' }}
+              style={{ transform: 'scale(1.3)' }}
             />
-            <Avatar className="h-24 w-24 border-4 border-primary/50">
+            <div 
+              className={`absolute inset-0 rounded-full bg-primary/20 ${
+                (status === 'ringing' || status === 'calling')
+                  ? 'animate-pulse' 
+                  : ''
+              }`}
+              style={{ transform: 'scale(1.5)' }}
+            />
+            <Avatar className="h-32 w-32 border-4 border-primary/50 relative z-10">
               <AvatarImage src={partnerAvatar || ''} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
+              <AvatarFallback className="bg-primary text-primary-foreground text-4xl font-bold">
                 {partnerName?.charAt(0) || '?'}
               </AvatarFallback>
             </Avatar>
           </div>
 
           {/* Name and Status */}
-          <div className="text-center">
-            <h2 className="text-xl font-semibold">{partnerName}</h2>
-            <p className="text-slate-400 mt-1">{getStatusText()}</p>
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold">{partnerName}</h2>
+            <p className={`text-lg ${
+              status === 'ongoing' ? 'text-green-400' : 
+              status === 'ringing' && isIncoming ? 'text-primary animate-pulse' :
+              'text-slate-400'
+            }`}>
+              {getStatusText()}
+            </p>
           </div>
 
           {/* Call Controls */}
-          <div className="flex items-center justify-center gap-6 pt-4">
+          <div className="flex flex-col items-center gap-8 pt-8">
             {/* Incoming call - Answer and Decline */}
             {status === 'ringing' && isIncoming && (
-              <>
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  className="h-16 w-16 rounded-full"
-                  onClick={onDecline}
-                >
-                  <PhoneOff className="h-6 w-6" />
-                </Button>
-                <Button
-                  variant="default"
-                  size="lg"
-                  className="h-16 w-16 rounded-full bg-green-600 hover:bg-green-700"
-                  onClick={onAnswer}
-                >
-                  <PhoneIncoming className="h-6 w-6" />
-                </Button>
-              </>
+              <div className="flex items-center justify-center gap-12">
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30"
+                    onClick={onDecline}
+                  >
+                    <PhoneOff className="h-8 w-8" />
+                  </Button>
+                  <span className="text-sm text-slate-400">Decline</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="default"
+                    size="lg"
+                    className="h-20 w-20 rounded-full bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/30 animate-pulse"
+                    onClick={onAnswer}
+                  >
+                    <PhoneIncoming className="h-8 w-8" />
+                  </Button>
+                  <span className="text-sm text-slate-400">Answer</span>
+                </div>
+              </div>
             )}
 
-            {/* Outgoing call - Cancel */}
-            {status === 'calling' && (
-              <Button
-                variant="destructive"
-                size="lg"
-                className="h-16 w-16 rounded-full"
-                onClick={onEnd}
-              >
-                <PhoneOff className="h-6 w-6" />
-              </Button>
+            {/* Outgoing call (calling/ringing) - Mute, Speaker, End */}
+            {(status === 'calling' || (status === 'ringing' && !isIncoming)) && (
+              <div className="flex items-center justify-center gap-8">
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className={`h-16 w-16 rounded-full border-0 ${
+                      isMuted 
+                        ? 'bg-red-500/80 hover:bg-red-600 text-white' 
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                    onClick={onToggleMute}
+                  >
+                    {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                  </Button>
+                  <span className="text-xs text-slate-400">{isMuted ? 'Unmute' : 'Mute'}</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30"
+                    onClick={onEnd}
+                  >
+                    <PhoneOff className="h-8 w-8" />
+                  </Button>
+                  <span className="text-sm text-slate-400">End Call</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className={`h-16 w-16 rounded-full border-0 ${
+                      isSpeaker 
+                        ? 'bg-primary/80 hover:bg-primary text-white' 
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                    onClick={onToggleSpeaker}
+                  >
+                    {isSpeaker ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
+                  </Button>
+                  <span className="text-xs text-slate-400">{isSpeaker ? 'Speaker' : 'Earpiece'}</span>
+                </div>
+              </div>
             )}
 
-            {/* Ongoing call - Mute and End */}
+            {/* Ongoing call - Mute, End, Speaker */}
             {status === 'ongoing' && (
-              <>
-                <Button
-                  variant={isMuted ? "default" : "outline"}
-                  size="lg"
-                  className={`h-14 w-14 rounded-full ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-                  onClick={onToggleMute}
-                >
-                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  className="h-16 w-16 rounded-full"
-                  onClick={onEnd}
-                >
-                  <PhoneOff className="h-6 w-6" />
-                </Button>
-              </>
+              <div className="flex items-center justify-center gap-8">
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className={`h-16 w-16 rounded-full border-0 ${
+                      isMuted 
+                        ? 'bg-red-500/80 hover:bg-red-600 text-white' 
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                    onClick={onToggleMute}
+                  >
+                    {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                  </Button>
+                  <span className="text-xs text-slate-400">{isMuted ? 'Unmute' : 'Mute'}</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30"
+                    onClick={onEnd}
+                  >
+                    <PhoneOff className="h-8 w-8" />
+                  </Button>
+                  <span className="text-sm text-slate-400">End Call</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className={`h-16 w-16 rounded-full border-0 ${
+                      isSpeaker 
+                        ? 'bg-primary/80 hover:bg-primary text-white' 
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                    onClick={onToggleSpeaker}
+                  >
+                    {isSpeaker ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
+                  </Button>
+                  <span className="text-xs text-slate-400">{isSpeaker ? 'Speaker' : 'Earpiece'}</span>
+                </div>
+              </div>
             )}
 
             {/* Call ended states - Close */}
@@ -165,7 +250,7 @@ const VoiceCallModal = ({
               <Button
                 variant="outline"
                 size="lg"
-                className="h-14 px-8 rounded-full bg-slate-700 hover:bg-slate-600 border-0"
+                className="h-14 px-12 rounded-full bg-slate-700 hover:bg-slate-600 border-0 text-white"
                 onClick={onClose}
               >
                 Close

@@ -11,6 +11,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 import UserDeliveryChat from './UserDeliveryChat';
+import { useVoiceCall } from '@/hooks/useVoiceCall';
+import { useIncomingCall } from '@/hooks/useIncomingCall';
+import VoiceCallModal from './VoiceCallModal';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
@@ -29,6 +32,77 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
   const [showChatModal, setShowChatModal] = useState(false);
   const [deliveryPartnerLocation, setDeliveryPartnerLocation] = useState<{lat: number, lng: number} | null>(null);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
+
+  // Get or create chat for voice call
+  const getOrCreateChat = useCallback(async () => {
+    if (!activeOrder || !activeOrder.assigned_delivery_partner_id) return null;
+    
+    // Check if chat exists
+    const { data: existingChat } = await supabase
+      .from('delivery_customer_chats')
+      .select('id')
+      .eq('order_id', activeOrder.id)
+      .eq('user_id', activeOrder.user_id)
+      .maybeSingle();
+
+    if (existingChat) {
+      setChatId(existingChat.id);
+      return existingChat.id;
+    }
+
+    // Create new chat
+    const { data: newChat } = await supabase
+      .from('delivery_customer_chats')
+      .insert({
+        order_id: activeOrder.id,
+        delivery_partner_id: activeOrder.assigned_delivery_partner_id,
+        user_id: activeOrder.user_id,
+      })
+      .select('id')
+      .single();
+
+    if (newChat) {
+      setChatId(newChat.id);
+      return newChat.id;
+    }
+    return null;
+  }, [activeOrder]);
+
+  // Initialize chat when modal opens
+  useEffect(() => {
+    if (isOpen && activeOrder?.assigned_delivery_partner_id) {
+      getOrCreateChat();
+    }
+  }, [isOpen, activeOrder?.assigned_delivery_partner_id, getOrCreateChat]);
+
+  // Voice call hook
+  const voiceCall = useVoiceCall({
+    chatId,
+    myId: activeOrder?.user_id || '',
+    myType: 'user',
+    partnerId: activeOrder?.assigned_delivery_partner_id || '',
+    partnerName: activeOrder?.delivery_partners?.name || 'Delivery Partner',
+  });
+
+  // Listen for incoming calls
+  useIncomingCall({
+    chatId,
+    myId: activeOrder?.user_id || '',
+    myType: 'user',
+    onIncomingCall: voiceCall.handleIncomingCall,
+  });
+
+  // Handle voice call button click
+  const handleVoiceCall = async () => {
+    let currentChatId = chatId;
+    if (!currentChatId) {
+      currentChatId = await getOrCreateChat();
+    }
+    if (currentChatId) {
+      voiceCall.startCall();
+    }
+  };
 
   // Fetch delivery partner location and set up real-time tracking
   useEffect(() => {
@@ -451,12 +525,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                   <Button 
                     size="icon" 
                     variant="outline"
-                    onClick={() => {
-                      const mobile = activeOrder.delivery_partners?.mobile;
-                      if (mobile) {
-                        window.location.href = `tel:${mobile}`;
-                      }
-                    }}
+                    onClick={handleVoiceCall}
                     title="Call delivery partner"
                   >
                     <Phone className="h-4 w-4" />
@@ -513,6 +582,28 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
           userId={activeOrder.user_id}
         />
       )}
+
+      {/* Voice Call Modal */}
+      <VoiceCallModal
+        open={voiceCall.state.status !== 'idle'}
+        status={voiceCall.state.status}
+        partnerName={
+          voiceCall.state.callerType === 'delivery_partner' 
+            ? 'Zippy Delivery Partner'
+            : activeOrder?.delivery_partners?.name || 'Delivery Partner'
+        }
+        partnerAvatar={activeOrder?.delivery_partners?.profile_photo_url}
+        duration={voiceCall.state.duration}
+        isMuted={voiceCall.state.isMuted}
+        isSpeaker={voiceCall.state.isSpeaker}
+        isIncoming={voiceCall.state.callerType === 'delivery_partner'}
+        onAnswer={voiceCall.answerCall}
+        onDecline={voiceCall.declineCall}
+        onEnd={voiceCall.endCall}
+        onToggleMute={voiceCall.toggleMute}
+        onToggleSpeaker={voiceCall.toggleSpeaker}
+        onClose={() => {}}
+      />
     </Dialog>
   );
 };
