@@ -86,6 +86,9 @@ const DeliveryPartnerOrders = ({
     onIncomingCall: voiceCall.handleIncomingCall,
   });
 
+  // State to track pending call
+  const [pendingCallOrder, setPendingCallOrder] = useState<Order | null>(null);
+
   // Get or create chat and start voice call
   const handleVoiceCall = useCallback(async (order: Order) => {
     try {
@@ -130,11 +133,7 @@ const DeliveryPartnerOrders = ({
       }
 
       setVoiceCallChatId(chatId);
-      
-      // Small delay to ensure state is updated before starting call
-      setTimeout(() => {
-        voiceCall.startCall();
-      }, 100);
+      setPendingCallOrder(order);
     } catch (error) {
       console.error('Error starting voice call:', error);
       toast({
@@ -143,7 +142,15 @@ const DeliveryPartnerOrders = ({
         variant: "destructive",
       });
     }
-  }, [partnerId, voiceCall, toast]);
+  }, [partnerId, toast]);
+
+  // Effect to start call when chatId is ready
+  useEffect(() => {
+    if (pendingCallOrder && voiceCallChatId) {
+      voiceCall.startCall();
+      setPendingCallOrder(null);
+    }
+  }, [pendingCallOrder, voiceCallChatId, voiceCall]);
   const statusOptions = [{
     value: "all",
     label: "All Orders",
@@ -496,107 +503,94 @@ const DeliveryPartnerOrders = ({
         </div>}
       
       {filteredOrders.map(order => <Card key={order.id} className="border-l-4 border-l-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                <span>Order #{order.id.slice(0, -4)}<span className="font-bold text-lg">{order.id.slice(-4)}</span></span>
-                
+                <span className="text-xs text-muted-foreground">#{order.id.slice(0, -4)}</span>
+                <span className="font-bold">{order.id.slice(-4)}</span>
+                <Badge className={`text-[10px] px-1.5 py-0 ${getStatusBadgeColor(order.status, order.pickup_status)}`}>
+                  {order.status === 'delivered' ? 'Delivered' : getPickupStatusText(order.pickup_status || 'assigned')}
+                </Badge>
               </div>
-              
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Restaurant</p>
-              <p className="font-medium">{order.seller_name}</p>
+          <CardContent className="space-y-2 py-2 px-4">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-sm">{order.seller_name}</p>
+              <span className="text-xs text-muted-foreground">{order.items.length} items</span>
             </div>
 
-            <div>
-              <p className="text-sm text-muted-foreground mb-2">Items ({order.items.length})</p>
-              <div className="space-y-1">
-                {order.items.map((item, index) => <div key={index} className="flex justify-between text-sm">
-                    <span>{item.item_name} × {item.quantity}</span>
-                    
-                  </div>)}
-              </div>
+            <div className="text-xs text-muted-foreground">
+              {order.items.slice(0, 2).map((item, index) => (
+                <span key={index}>{item.item_name} ×{item.quantity}{index < Math.min(order.items.length, 2) - 1 ? ', ' : ''}</span>
+              ))}
+              {order.items.length > 2 && <span> +{order.items.length - 2} more</span>}
             </div>
 
             {/* Show delivery address only after pickup */}
             {(order.pickup_status === 'picked_up' || order.pickup_status === 'going_for_delivery' || order.status === 'delivered') && (
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Delivery Address</p>
-                  <p className="text-sm">{order.delivery_address}</p>
-                </div>
+              <div className="flex items-start gap-1.5">
+                <MapPin className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground line-clamp-2">{order.delivery_address}</p>
               </div>
             )}
 
-            {order.instructions && <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Special Instructions</p>
-                  <p className="text-sm">{order.instructions}</p>
-                </div>
+            {order.instructions && <div className="flex items-start gap-1.5">
+                <AlertCircle className="h-3 w-3 text-orange-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground line-clamp-1">{order.instructions}</p>
               </div>}
 
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Payment: {order.payment_method.toUpperCase()}</span>
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+              <span>{order.payment_method.toUpperCase()}</span>
+              <span>{formatDistanceToNow(new Date(order.assigned_at), { addSuffix: true })}</span>
             </div>
 
-            <div className="text-xs text-muted-foreground">
-              Assigned {formatDistanceToNow(new Date(order.assigned_at), {
-            addSuffix: true
-          })}
-            </div>
-
-            <div className="flex gap-2 pt-2 flex-wrap">
+            <div className="flex gap-1.5 pt-2 flex-wrap">
               {/* Pickup Workflow States */}
-              {(!order.pickup_status || order.pickup_status === 'assigned') && order.seller_status === 'packed' && <Button size="sm" onClick={() => navigateToSeller(order)} className="bg-blue-600 hover:bg-blue-700">
-                  <MapPin className="h-4 w-4 mr-1" />
+              {(!order.pickup_status || order.pickup_status === 'assigned') && order.seller_status === 'packed' && <Button size="sm" onClick={() => navigateToSeller(order)} className="bg-blue-600 hover:bg-blue-700 h-7 text-xs px-2">
+                  <MapPin className="h-3 w-3 mr-1" />
                   Go for Pickup
                 </Button>}
 
               {order.pickup_status === 'going_for_pickup' && <>
-                  <Button size="sm" onClick={() => openPinModal(order)} className="bg-green-600 hover:bg-green-700">
-                    <Package className="h-4 w-4 mr-1" />
+                  <Button size="sm" onClick={() => openPinModal(order)} className="bg-green-600 hover:bg-green-700 h-7 text-xs px-2">
+                    <Package className="h-3 w-3 mr-1" />
                     Pickup
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => navigateToSeller(order)} className="border-blue-600 text-blue-600 hover:bg-blue-50">
-                    <Navigation className="h-4 w-4 mr-1" />
+                  <Button size="sm" variant="outline" onClick={() => navigateToSeller(order)} className="border-blue-600 text-blue-600 hover:bg-blue-50 h-7 text-xs px-2">
+                    <Navigation className="h-3 w-3 mr-1" />
                     Navigate
                   </Button>
                 </>}
 
               {order.pickup_status === 'picked_up' && order.status === 'out_for_delivery' && <>
-                  <Button size="sm" onClick={() => navigateToCustomer(order)} className="bg-orange-600 hover:bg-orange-700">
-                    <MapPin className="h-4 w-4 mr-1" />
+                  <Button size="sm" onClick={() => navigateToCustomer(order)} className="bg-orange-600 hover:bg-orange-700 h-7 text-xs px-2">
+                    <MapPin className="h-3 w-3 mr-1" />
                     Go to Delivery
                   </Button>
                 </>}
 
               {order.pickup_status === 'going_for_delivery' && order.status === 'out_for_delivery' && <>
-                  <Button size="sm" onClick={() => openDeliveryPinModal(order)} className="bg-green-600 hover:bg-green-700">
-                    Mark Delivered
+                  <Button size="sm" onClick={() => openDeliveryPinModal(order)} className="bg-green-600 hover:bg-green-700 h-7 text-xs px-2">
+                    Delivered
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => navigateToCustomer(order)} className="border-green-600 text-green-600 hover:bg-green-50">
-                    <Navigation className="h-4 w-4 mr-1" />
+                  <Button size="sm" variant="outline" onClick={() => navigateToCustomer(order)} className="border-green-600 text-green-600 hover:bg-green-50 h-7 text-xs px-2">
+                    <Navigation className="h-3 w-3 mr-1" />
                     Navigate
                   </Button>
                 </>}
 
-              <Button variant="outline" size="sm" onClick={() => {
+              <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => {
                 setChatOrderId(order.id);
                 setChatUserId(order.user_id);
                 setChatModalOpen(true);
               }}>
-                <MessageSquare className="h-4 w-4 mr-1" />
+                <MessageSquare className="h-3 w-3 mr-1" />
                 Chat
               </Button>
 
-              <Button variant="outline" size="sm" onClick={() => handleVoiceCall(order)}>
-                <Phone className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => handleVoiceCall(order)}>
+                <Phone className="h-3 w-3 mr-1" />
                 Call
               </Button>
             </div>

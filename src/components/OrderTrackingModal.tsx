@@ -93,16 +93,28 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     onIncomingCall: voiceCall.handleIncomingCall,
   });
 
+  // State to track pending call
+  const [pendingVoiceCall, setPendingVoiceCall] = useState(false);
+
   // Handle voice call button click
   const handleVoiceCall = async () => {
-    let currentChatId = chatId;
-    if (!currentChatId) {
-      currentChatId = await getOrCreateChat();
-    }
-    if (currentChatId) {
+    if (!chatId) {
+      const newChatId = await getOrCreateChat();
+      if (newChatId) {
+        setPendingVoiceCall(true);
+      }
+    } else {
       voiceCall.startCall();
     }
   };
+
+  // Effect to start call when chatId is ready
+  useEffect(() => {
+    if (pendingVoiceCall && chatId) {
+      voiceCall.startCall();
+      setPendingVoiceCall(false);
+    }
+  }, [pendingVoiceCall, chatId, voiceCall]);
 
   // Fetch delivery partner location and set up real-time tracking
   useEffect(() => {

@@ -147,8 +147,15 @@ export const useVoiceCall = ({
   };
 
   // Initialize call - the caller initiates
-  const startCall = async () => {
-    if (!chatId) return;
+  const startCall = useCallback(async () => {
+    if (!chatId) {
+      toast({
+        title: "Cannot Start Call",
+        description: "Chat not ready. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setState({ status: 'calling', callId: null, duration: 0, isMuted: false, isSpeaker: false, callerType: myType });
@@ -288,8 +295,9 @@ export const useVoiceCall = ({
         variant: "destructive",
       });
       cleanup();
+      setState({ status: 'idle', callId: null, duration: 0, isMuted: false, isSpeaker: false, callerType: null });
     }
-  };
+  }, [chatId, myId, myType, partnerId, partnerName, createPeerConnection, getUserMedia, playRingtone, toast]);
 
   // Answer incoming call
   const answerCall = async (callId: string, offer: RTCSessionDescriptionInit) => {

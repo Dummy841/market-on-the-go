@@ -1,8 +1,8 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Phone, PhoneOff, Mic, MicOff, PhoneIncoming, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface VoiceCallModalProps {
   open: boolean;
@@ -75,13 +75,22 @@ const VoiceCallModal = ({
 
   if (!open || status === 'idle') return null;
 
-  return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent 
-        className="fixed inset-0 w-screen h-screen max-w-none m-0 p-0 rounded-none bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-0 text-white z-[100]"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
+  // Use Portal to render at document body level for true full-screen
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white"
+      style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        width: '100vw', 
+        height: '100vh',
+        margin: 0,
+        padding: 0,
+      }}
+    >
         <div className="flex flex-col items-center justify-center h-full py-12 px-6 space-y-8">
           {/* Avatar with pulse animation */}
           <div className="relative">
@@ -258,8 +267,8 @@ const VoiceCallModal = ({
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </div>,
+    document.body
   );
 };
 
