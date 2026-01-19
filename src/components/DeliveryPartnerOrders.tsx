@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
-import { Package, MapPin, Phone, CreditCard, AlertCircle, Navigation, Filter, Clock, CheckCircle, MessageSquare } from "lucide-react";
+import { format, formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
+import { Package, MapPin, Phone, AlertCircle, Navigation, Filter, Clock, CheckCircle, MessageSquare, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
@@ -64,9 +64,7 @@ const DeliveryPartnerOrders = ({
   const [voiceCallChatId, setVoiceCallChatId] = useState<string | null>(null);
   const [voiceCallCustomerName, setVoiceCallCustomerName] = useState("Customer");
   const [voiceCallUserId, setVoiceCallUserId] = useState("");
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
 
   // Voice call hook
   const voiceCall = useVoiceCall({
@@ -77,8 +75,7 @@ const DeliveryPartnerOrders = ({
     partnerName: voiceCallCustomerName,
   });
 
-  // Listen for incoming calls - we need to listen on all chats for this partner
-  // For simplicity, we'll listen when a specific chat is active
+  // Listen for incoming calls
   useIncomingCall({
     chatId: voiceCallChatId,
     myId: partnerId,
@@ -86,11 +83,11 @@ const DeliveryPartnerOrders = ({
     onIncomingCall: voiceCall.handleIncomingCall,
   });
 
-  // State to track pending call
-  const [pendingCallOrder, setPendingCallOrder] = useState<Order | null>(null);
-
   // Get or create chat and start voice call
   const handleVoiceCall = useCallback(async (order: Order) => {
+    // Start microphone permission request immediately (keeps "user gesture" on mobile)
+    const micPromise = voiceCall.requestMicrophone?.();
+
     try {
       // Fetch customer name
       const { data: user } = await supabase
@@ -98,7 +95,7 @@ const DeliveryPartnerOrders = ({
         .select('name')
         .eq('id', order.user_id)
         .single();
-      
+
       const customerName = user?.name || 'Customer';
       setVoiceCallCustomerName(customerName);
       setVoiceCallUserId(order.user_id);
@@ -112,7 +109,7 @@ const DeliveryPartnerOrders = ({
         .maybeSingle();
 
       let chatId: string;
-      
+
       if (existingChat) {
         chatId = existingChat.id;
       } else {
@@ -133,7 +130,7 @@ const DeliveryPartnerOrders = ({
       }
 
       setVoiceCallChatId(chatId);
-      setPendingCallOrder(order);
+      voiceCall.startCall({ chatId, micPromise: micPromise ?? undefined });
     } catch (error) {
       console.error('Error starting voice call:', error);
       toast({
@@ -142,15 +139,8 @@ const DeliveryPartnerOrders = ({
         variant: "destructive",
       });
     }
-  }, [partnerId, toast]);
+  }, [partnerId, toast, voiceCall]);
 
-  // Effect to start call when chatId is ready
-  useEffect(() => {
-    if (pendingCallOrder && voiceCallChatId) {
-      voiceCall.startCall();
-      setPendingCallOrder(null);
-    }
-  }, [pendingCallOrder, voiceCallChatId, voiceCall]);
   const statusOptions = [{
     value: "all",
     label: "All Orders",
@@ -422,30 +412,40 @@ const DeliveryPartnerOrders = ({
   });
   if (filteredOrders.length === 0) {
     return <div className="space-y-4">
-        {/* Status Filter Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Date (compact) */}
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{format(new Date(), 'MMMM do, yyyy')}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Status Filter Cards (horizontal + compact) */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
           {statusOptions.map(status => {
-          const Icon = status.icon;
-          const count = status.value === "all" ? orders.length : status.value === "pending" ? orders.filter(o => o.status !== "delivered").length : orders.filter(o => o.status === "delivered").length;
-          return <Card key={status.value} className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === status.value ? 'ring-2 ring-primary shadow-md' : ''}`} onClick={() => setStatusFilter(status.value)}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
-                      <p className="text-xl font-bold">{count}</p>
+            const Icon = status.icon;
+            const count = status.value === "all" ? orders.length : status.value === "pending" ? orders.filter(o => o.status !== "delivered").length : orders.filter(o => o.status === "delivered").length;
+            return <Card key={status.value} className={`min-w-[140px] cursor-pointer transition-all ${statusFilter === status.value ? 'ring-2 ring-primary shadow-md' : ''}`} onClick={() => setStatusFilter(status.value)}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
+                        <p className="text-lg font-bold leading-tight">{count}</p>
+                      </div>
+                      <Icon className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <Icon className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>;
-        })}
+                  </CardContent>
+                </Card>;
+          })}
         </div>
 
         {/* Date Filter for Delivered Orders */}
         {statusFilter === "delivered" && <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="h-9 w-48">
                 <SelectValue placeholder="Filter by date" />
               </SelectTrigger>
               <SelectContent>
@@ -455,52 +455,6 @@ const DeliveryPartnerOrders = ({
               </SelectContent>
             </Select>
           </div>}
-        
-        <Card>
-          <CardContent className="text-center py-8">
-            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
-              No {statusFilter === "all" ? "" : statusFilter} orders found
-              {statusFilter === "delivered" && dateFilter !== "all" ? ` for ${dateFilter}` : ""}
-            </p>
-          </CardContent>
-        </Card>
-      </div>;
-  }
-  return <div className="space-y-4">
-      {/* Status Filter Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {statusOptions.map(status => {
-        const Icon = status.icon;
-        const count = status.value === "all" ? orders.length : status.value === "pending" ? orders.filter(o => o.status !== "delivered").length : orders.filter(o => o.status === "delivered").length;
-        return <Card key={status.value} className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === status.value ? 'ring-2 ring-primary shadow-md' : ''}`} onClick={() => setStatusFilter(status.value)}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
-                    <p className="text-xl font-bold">{count}</p>
-                  </div>
-                  <Icon className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>;
-      })}
-      </div>
-
-      {/* Date Filter for Delivered Orders */}
-      {statusFilter === "delivered" && <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by date" />
-            </SelectTrigger>
-            <SelectContent>
-              {dateOptions.map(option => <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>}
       
       {filteredOrders.map(order => <Card key={order.id} className="border-l-4 border-l-primary">
           <CardHeader className="py-3 px-4">

@@ -37,7 +37,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
   // Get or create chat for voice call
   const getOrCreateChat = useCallback(async () => {
     if (!activeOrder || !activeOrder.assigned_delivery_partner_id) return null;
-    
+
     // Check if chat exists
     const { data: existingChat } = await supabase
       .from('delivery_customer_chats')
@@ -66,6 +66,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
       setChatId(newChat.id);
       return newChat.id;
     }
+
     return null;
   }, [activeOrder]);
 
@@ -93,28 +94,20 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     onIncomingCall: voiceCall.handleIncomingCall,
   });
 
-  // State to track pending call
-  const [pendingVoiceCall, setPendingVoiceCall] = useState(false);
-
   // Handle voice call button click
   const handleVoiceCall = async () => {
-    if (!chatId) {
-      const newChatId = await getOrCreateChat();
-      if (newChatId) {
-        setPendingVoiceCall(true);
-      }
-    } else {
-      voiceCall.startCall();
-    }
-  };
+    // Start microphone permission request immediately (keeps "user gesture" on mobile)
+    const micPromise = voiceCall.requestMicrophone?.();
 
-  // Effect to start call when chatId is ready
-  useEffect(() => {
-    if (pendingVoiceCall && chatId) {
-      voiceCall.startCall();
-      setPendingVoiceCall(false);
+    let effectiveChatId = chatId;
+    if (!effectiveChatId) {
+      effectiveChatId = await getOrCreateChat();
     }
-  }, [pendingVoiceCall, chatId, voiceCall]);
+
+    if (!effectiveChatId) return;
+
+    voiceCall.startCall({ chatId: effectiveChatId, micPromise: micPromise ?? undefined });
+  };
 
   // Fetch delivery partner location and set up real-time tracking
   useEffect(() => {
