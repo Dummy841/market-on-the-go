@@ -153,13 +153,29 @@ export const useVoiceCall = ({
   // Initialize call - the caller initiates
   // NOTE: To avoid mobile "user gesture" issues, callers can pass a micPromise that was created
   // synchronously inside the button click handler.
-  const startCall = useCallback(async (options?: { chatId?: string | null; micPromise?: Promise<MediaStream> }) => {
+  const startCall = useCallback(async (options?: { 
+    chatId?: string | null; 
+    micPromise?: Promise<MediaStream>;
+    partnerId?: string;
+    callerName?: string;
+  }) => {
     const effectiveChatId = options?.chatId ?? chatId;
+    const effectivePartnerId = options?.partnerId ?? partnerId;
+    const effectiveCallerName = options?.callerName ?? (myType === 'delivery_partner' ? 'Zippy Delivery Partner' : 'Customer');
 
     if (!effectiveChatId) {
       toast({
         title: "Cannot Start Call",
         description: "Chat not ready. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!effectivePartnerId) {
+      toast({
+        title: "Cannot Start Call",
+        description: "Receiver not ready. Please try again.",
         variant: "destructive",
       });
       return;
@@ -178,7 +194,7 @@ export const useVoiceCall = ({
           chat_id: effectiveChatId,
           caller_type: myType,
           caller_id: myId,
-          receiver_id: partnerId,
+          receiver_id: effectivePartnerId,
           status: 'ringing',
         })
         .select('id')
@@ -224,7 +240,7 @@ export const useVoiceCall = ({
           payload: {
             offer: pc.localDescription,
             from: myId,
-            callerName: partnerName,
+            callerName: effectiveCallerName,
             callId,
           },
         });

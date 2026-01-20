@@ -134,7 +134,12 @@ const DeliveryPartnerOrders = ({
       }
 
       setVoiceCallChatId(chatId);
-      voiceCall.startCall({ chatId, micPromise: micPromise ?? undefined });
+      voiceCall.startCall({ 
+        chatId, 
+        micPromise: micPromise ?? undefined,
+        partnerId: order.user_id,
+        callerName: partnerName,
+      });
     } catch (error) {
       console.error('Error starting voice call:', error);
       toast({
