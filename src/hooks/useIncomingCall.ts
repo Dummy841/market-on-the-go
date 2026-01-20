@@ -1,12 +1,14 @@
 import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNativeNotifications } from "./useNativeNotifications";
+import { useNativeNotifications, registerCallActionCallback, unregisterCallActionCallback } from "./useNativeNotifications";
 
 interface UseIncomingCallProps {
   chatId: string | null;
   myId: string;
   myType: 'user' | 'delivery_partner';
   onIncomingCall: (callId: string, offer: RTCSessionDescriptionInit, callerName: string, callerType: 'user' | 'delivery_partner') => void;
+  onAnswerFromNotification?: () => void;
+  onDeclineFromNotification?: () => void;
 }
 
 export const useIncomingCall = ({
@@ -14,9 +16,12 @@ export const useIncomingCall = ({
   myId,
   myType,
   onIncomingCall,
+  onAnswerFromNotification,
+  onDeclineFromNotification,
 }: UseIncomingCallProps) => {
   const processedCallsRef = useRef<Set<string>>(new Set());
   const activeNotificationIdRef = useRef<number | null>(null);
+  const activeCallIdRef = useRef<string | null>(null);
   const { showIncomingCallNotification, dismissIncomingCallNotification, isNative } = useNativeNotifications();
 
   // Dismiss any active incoming call notification
@@ -24,6 +29,10 @@ export const useIncomingCall = ({
     if (activeNotificationIdRef.current !== null) {
       await dismissIncomingCallNotification(activeNotificationIdRef.current);
       activeNotificationIdRef.current = null;
+    }
+    if (activeCallIdRef.current) {
+      unregisterCallActionCallback(activeCallIdRef.current);
+      activeCallIdRef.current = null;
     }
   }, [dismissIncomingCallNotification]);
 
@@ -53,9 +62,10 @@ export const useIncomingCall = ({
           if (call.status === 'ringing' && !processedCallsRef.current.has(call.id)) {
             console.log('New incoming call detected from database:', call.id);
             processedCallsRef.current.add(call.id);
+            activeCallIdRef.current = call.id;
             
             // Subscribe to this call's signaling channel to get the offer
-            const callChannel = supabase.channel(`call-${call.id}`);
+            const callChannel = supabase.channel(`call-${call.id}-receiver`);
             
             callChannel
               .on('broadcast', { event: 'offer' }, async ({ payload: offerPayload }) => {
@@ -67,6 +77,16 @@ export const useIncomingCall = ({
                   if (isNative) {
                     const notificationId = await showIncomingCallNotification(callerName, call.id);
                     activeNotificationIdRef.current = notificationId;
+                    
+                    // Register callback for notification actions
+                    registerCallActionCallback(call.id, (action) => {
+                      console.log('Call action from notification:', action);
+                      if (action === 'answer' && onAnswerFromNotification) {
+                        onAnswerFromNotification();
+                      } else if (action === 'decline' && onDeclineFromNotification) {
+                        onDeclineFromNotification();
+                      }
+                    });
                   }
 
                   onIncomingCall(
@@ -78,7 +98,15 @@ export const useIncomingCall = ({
                 }
               })
               .subscribe((status) => {
-                console.log('Call channel subscription status:', status);
+                console.log('Receiver call channel subscription status:', status);
+                if (status === 'SUBSCRIBED') {
+                  // Request offer from caller by notifying we're ready
+                  callChannel.send({
+                    type: 'broadcast',
+                    event: 'receiver-ready',
+                    payload: { receiverId: myId },
+                  });
+                }
               });
           }
         }
@@ -97,7 +125,7 @@ export const useIncomingCall = ({
           console.log('Call UPDATE detected:', call);
           
           // Dismiss notification when call is answered, declined, or ended
-          if (['connected', 'declined', 'ended', 'missed'].includes(call.status)) {
+          if (['connected', 'ongoing', 'declined', 'ended', 'missed'].includes(call.status)) {
             await dismissActiveNotification();
           }
         }
@@ -111,7 +139,7 @@ export const useIncomingCall = ({
       supabase.removeChannel(dbChannel);
       dismissActiveNotification();
     };
-  }, [myId, myType, onIncomingCall, isNative, showIncomingCallNotification, dismissActiveNotification]);
+  }, [myId, myType, onIncomingCall, onAnswerFromNotification, onDeclineFromNotification, isNative, showIncomingCallNotification, dismissActiveNotification]);
 
   return {
     dismissActiveNotification,
