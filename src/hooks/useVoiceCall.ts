@@ -519,6 +519,8 @@ export const useVoiceCall = ({
   const handleIncomingCall = useCallback((callId: string, offer: RTCSessionDescriptionInit, callerName: string, callerType: 'user' | 'delivery_partner') => {
     if (state.status !== 'idle') return; // Already in a call
     
+    console.log('handleIncomingCall triggered:', { callId, callerName, callerType });
+    
     playRingtone();
     setState({
       status: 'ringing',
@@ -533,10 +535,12 @@ export const useVoiceCall = ({
     (window as any).__pendingCallOffer = offer;
     (window as any).__pendingCallId = callId;
 
-    // Send back ringing notification to caller
+    // Send back ringing notification to caller on the SAME channel they're listening on
     const channel = supabase.channel(`call-${callId}`);
+    channelRef.current = channel;
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
+        console.log('Sending call-ringing notification to caller on channel:', `call-${callId}`);
         channel.send({
           type: 'broadcast',
           event: 'call-ringing',
@@ -545,6 +549,18 @@ export const useVoiceCall = ({
       }
     });
   }, [state.status, playRingtone, myId]);
+
+  // Wrapper for answerCall that retrieves stored offer
+  const answerCallWrapper = useCallback(() => {
+    const offer = (window as any).__pendingCallOffer;
+    const callId = (window as any).__pendingCallId;
+    console.log('answerCallWrapper called:', { hasOffer: !!offer, callId });
+    if (offer && callId) {
+      answerCall(callId, offer);
+      delete (window as any).__pendingCallOffer;
+      delete (window as any).__pendingCallId;
+    }
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -559,15 +575,7 @@ export const useVoiceCall = ({
     state,
     requestMicrophone,
     startCall,
-    answerCall: () => {
-      const offer = (window as any).__pendingCallOffer;
-      const callId = (window as any).__pendingCallId;
-      if (offer && callId) {
-        answerCall(callId, offer);
-        delete (window as any).__pendingCallOffer;
-        delete (window as any).__pendingCallId;
-      }
-    },
+    answerCall: answerCallWrapper,
     declineCall,
     endCall,
     toggleMute,

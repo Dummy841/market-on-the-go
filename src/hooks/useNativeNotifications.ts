@@ -7,19 +7,21 @@ interface NotificationOptions {
   body: string;
   id?: number;
   data?: Record<string, any>;
+  ongoing?: boolean; // For persistent incoming call notifications
+  autoCancel?: boolean;
 }
 
 export const useNativeNotifications = () => {
   const permissionGranted = useRef(false);
   const channelCreated = useRef(false);
 
-  // Initialize notification channel and permissions
+  // Initialize notification channels and permissions
   useEffect(() => {
     const init = async () => {
       if (!Capacitor.isNativePlatform()) return;
 
       try {
-        // Create notification channel for Android
+        // Create notification channel for Android - Order Updates
         if (Capacitor.getPlatform() === 'android' && !channelCreated.current) {
           await LocalNotifications.createChannel({
             id: 'zippy_orders',
@@ -32,6 +34,20 @@ export const useNativeNotifications = () => {
             lights: true,
             lightColor: '#FF6B00',
           });
+
+          // Create notification channel for Incoming Calls - highest priority
+          await LocalNotifications.createChannel({
+            id: 'zippy_calls',
+            name: 'Incoming Calls',
+            description: 'High-priority notifications for incoming voice calls',
+            importance: 5, // MAX importance
+            visibility: 1, // PUBLIC
+            vibration: true,
+            sound: 'ringtone', // Uses system ringtone
+            lights: true,
+            lightColor: '#FF6B00',
+          });
+          
           channelCreated.current = true;
         }
 
@@ -69,6 +85,8 @@ export const useNativeNotifications = () => {
     body,
     id,
     data,
+    ongoing = false,
+    autoCancel = true,
   }: NotificationOptions): Promise<ScheduleResult | null> => {
     // If not on native platform, fall back to browser notifications
     if (!Capacitor.isNativePlatform()) {
@@ -88,11 +106,13 @@ export const useNativeNotifications = () => {
             id: notificationId,
             title,
             body,
-            channelId: 'zippy_orders',
-            sound: 'default',
+            channelId: ongoing ? 'zippy_calls' : 'zippy_orders',
+            sound: ongoing ? 'ringtone' : 'default',
             extra: data,
             smallIcon: 'ic_notification', // Android only
             iconColor: '#FF6B00',
+            ongoing, // Makes notification persistent (can't be swiped away)
+            autoCancel, // Whether tapping dismisses it
           },
         ],
       });
@@ -102,6 +122,17 @@ export const useNativeNotifications = () => {
     } catch (error) {
       console.error('Error showing native notification:', error);
       return null;
+    }
+  }, []);
+
+  const cancelNotification = useCallback(async (notificationId: number) => {
+    if (!Capacitor.isNativePlatform()) return;
+    
+    try {
+      await LocalNotifications.cancel({ notifications: [{ id: notificationId }] });
+      console.log('Notification cancelled:', notificationId);
+    } catch (error) {
+      console.error('Error cancelling notification:', error);
     }
   }, []);
 
@@ -179,11 +210,37 @@ export const useNativeNotifications = () => {
     });
   }, [showNativeNotification]);
 
+  // Incoming call notification with high-priority full-screen intent behavior
+  const showIncomingCallNotification = useCallback(async (
+    callerName: string,
+    callId: string
+  ): Promise<number> => {
+    const notificationId = Math.floor(Math.random() * 100000);
+    
+    await showNativeNotification({
+      id: notificationId,
+      title: '📞 Incoming Call',
+      body: `${callerName} is calling...`,
+      data: { type: 'incoming_call', callId },
+      ongoing: true, // Persistent notification
+      autoCancel: false, // Don't dismiss on tap
+    });
+
+    return notificationId;
+  }, [showNativeNotification]);
+
+  const dismissIncomingCallNotification = useCallback(async (notificationId: number) => {
+    await cancelNotification(notificationId);
+  }, [cancelNotification]);
+
   return {
     requestPermission,
     showNativeNotification,
     showOrderStatusNotification,
     showChatNotification,
+    showIncomingCallNotification,
+    dismissIncomingCallNotification,
+    cancelNotification,
     isNative: Capacitor.isNativePlatform(),
   };
 };

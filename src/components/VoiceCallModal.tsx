@@ -9,6 +9,7 @@ interface VoiceCallModalProps {
   status: 'idle' | 'calling' | 'ringing' | 'ongoing' | 'ended' | 'declined' | 'missed';
   partnerName: string;
   partnerAvatar?: string | null;
+  showAvatar?: boolean; // Whether to show avatar image (false for delivery partners)
   duration: number;
   isMuted: boolean;
   isSpeaker: boolean;
@@ -32,6 +33,7 @@ const VoiceCallModal = ({
   status,
   partnerName,
   partnerAvatar,
+  showAvatar = true,
   duration,
   isMuted,
   isSpeaker,
@@ -43,6 +45,13 @@ const VoiceCallModal = ({
   onToggleSpeaker,
   onClose,
 }: VoiceCallModalProps) => {
+  
+  // Wrapper for button clicks to stop event propagation
+  const handleButtonClick = (handler: () => void) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handler();
+  };
   const [pulseAnimation, setPulseAnimation] = useState(true);
 
   useEffect(() => {
@@ -111,7 +120,9 @@ const VoiceCallModal = ({
               style={{ transform: 'scale(1.5)' }}
             />
             <Avatar className="h-32 w-32 border-4 border-primary/50 relative z-10">
-              <AvatarImage src={partnerAvatar || ''} />
+              {showAvatar && partnerAvatar ? (
+                <AvatarImage src={partnerAvatar} />
+              ) : null}
               <AvatarFallback className="bg-primary text-primary-foreground text-4xl font-bold">
                 {partnerName?.charAt(0) || '?'}
               </AvatarFallback>
@@ -137,10 +148,11 @@ const VoiceCallModal = ({
               <div className="flex items-center justify-center gap-12">
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="destructive"
                     size="lg"
                     className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30"
-                    onClick={onDecline}
+                    onClick={handleButtonClick(onDecline)}
                   >
                     <PhoneOff className="h-8 w-8" />
                   </Button>
@@ -148,10 +160,11 @@ const VoiceCallModal = ({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="default"
                     size="lg"
                     className="h-20 w-20 rounded-full bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/30 animate-pulse"
-                    onClick={onAnswer}
+                    onClick={handleButtonClick(onAnswer)}
                   >
                     <PhoneIncoming className="h-8 w-8" />
                   </Button>
@@ -165,6 +178,7 @@ const VoiceCallModal = ({
               <div className="flex items-center justify-center gap-8">
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     size="lg"
                     className={`h-16 w-16 rounded-full border-0 ${
@@ -172,7 +186,7 @@ const VoiceCallModal = ({
                         ? 'bg-red-500/80 hover:bg-red-600 text-white' 
                         : 'bg-slate-700 hover:bg-slate-600 text-white'
                     }`}
-                    onClick={onToggleMute}
+                    onClick={handleButtonClick(onToggleMute)}
                   >
                     {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
                   </Button>
@@ -180,10 +194,11 @@ const VoiceCallModal = ({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="destructive"
                     size="lg"
                     className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30"
-                    onClick={onEnd}
+                    onClick={handleButtonClick(onEnd)}
                   >
                     <PhoneOff className="h-8 w-8" />
                   </Button>
@@ -191,6 +206,7 @@ const VoiceCallModal = ({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     size="lg"
                     className={`h-16 w-16 rounded-full border-0 ${
@@ -198,7 +214,7 @@ const VoiceCallModal = ({
                         ? 'bg-primary/80 hover:bg-primary text-white' 
                         : 'bg-slate-700 hover:bg-slate-600 text-white'
                     }`}
-                    onClick={onToggleSpeaker}
+                    onClick={handleButtonClick(onToggleSpeaker)}
                   >
                     {isSpeaker ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
                   </Button>
@@ -212,6 +228,7 @@ const VoiceCallModal = ({
               <div className="flex items-center justify-center gap-8">
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     size="lg"
                     className={`h-16 w-16 rounded-full border-0 ${
@@ -219,7 +236,7 @@ const VoiceCallModal = ({
                         ? 'bg-red-500/80 hover:bg-red-600 text-white' 
                         : 'bg-slate-700 hover:bg-slate-600 text-white'
                     }`}
-                    onClick={onToggleMute}
+                    onClick={handleButtonClick(onToggleMute)}
                   >
                     {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
                   </Button>
@@ -227,10 +244,11 @@ const VoiceCallModal = ({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="destructive"
                     size="lg"
                     className="h-20 w-20 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30"
-                    onClick={onEnd}
+                    onClick={handleButtonClick(onEnd)}
                   >
                     <PhoneOff className="h-8 w-8" />
                   </Button>
@@ -238,6 +256,7 @@ const VoiceCallModal = ({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     size="lg"
                     className={`h-16 w-16 rounded-full border-0 ${
@@ -245,7 +264,7 @@ const VoiceCallModal = ({
                         ? 'bg-primary/80 hover:bg-primary text-white' 
                         : 'bg-slate-700 hover:bg-slate-600 text-white'
                     }`}
-                    onClick={onToggleSpeaker}
+                    onClick={handleButtonClick(onToggleSpeaker)}
                   >
                     {isSpeaker ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
                   </Button>
@@ -257,10 +276,11 @@ const VoiceCallModal = ({
             {/* Call ended states - Close */}
             {(status === 'ended' || status === 'declined' || status === 'missed') && (
               <Button
+                type="button"
                 variant="outline"
                 size="lg"
                 className="h-14 px-12 rounded-full bg-slate-700 hover:bg-slate-600 border-0 text-white"
-                onClick={onClose}
+                onClick={handleButtonClick(onClose)}
               >
                 Close
               </Button>

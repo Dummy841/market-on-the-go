@@ -8,6 +8,7 @@ import { Package, TrendingUp, User, LogOut, Key } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DeliveryPartnerOrders from "@/components/DeliveryPartnerOrders";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import { DeliveryPartnerVoiceCallProvider } from "@/contexts/DeliveryPartnerVoiceCallContext";
 interface DeliveryPartner {
   id: string;
   name: string;
@@ -49,121 +50,125 @@ const DeliveryPartnerDashboard = () => {
   if (!partner) {
     return null; // Will redirect to login
   }
-  return <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="flex items-center justify-between px-6 py-4">
-          <h1 className="text-2xl font-bold text-foreground">Delivery Dashboard</h1>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-12 w-12 rounded-full">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={partner.profile_photo_url} alt={partner.name} />
-                  <AvatarFallback>{getInitials(partner.name)}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="cursor-pointer"
-                onClick={() => setShowChangePassword(true)}
-              >
-                <Key className="mr-2 h-4 w-4" />
-                Change Password
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <TrendingUp className="mr-2 h-4 w-4" />
-                My Earnings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
+  return (
+    <DeliveryPartnerVoiceCallProvider partnerId={partner.id} partnerName={partner.name}>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b border-border bg-card">
+          <div className="flex items-center justify-between px-6 py-4">
+            <h1 className="text-2xl font-bold text-foreground">Delivery Dashboard</h1>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-12 w-12 rounded-full">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={partner.profile_photo_url} alt={partner.name} />
+                    <AvatarFallback>{getInitials(partner.name)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer"
+                  onClick={() => setShowChangePassword(true)}
+                >
+                  <Key className="mr-2 h-4 w-4" />
+                  Change Password
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer">
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  My Earnings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
 
-      {/* Main Content */}
-      <main className="p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Welcome Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xl">Welcome back, {partner.name}!</CardTitle>
-            </CardHeader>
-          </Card>
+        {/* Main Content */}
+        <main className="p-6">
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Welcome Card */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl">Welcome back, {partner.name}!</CardTitle>
+              </CardHeader>
+            </Card>
 
-          {/* Quick Stats */}
-          
+            {/* Quick Stats */}
+            
 
-          {activeSection === 'dashboard' && (
-            <>
-              {/* Quick Actions */}
+            {activeSection === 'dashboard' && (
+              <>
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Button 
+                        className="h-20 flex flex-col gap-2" 
+                        variant="outline"
+                        onClick={() => setActiveSection('orders')}
+                      >
+                        <Package className="h-6 w-6" />
+                        <span>My Orders</span>
+                      </Button>
+                      <Button className="h-20 flex flex-col gap-2" variant="outline">
+                        <TrendingUp className="h-6 w-6" />
+                        <span>Earnings Report</span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {activeSection === 'orders' && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>My Orders</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveSection('dashboard')}
+                    >
+                      Back to Dashboard
+                    </Button>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Button 
-                      className="h-20 flex flex-col gap-2" 
-                      variant="outline"
-                      onClick={() => setActiveSection('orders')}
-                    >
-                      <Package className="h-6 w-6" />
-                      <span>My Orders</span>
-                    </Button>
-                    <Button className="h-20 flex flex-col gap-2" variant="outline">
-                      <TrendingUp className="h-6 w-6" />
-                      <span>Earnings Report</span>
-                    </Button>
-                  </div>
+                  <DeliveryPartnerOrders partnerId={partner.id} partnerName={partner.name} />
                 </CardContent>
               </Card>
-            </>
-          )}
+            )}
 
-          {activeSection === 'orders' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>My Orders</span>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setActiveSection('dashboard')}
-                  >
-                    Back to Dashboard
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <DeliveryPartnerOrders partnerId={partner.id} partnerName={partner.name} />
-              </CardContent>
-            </Card>
-          )}
+            {/* Status */}
+            
+          </div>
+        </main>
 
-          {/* Status */}
-          
-        </div>
-      </main>
-
-      {/* Change Password Modal */}
-      {partner && (
-        <ChangePasswordModal
-          open={showChangePassword}
-          onOpenChange={setShowChangePassword}
-          userType="delivery_partner"
-          userId={partner.id}
-          currentPasswordHash={partner.password_hash || ''}
-        />
-      )}
-    </div>;
+        {/* Change Password Modal */}
+        {partner && (
+          <ChangePasswordModal
+            open={showChangePassword}
+            onOpenChange={setShowChangePassword}
+            userType="delivery_partner"
+            userId={partner.id}
+            currentPasswordHash={partner.password_hash || ''}
+          />
+        )}
+      </div>
+    </DeliveryPartnerVoiceCallProvider>
+  );
 };
 export default DeliveryPartnerDashboard;

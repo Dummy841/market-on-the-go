@@ -40,6 +40,7 @@ import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import { OrderTrackingProvider } from "./contexts/OrderTrackingContext";
 import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
+import { GlobalVoiceCallProvider } from "./contexts/GlobalVoiceCallContext";
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { useLocationPermission } from "./hooks/useLocationPermission";
 import { useStatusBar } from "./hooks/useStatusBar";
@@ -113,14 +114,16 @@ const App = () => {
           <SellerAuthProvider>
             <CartProvider>
               <OrderTrackingProvider>
-                <TooltipProvider>
-                  {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <AppContent />
-                  </BrowserRouter>
-                </TooltipProvider>
+                <GlobalVoiceCallProvider>
+                  <TooltipProvider>
+                    {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <AppContent />
+                    </BrowserRouter>
+                  </TooltipProvider>
+                </GlobalVoiceCallProvider>
               </OrderTrackingProvider>
             </CartProvider>
           </SellerAuthProvider>

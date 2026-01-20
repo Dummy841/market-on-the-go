@@ -468,7 +468,7 @@ const UserDeliveryChat = ({
         </DialogContent>
       </Dialog>
 
-      {/* Voice Call Modal */}
+      {/* Voice Call Modal - Hide avatar for calls from delivery partners */}
       <VoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
@@ -478,6 +478,7 @@ const UserDeliveryChat = ({
             : deliveryPartner?.name || 'Delivery Partner'
         }
         partnerAvatar={deliveryPartner?.profile_photo_url}
+        showAvatar={voiceCall.state.callerType !== 'delivery_partner'}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
         isSpeaker={voiceCall.state.isSpeaker}

@@ -18,5 +18,11 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Ensure only one copy of React is used (prevents issues with Capacitor plugins)
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    // Pre-bundle these dependencies to avoid React duplication
+    include: ['react', 'react-dom', '@capacitor/core', '@capacitor/local-notifications'],
   },
 }));
