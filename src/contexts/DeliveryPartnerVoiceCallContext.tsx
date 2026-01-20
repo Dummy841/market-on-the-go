@@ -83,11 +83,19 @@ export const DeliveryPartnerVoiceCallProvider = ({
   }, [fetchCallerInfo, voiceCall]);
 
   // Listen for incoming calls at delivery partner dashboard level
-  useIncomingCall({
+  const { dismissActiveNotification } = useIncomingCall({
     chatId: null, // Listen for all calls to this delivery partner
     myId: partnerId,
     myType: 'delivery_partner',
     onIncomingCall: handleIncomingCall,
+    onAnswerFromNotification: () => {
+      // Triggered when partner taps Answer on notification
+      voiceCall.answerCall();
+    },
+    onDeclineFromNotification: () => {
+      // Triggered when partner taps Decline on notification
+      voiceCall.declineCall();
+    },
   });
 
   // Reset caller info when call ends

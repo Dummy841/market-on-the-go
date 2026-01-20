@@ -79,11 +79,19 @@ export const GlobalVoiceCallProvider = ({ children }: GlobalVoiceCallProviderPro
   }, [fetchCallerInfo, voiceCall]);
 
   // Listen for incoming calls at app level
-  useIncomingCall({
+  const { dismissActiveNotification } = useIncomingCall({
     chatId: null, // Listen for all calls to this user
     myId: user?.id || '',
     myType: 'user',
     onIncomingCall: handleIncomingCall,
+    onAnswerFromNotification: () => {
+      // Triggered when user taps Answer on notification
+      voiceCall.answerCall();
+    },
+    onDeclineFromNotification: () => {
+      // Triggered when user taps Decline on notification
+      voiceCall.declineCall();
+    },
   });
 
   // Reset caller info when call ends

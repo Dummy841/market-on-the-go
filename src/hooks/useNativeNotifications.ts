@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications, ScheduleResult } from '@capacitor/local-notifications';
+import { LocalNotifications, ScheduleResult, ActionPerformed } from '@capacitor/local-notifications';
 
 interface NotificationOptions {
   title: string;
@@ -11,9 +11,21 @@ interface NotificationOptions {
   autoCancel?: boolean;
 }
 
+// Callback registry for incoming call actions
+const callActionCallbacks: Map<string, (action: 'answer' | 'decline') => void> = new Map();
+
+export const registerCallActionCallback = (callId: string, callback: (action: 'answer' | 'decline') => void) => {
+  callActionCallbacks.set(callId, callback);
+};
+
+export const unregisterCallActionCallback = (callId: string) => {
+  callActionCallbacks.delete(callId);
+};
+
 export const useNativeNotifications = () => {
   const permissionGranted = useRef(false);
   const channelCreated = useRef(false);
+  const listenersRegistered = useRef(false);
 
   // Initialize notification channels and permissions
   useEffect(() => {
@@ -49,6 +61,49 @@ export const useNativeNotifications = () => {
           });
           
           channelCreated.current = true;
+        }
+
+        // Register action types for call notifications
+        if (!listenersRegistered.current) {
+          await LocalNotifications.registerActionTypes({
+            types: [
+              {
+                id: 'INCOMING_CALL',
+                actions: [
+                  {
+                    id: 'ANSWER_CALL',
+                    title: '📞 Answer',
+                    foreground: true, // Opens app
+                  },
+                  {
+                    id: 'DECLINE_CALL',
+                    title: '❌ Decline',
+                    destructive: true,
+                    foreground: true,
+                  },
+                ],
+              },
+            ],
+          });
+
+          // Listen for notification action performed
+          await LocalNotifications.addListener('localNotificationActionPerformed', (notification: ActionPerformed) => {
+            console.log('Notification action performed:', notification);
+            
+            const { actionId, notification: notif } = notification;
+            const callId = notif.extra?.callId;
+            
+            if (callId && callActionCallbacks.has(callId)) {
+              const callback = callActionCallbacks.get(callId)!;
+              if (actionId === 'ANSWER_CALL' || actionId === 'tap') {
+                callback('answer');
+              } else if (actionId === 'DECLINE_CALL') {
+                callback('decline');
+              }
+            }
+          });
+
+          listenersRegistered.current = true;
         }
 
         // Request permission
@@ -217,17 +272,40 @@ export const useNativeNotifications = () => {
   ): Promise<number> => {
     const notificationId = Math.floor(Math.random() * 100000);
     
-    await showNativeNotification({
-      id: notificationId,
-      title: '📞 Incoming Call',
-      body: `${callerName} is calling...`,
-      data: { type: 'incoming_call', callId },
-      ongoing: true, // Persistent notification
-      autoCancel: false, // Don't dismiss on tap
-    });
+    if (!Capacitor.isNativePlatform()) {
+      // For web, use browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`📞 Incoming Call`, { body: `${callerName} is calling...` });
+      }
+      return notificationId;
+    }
+    
+    try {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: notificationId,
+            title: '📞 Incoming Call',
+            body: `${callerName} is calling...`,
+            channelId: 'zippy_calls',
+            sound: 'ringtone',
+            extra: { type: 'incoming_call', callId },
+            smallIcon: 'ic_notification',
+            iconColor: '#FF6B00',
+            ongoing: true,
+            autoCancel: false,
+            actionTypeId: 'INCOMING_CALL', // Register for action buttons
+          },
+        ],
+      });
+      
+      console.log('Incoming call notification scheduled with ID:', notificationId);
+    } catch (error) {
+      console.error('Error showing incoming call notification:', error);
+    }
 
     return notificationId;
-  }, [showNativeNotification]);
+  }, []);
 
   const dismissIncomingCallNotification = useCallback(async (notificationId: number) => {
     await cancelNotification(notificationId);

@@ -189,9 +189,12 @@ export const useVoiceCall = ({
       const callId = callData.id;
       setState(prev => ({ ...prev, callId }));
 
-      // Set up signaling channel
+      // Set up signaling channel - caller uses main channel
       const channel = supabase.channel(`call-${callId}`);
       channelRef.current = channel;
+
+      // Also set up receiver channel for bidirectional offer sending
+      const receiverChannel = supabase.channel(`call-${callId}-receiver`);
 
       // Create peer connection
       const pc = createPeerConnection();
@@ -208,7 +211,26 @@ export const useVoiceCall = ({
         remoteAudioRef.current.autoplay = true;
       }
 
-      // Listen for events
+      // Create offer upfront so we can resend it
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Function to send offer
+      const sendOffer = (targetChannel: ReturnType<typeof supabase.channel>) => {
+        console.log('Sending offer to receiver');
+        targetChannel.send({
+          type: 'broadcast',
+          event: 'offer',
+          payload: {
+            offer: pc.localDescription,
+            from: myId,
+            callerName: partnerName,
+            callId,
+          },
+        });
+      };
+
+      // Listen for events on main channel
       channel
         .on('broadcast', { event: 'answer' }, async ({ payload }) => {
           console.log('Received answer');
@@ -243,6 +265,7 @@ export const useVoiceCall = ({
           clearMissedCallTimeout();
           setState(prev => ({ ...prev, status: 'declined' }));
           cleanup();
+          receiverChannel.unsubscribe();
 
           // Reset after showing declined state
           setTimeout(() => {
@@ -251,25 +274,13 @@ export const useVoiceCall = ({
         })
         .on('broadcast', { event: 'call-ended' }, () => {
           console.log('Call ended by partner');
+          receiverChannel.unsubscribe();
           endCall();
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            // Create and send offer
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            channel.send({
-              type: 'broadcast',
-              event: 'offer',
-              payload: {
-                offer: pc.localDescription,
-                from: myId,
-                callerName: partnerName,
-                callId,
-              },
-            });
-
+            // Send offer immediately on main channel
+            sendOffer(channel);
             playRingtone();
 
             // Auto-mark as missed after 30 seconds
@@ -278,6 +289,7 @@ export const useVoiceCall = ({
               if (state.status === 'calling' || state.status === 'ringing') {
                 stopRingtone();
                 cleanup();
+                receiverChannel.unsubscribe();
 
                 // Update call status in database
                 await supabase
@@ -295,6 +307,37 @@ export const useVoiceCall = ({
             }, 30000);
           }
         });
+
+      // Listen on receiver channel for receiver-ready event
+      receiverChannel
+        .on('broadcast', { event: 'receiver-ready' }, ({ payload }) => {
+          console.log('Receiver is ready, resending offer');
+          // Resend offer to receiver channel
+          sendOffer(receiverChannel);
+        })
+        .on('broadcast', { event: 'answer' }, async ({ payload }) => {
+          console.log('Received answer on receiver channel');
+          if (payload.from !== myId && pc.signalingState !== 'stable') {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+
+            // Process pending candidates
+            for (const candidate of pendingCandidatesRef.current) {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+            pendingCandidatesRef.current = [];
+          }
+        })
+        .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
+          if (payload.from !== myId) {
+            console.log('Received ICE candidate on receiver channel');
+            if (pc.remoteDescription) {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            } else {
+              pendingCandidatesRef.current.push(payload.candidate);
+            }
+          }
+        })
+        .subscribe();
 
     } catch (error) {
       console.error('Error starting call:', error);
@@ -333,8 +376,8 @@ export const useVoiceCall = ({
         remoteAudioRef.current.autoplay = true;
       }
 
-      // Set up signaling channel
-      const channel = supabase.channel(`call-${callId}`);
+      // Set up signaling channel - use receiver channel for answering
+      const channel = supabase.channel(`call-${callId}-receiver`);
       channelRef.current = channel;
 
       channel
@@ -373,6 +416,21 @@ export const useVoiceCall = ({
                 answer: pc.localDescription,
                 from: myId,
               },
+            });
+
+            // Also send to main channel for caller
+            const mainChannel = supabase.channel(`call-${callId}`);
+            mainChannel.subscribe((mainStatus) => {
+              if (mainStatus === 'SUBSCRIBED') {
+                mainChannel.send({
+                  type: 'broadcast',
+                  event: 'answer',
+                  payload: {
+                    answer: pc.localDescription,
+                    from: myId,
+                  },
+                });
+              }
             });
 
             // Update call status in database
