@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
-import { useIncomingCall } from "@/hooks/useIncomingCall";
 import VoiceCallModal from "./VoiceCallModal";
 
 interface Message {
@@ -34,6 +33,7 @@ interface UserDeliveryChatProps {
   onOpenChange: (open: boolean) => void;
   orderId: string;
   userId: string;
+  userName?: string;
 }
 
 const UserDeliveryChat = ({
@@ -41,6 +41,7 @@ const UserDeliveryChat = ({
   onOpenChange,
   orderId,
   userId,
+  userName = 'Customer',
 }: UserDeliveryChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -57,21 +58,13 @@ const UserDeliveryChat = ({
     myType: 'user',
   });
 
-  // Voice call
+  // Voice call - NO useIncomingCall here, GlobalVoiceCallContext handles it
   const voiceCall = useVoiceCall({
     chatId,
     myId: userId,
     myType: 'user',
     partnerId: deliveryPartner?.id || '',
     partnerName: deliveryPartner?.name || 'Delivery Partner',
-  });
-
-  // Listen for incoming calls
-  useIncomingCall({
-    chatId,
-    myId: userId,
-    myType: 'user',
-    onIncomingCall: voiceCall.handleIncomingCall,
   });
 
   // Find existing chat for this order
@@ -224,10 +217,18 @@ const UserDeliveryChat = ({
     }
   };
 
-  // Handle call button
-  const handleCall = () => {
+  // Handle call button - pass partnerId and callerName to avoid empty receiver
+  const handleCall = async () => {
     if (chatId && deliveryPartner) {
-      voiceCall.startCall();
+      // Request microphone first (user gesture)
+      const micPromise = voiceCall.requestMicrophone?.();
+      
+      voiceCall.startCall({
+        chatId,
+        micPromise: micPromise ?? undefined,
+        partnerId: deliveryPartner.id,
+        callerName: userName,
+      });
     }
   };
 
@@ -468,7 +469,7 @@ const UserDeliveryChat = ({
         </DialogContent>
       </Dialog>
 
-      {/* Voice Call Modal - Hide avatar for calls from delivery partners */}
+      {/* Voice Call Modal - for calls initiated from this chat */}
       <VoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}

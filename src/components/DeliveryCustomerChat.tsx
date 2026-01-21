@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
-import { useIncomingCall } from "@/hooks/useIncomingCall";
 import VoiceCallModal from "./VoiceCallModal";
 
 interface Message {
@@ -70,21 +69,13 @@ const DeliveryCustomerChat = ({
     myType: 'delivery_partner',
   });
 
-  // Voice call
+  // Voice call - NO useIncomingCall here, DeliveryPartnerVoiceCallContext handles it
   const voiceCall = useVoiceCall({
     chatId,
     myId: deliveryPartnerId,
     myType: 'delivery_partner',
     partnerId: userId,
     partnerName: customerName,
-  });
-
-  // Listen for incoming calls
-  useIncomingCall({
-    chatId,
-    myId: deliveryPartnerId,
-    myType: 'delivery_partner',
-    onIncomingCall: voiceCall.handleIncomingCall,
   });
 
   // Get or create chat
@@ -223,11 +214,26 @@ const DeliveryCustomerChat = ({
     }
   };
 
-  // Handle call button
-  const handleCall = () => {
-    if (chatId) {
-      voiceCall.startCall();
+  // Handle call button - pass partnerId and callerName to avoid empty receiver
+  const handleCall = async () => {
+    if (!chatId) {
+      toast({
+        title: "Cannot Call",
+        description: "Chat not ready. Please try again.",
+        variant: "destructive",
+      });
+      return;
     }
+    
+    // Request microphone first (user gesture)
+    const micPromise = voiceCall.requestMicrophone?.();
+    
+    voiceCall.startCall({
+      chatId,
+      micPromise: micPromise ?? undefined,
+      partnerId: userId,
+      callerName: deliveryPartnerName,
+    });
   };
 
   // Scroll to bottom on new messages
@@ -319,7 +325,7 @@ const DeliveryCustomerChat = ({
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <DialogTitle>Chat with Customer</DialogTitle>
+                <DialogTitle>Chat with {customerName}</DialogTitle>
                 {isPartnerTyping && (
                   <p className="text-xs text-primary animate-pulse mt-1">Customer is typing...</p>
                 )}
@@ -361,7 +367,7 @@ const DeliveryCustomerChat = ({
                       >
                         {msg.sender_type === 'user' && (
                           <Avatar className="h-8 w-8">
-                            <AvatarFallback>U</AvatarFallback>
+                            <AvatarFallback>{customerName.charAt(0)}</AvatarFallback>
                           </Avatar>
                         )}
                         <div
@@ -421,7 +427,7 @@ const DeliveryCustomerChat = ({
         </DialogContent>
       </Dialog>
 
-      {/* Voice Call Modal */}
+      {/* Voice Call Modal - for calls initiated from this chat */}
       <VoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
