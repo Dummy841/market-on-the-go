@@ -12,7 +12,6 @@ import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 import UserDeliveryChat from './UserDeliveryChat';
 import { useVoiceCall } from '@/hooks/useVoiceCall';
-import { useIncomingCall } from '@/hooks/useIncomingCall';
 import VoiceCallModal from './VoiceCallModal';
 
 interface OrderTrackingModalProps {
@@ -77,21 +76,13 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     }
   }, [isOpen, activeOrder?.assigned_delivery_partner_id, getOrCreateChat]);
 
-  // Voice call hook
+  // Voice call hook - NO useIncomingCall here, GlobalVoiceCallContext handles it
   const voiceCall = useVoiceCall({
     chatId,
     myId: activeOrder?.user_id || '',
     myType: 'user',
     partnerId: activeOrder?.assigned_delivery_partner_id || '',
     partnerName: activeOrder?.delivery_partners?.name || 'Delivery Partner',
-  });
-
-  // Listen for incoming calls
-  useIncomingCall({
-    chatId,
-    myId: activeOrder?.user_id || '',
-    myType: 'user',
-    onIncomingCall: voiceCall.handleIncomingCall,
   });
 
   // Handle voice call button click
@@ -106,7 +97,12 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
 
     if (!effectiveChatId) return;
 
-    voiceCall.startCall({ chatId: effectiveChatId, micPromise: micPromise ?? undefined });
+    voiceCall.startCall({ 
+      chatId: effectiveChatId, 
+      micPromise: micPromise ?? undefined,
+      partnerId: activeOrder?.assigned_delivery_partner_id || '',
+      callerName: 'Customer',
+    });
   };
 
   // Fetch delivery partner location and set up real-time tracking
