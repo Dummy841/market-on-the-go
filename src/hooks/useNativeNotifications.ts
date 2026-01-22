@@ -47,20 +47,21 @@ export const useNativeNotifications = () => {
             lightColor: '#FF6B00',
           });
 
-          // Create notification channel for Incoming Calls - highest priority
+          // Create notification channel for Incoming Calls - MAX priority for lock screen
           await LocalNotifications.createChannel({
             id: 'zippy_calls',
             name: 'Incoming Calls',
             description: 'High-priority notifications for incoming voice calls',
-            importance: 5, // MAX importance
-            visibility: 1, // PUBLIC
+            importance: 5, // MAX importance - shows on lock screen
+            visibility: 1, // PUBLIC - shows full content on lock screen
             vibration: true,
-            sound: 'ringtone', // Uses system ringtone
+            sound: 'ringtone', // Must have ringtone.mp3 in android/app/src/main/res/raw/
             lights: true,
             lightColor: '#FF6B00',
           });
           
           channelCreated.current = true;
+          console.log('Notification channels created successfully');
         }
 
         // Register action types for call notifications

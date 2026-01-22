@@ -35,6 +35,10 @@ export const useVoiceCall = ({
     callerType: null,
   });
   
+  // Store pending offer in BOTH state and ref for reliability
+  const [pendingOffer, setPendingOffer] = useState<{offer: RTCSessionDescriptionInit, callId: string} | null>(null);
+  const pendingOfferRef = useRef<{offer: RTCSessionDescriptionInit, callId: string} | null>(null);
+  
   const { toast } = useToast();
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -43,11 +47,36 @@ export const useVoiceCall = ({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
-  const ringbackRef = useRef<HTMLAudioElement | null>(null); // Ringback tone for caller
+  const ringbackRef = useRef<HTMLAudioElement | null>(null);
   const missedCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Store pending offer using ref instead of window globals
-  const pendingOfferRef = useRef<{offer: RTCSessionDescriptionInit, callId: string} | null>(null);
+
+  // Preload audio on mount
+  useEffect(() => {
+    ringtoneRef.current = new Audio('/ringtone.mp3');
+    ringtoneRef.current.preload = 'auto';
+    ringtoneRef.current.loop = true;
+    ringtoneRef.current.volume = 1.0;
+    
+    ringbackRef.current = new Audio('/ringtone.mp3');
+    ringbackRef.current.preload = 'auto';
+    ringbackRef.current.loop = true;
+    ringbackRef.current.volume = 0.5;
+    
+    // Load audio files
+    ringtoneRef.current.load();
+    ringbackRef.current.load();
+    
+    return () => {
+      if (ringtoneRef.current) {
+        ringtoneRef.current.pause();
+        ringtoneRef.current = null;
+      }
+      if (ringbackRef.current) {
+        ringbackRef.current.pause();
+        ringbackRef.current = null;
+      }
+    };
+  }, []);
 
   // Create peer connection with ICE servers
   const createPeerConnection = useCallback(() => {
@@ -111,34 +140,38 @@ export const useVoiceCall = ({
 
   // Play ringtone for receiver
   const playRingtone = useCallback(() => {
-    if (!ringtoneRef.current) {
-      ringtoneRef.current = new Audio('/ringtone.mp3');
-      ringtoneRef.current.loop = true;
-      ringtoneRef.current.volume = 1.0;
+    console.log('playRingtone called');
+    if (ringtoneRef.current) {
+      ringtoneRef.current.currentTime = 0;
+      ringtoneRef.current.play().catch(err => {
+        console.error('Failed to play ringtone:', err);
+      });
     }
-    ringtoneRef.current.play().catch(console.error);
   }, []);
 
   // Stop ringtone
   const stopRingtone = useCallback(() => {
+    console.log('stopRingtone called');
     if (ringtoneRef.current) {
       ringtoneRef.current.pause();
       ringtoneRef.current.currentTime = 0;
     }
   }, []);
 
-  // Play ringback tone for caller (the sound you hear when calling someone)
+  // Play ringback tone for caller
   const playRingback = useCallback(() => {
-    if (!ringbackRef.current) {
-      ringbackRef.current = new Audio('/ringtone.mp3'); // Using same file, could use different tone
-      ringbackRef.current.loop = true;
-      ringbackRef.current.volume = 0.5; // Lower volume for ringback
+    console.log('playRingback called');
+    if (ringbackRef.current) {
+      ringbackRef.current.currentTime = 0;
+      ringbackRef.current.play().catch(err => {
+        console.error('Failed to play ringback:', err);
+      });
     }
-    ringbackRef.current.play().catch(console.error);
   }, []);
 
   // Stop ringback tone
   const stopRingback = useCallback(() => {
+    console.log('stopRingback called');
     if (ringbackRef.current) {
       ringbackRef.current.pause();
       ringbackRef.current.currentTime = 0;
@@ -507,12 +540,13 @@ export const useVoiceCall = ({
 
   // Decline incoming call
   const declineCall = useCallback(async () => {
-    console.log('declineCall called, current state:', state);
+    console.log('declineCall called');
     stopRingtone();
     clearMissedCallTimeout();
     
-    // Get the call ID from state or pending offer
-    const currentCallId = state.callId || pendingOfferRef.current?.callId;
+    // Get call ID from state or pending offer (check both state and ref)
+    const currentCallId = state.callId || pendingOffer?.callId || pendingOfferRef.current?.callId;
+    console.log('declineCall: callId =', currentCallId);
     
     if (channelRef.current) {
       channelRef.current.send({
@@ -529,10 +563,7 @@ export const useVoiceCall = ({
         .eq('id', currentCallId);
     }
 
-    cleanup();
-    pendingOfferRef.current = null;
-    setState({ status: 'idle', callId: null, duration: 0, isMuted: false, isSpeaker: false, callerType: null });
-  }, [state.callId, myId, stopRingtone, clearMissedCallTimeout]);
+  }, [state.callId, pendingOffer, myId, stopRingtone, clearMissedCallTimeout]);
 
   // End ongoing call
   const endCall = useCallback(async () => {
@@ -643,11 +674,22 @@ export const useVoiceCall = ({
 
   // Handle incoming call
   const handleIncomingCall = useCallback((callId: string, offer: RTCSessionDescriptionInit, callerName: string, callerType: 'user' | 'delivery_partner') => {
-    if (state.status !== 'idle') return; // Already in a call
+    if (state.status !== 'idle') {
+      console.log('handleIncomingCall: Already in a call, ignoring');
+      return;
+    }
     
     console.log('handleIncomingCall triggered:', { callId, callerName, callerType });
     
+    // Play ringtone
     playRingtone();
+    
+    // Store pending offer in BOTH state and ref for reliability
+    const pending = { offer, callId };
+    setPendingOffer(pending);
+    pendingOfferRef.current = pending;
+    
+    // Update state
     setState({
       status: 'ringing',
       callId,
@@ -657,15 +699,12 @@ export const useVoiceCall = ({
       callerType,
     });
 
-    // Store offer using ref instead of window globals
-    pendingOfferRef.current = { offer, callId };
-
-    // Send back ringing notification to caller on the SAME channel they're listening on
+    // Subscribe to main channel to send back ringing notification
     const channel = supabase.channel(`call-${callId}`);
     channelRef.current = channel;
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('Sending call-ringing notification to caller on channel:', `call-${callId}`);
+        console.log('Sending call-ringing notification');
         channel.send({
           type: 'broadcast',
           event: 'call-ringing',
@@ -675,12 +714,15 @@ export const useVoiceCall = ({
     });
   }, [state.status, playRingtone, myId]);
 
-  // Wrapper for answerCall that retrieves stored offer from ref
+  // Wrapper for answerCall that retrieves stored offer
   const answerCallWrapper = useCallback(() => {
-    const pending = pendingOfferRef.current;
-    console.log('answerCallWrapper called:', { hasPending: !!pending });
+    // Check BOTH state and ref for pending offer (state is more reliable)
+    const pending = pendingOffer || pendingOfferRef.current;
+    console.log('answerCallWrapper called, pending:', pending);
+    
     if (pending) {
       answerCall(pending.callId, pending.offer);
+      setPendingOffer(null);
       pendingOfferRef.current = null;
     } else {
       console.error('No pending call offer found');
@@ -690,7 +732,7 @@ export const useVoiceCall = ({
         variant: "destructive",
       });
     }
-  }, [answerCall, toast]);
+  }, [pendingOffer, answerCall, toast]);
 
   // Cleanup on unmount
   useEffect(() => {
