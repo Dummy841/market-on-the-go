@@ -13,7 +13,7 @@ import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
 import DeliveryCustomerChat from "./DeliveryCustomerChat";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
-import { useIncomingCall } from "@/hooks/useIncomingCall";
+// useIncomingCall is handled globally by DeliveryPartnerVoiceCallContext
 import VoiceCallModal from "./VoiceCallModal";
 import { cn } from "@/lib/utils";
 
@@ -79,13 +79,8 @@ const DeliveryPartnerOrders = ({
     partnerName: voiceCallCustomerName,
   });
 
-  // Listen for incoming calls
-  useIncomingCall({
-    chatId: voiceCallChatId,
-    myId: partnerId,
-    myType: 'delivery_partner',
-    onIncomingCall: voiceCall.handleIncomingCall,
-  });
+  // NOTE: Incoming calls are handled by DeliveryPartnerVoiceCallContext globally
+  // DO NOT add useIncomingCall here - it causes duplicate listeners
 
   // Get or create chat and start voice call
   const handleVoiceCall = useCallback(async (order: Order) => {
