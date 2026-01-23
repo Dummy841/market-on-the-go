@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.refund-rejected-order]
 verify_jwt = false
+
+[functions.get-zego-token]
+verify_jwt = false
