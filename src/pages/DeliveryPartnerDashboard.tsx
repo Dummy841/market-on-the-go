@@ -8,7 +8,7 @@ import { Package, TrendingUp, User, LogOut, Key } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DeliveryPartnerOrders from "@/components/DeliveryPartnerOrders";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
-import { DeliveryPartnerVoiceCallProvider } from "@/contexts/DeliveryPartnerVoiceCallContext";
+import { DeliveryPartnerZegoVoiceCallProvider } from "@/contexts/DeliveryPartnerZegoVoiceCallContext";
 interface DeliveryPartner {
   id: string;
   name: string;
@@ -51,7 +51,7 @@ const DeliveryPartnerDashboard = () => {
     return null; // Will redirect to login
   }
   return (
-    <DeliveryPartnerVoiceCallProvider partnerId={partner.id} partnerName={partner.name}>
+    <DeliveryPartnerZegoVoiceCallProvider partnerId={partner.id} partnerName={partner.name}>
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="border-b border-border bg-card">
@@ -168,7 +168,7 @@ const DeliveryPartnerDashboard = () => {
           />
         )}
       </div>
-    </DeliveryPartnerVoiceCallProvider>
+    </DeliveryPartnerZegoVoiceCallProvider>
   );
 };
 export default DeliveryPartnerDashboard;

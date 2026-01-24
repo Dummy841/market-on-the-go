@@ -12,9 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
 import DeliveryCustomerChat from "./DeliveryCustomerChat";
-import { useVoiceCall } from "@/hooks/useVoiceCall";
-// useIncomingCall is handled globally by DeliveryPartnerVoiceCallContext
-import VoiceCallModal from "./VoiceCallModal";
+import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
+// useIncomingCall is handled globally by DeliveryPartnerZegoVoiceCallContext
+import ZegoVoiceCallModal from "./ZegoVoiceCallModal";
 import { cn } from "@/lib/utils";
 
 interface Order {
@@ -70,23 +70,18 @@ const DeliveryPartnerOrders = ({
   const [voiceCallUserId, setVoiceCallUserId] = useState("");
   const { toast } = useToast();
 
-  // Voice call hook
-  const voiceCall = useVoiceCall({
-    chatId: voiceCallChatId,
+  // Voice call hook - using ZEGOCloud
+  const voiceCall = useZegoVoiceCall({
     myId: partnerId,
     myType: 'delivery_partner',
-    partnerId: voiceCallUserId,
-    partnerName: voiceCallCustomerName,
+    myName: partnerName,
   });
 
-  // NOTE: Incoming calls are handled by DeliveryPartnerVoiceCallContext globally
+  // NOTE: Incoming calls are handled by DeliveryPartnerZegoVoiceCallContext globally
   // DO NOT add useIncomingCall here - it causes duplicate listeners
 
   // Get or create chat and start voice call
   const handleVoiceCall = useCallback(async (order: Order) => {
-    // Start microphone permission request immediately (keeps "user gesture" on mobile)
-    const micPromise = voiceCall.requestMicrophone?.();
-
     try {
       // Fetch customer name
       const { data: user } = await supabase
@@ -130,10 +125,9 @@ const DeliveryPartnerOrders = ({
 
       setVoiceCallChatId(chatId);
       voiceCall.startCall({ 
-        chatId, 
-        micPromise: micPromise ?? undefined,
-        partnerId: order.user_id,
-        callerName: partnerName,
+        receiverId: order.user_id,
+        receiverName: customerName,
+        chatId,
       });
     } catch (error) {
       console.error('Error starting voice call:', error);
@@ -613,23 +607,21 @@ const DeliveryPartnerOrders = ({
         deliveryPartnerName={partnerName}
       />
 
-      {/* Voice Call Modal - No avatar for delivery partner calls */}
-      <VoiceCallModal
+      {/* Voice Call Modal - using ZEGOCloud */}
+      <ZegoVoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
         partnerName={voiceCallCustomerName}
-        partnerAvatar={null}
-        showAvatar={false}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
         isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.callerType === 'user'}
+        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'user'}
         onAnswer={voiceCall.answerCall}
         onDecline={voiceCall.declineCall}
         onEnd={voiceCall.endCall}
         onToggleMute={voiceCall.toggleMute}
         onToggleSpeaker={voiceCall.toggleSpeaker}
-        onClose={() => {}}
+        setCallContainer={voiceCall.setCallContainer}
       />
     </div>
   );

@@ -11,8 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 import UserDeliveryChat from './UserDeliveryChat';
-import { useVoiceCall } from '@/hooks/useVoiceCall';
-import VoiceCallModal from './VoiceCallModal';
+import { useZegoVoiceCall } from '@/hooks/useZegoVoiceCall';
+import ZegoVoiceCallModal from './ZegoVoiceCallModal';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
@@ -76,32 +76,26 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     }
   }, [isOpen, activeOrder?.assigned_delivery_partner_id, getOrCreateChat]);
 
-  // Voice call hook - NO useIncomingCall here, GlobalVoiceCallContext handles it
-  const voiceCall = useVoiceCall({
-    chatId,
+  // Voice call hook - using ZEGOCloud
+  const voiceCall = useZegoVoiceCall({
     myId: activeOrder?.user_id || '',
     myType: 'user',
-    partnerId: activeOrder?.assigned_delivery_partner_id || '',
-    partnerName: activeOrder?.delivery_partners?.name || 'Delivery Partner',
+    myName: 'Customer',
   });
 
   // Handle voice call button click
   const handleVoiceCall = async () => {
-    // Start microphone permission request immediately (keeps "user gesture" on mobile)
-    const micPromise = voiceCall.requestMicrophone?.();
-
     let effectiveChatId = chatId;
     if (!effectiveChatId) {
       effectiveChatId = await getOrCreateChat();
     }
 
-    if (!effectiveChatId) return;
+    if (!effectiveChatId || !activeOrder?.assigned_delivery_partner_id) return;
 
     voiceCall.startCall({ 
+      receiverId: activeOrder.assigned_delivery_partner_id,
+      receiverName: activeOrder?.delivery_partners?.name || 'Delivery Partner',
       chatId: effectiveChatId, 
-      micPromise: micPromise ?? undefined,
-      partnerId: activeOrder?.assigned_delivery_partner_id || '',
-      callerName: 'Customer',
     });
   };
 
@@ -584,26 +578,21 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
         />
       )}
 
-      {/* Voice Call Modal */}
-      <VoiceCallModal
+      {/* Voice Call Modal - using ZEGOCloud */}
+      <ZegoVoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
-        partnerName={
-          voiceCall.state.callerType === 'delivery_partner' 
-            ? 'Zippy Delivery Partner'
-            : activeOrder?.delivery_partners?.name || 'Delivery Partner'
-        }
-        partnerAvatar={activeOrder?.delivery_partners?.profile_photo_url}
+        partnerName={activeOrder?.delivery_partners?.name || 'Delivery Partner'}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
         isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.callerType === 'delivery_partner'}
+        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'delivery_partner'}
         onAnswer={voiceCall.answerCall}
         onDecline={voiceCall.declineCall}
         onEnd={voiceCall.endCall}
         onToggleMute={voiceCall.toggleMute}
         onToggleSpeaker={voiceCall.toggleSpeaker}
-        onClose={() => {}}
+        setCallContainer={voiceCall.setCallContainer}
       />
     </Dialog>
   );
