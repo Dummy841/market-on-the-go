@@ -9,8 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { useVoiceCall } from "@/hooks/useVoiceCall";
-import VoiceCallModal from "./VoiceCallModal";
+import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
+import ZegoVoiceCallModal from "./ZegoVoiceCallModal";
 
 interface Message {
   id: string;
@@ -58,13 +58,11 @@ const UserDeliveryChat = ({
     myType: 'user',
   });
 
-  // Voice call - NO useIncomingCall here, GlobalVoiceCallContext handles it
-  const voiceCall = useVoiceCall({
-    chatId,
+  // Voice call - using ZEGOCloud
+  const voiceCall = useZegoVoiceCall({
     myId: userId,
     myType: 'user',
-    partnerId: deliveryPartner?.id || '',
-    partnerName: deliveryPartner?.name || 'Delivery Partner',
+    myName: userName,
   });
 
   // Find existing chat for this order
@@ -217,17 +215,13 @@ const UserDeliveryChat = ({
     }
   };
 
-  // Handle call button - pass partnerId and callerName to avoid empty receiver
+  // Handle call button - using ZEGOCloud
   const handleCall = async () => {
     if (chatId && deliveryPartner) {
-      // Request microphone first (user gesture)
-      const micPromise = voiceCall.requestMicrophone?.();
-      
       voiceCall.startCall({
+        receiverId: deliveryPartner.id,
+        receiverName: deliveryPartner.name,
         chatId,
-        micPromise: micPromise ?? undefined,
-        partnerId: deliveryPartner.id,
-        callerName: userName,
       });
     }
   };
@@ -469,27 +463,21 @@ const UserDeliveryChat = ({
         </DialogContent>
       </Dialog>
 
-      {/* Voice Call Modal - for calls initiated from this chat */}
-      <VoiceCallModal
+      {/* Voice Call Modal - using ZEGOCloud */}
+      <ZegoVoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
-        partnerName={
-          voiceCall.state.callerType === 'delivery_partner' 
-            ? 'Zippy Delivery Partner'
-            : deliveryPartner?.name || 'Delivery Partner'
-        }
-        partnerAvatar={deliveryPartner?.profile_photo_url}
-        showAvatar={voiceCall.state.callerType !== 'delivery_partner'}
+        partnerName={deliveryPartner?.name || 'Delivery Partner'}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
         isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.callerType === 'delivery_partner'}
+        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'delivery_partner'}
         onAnswer={voiceCall.answerCall}
         onDecline={voiceCall.declineCall}
         onEnd={voiceCall.endCall}
         onToggleMute={voiceCall.toggleMute}
         onToggleSpeaker={voiceCall.toggleSpeaker}
-        onClose={() => {}}
+        setCallContainer={voiceCall.setCallContainer}
       />
     </>
   );

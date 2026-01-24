@@ -9,8 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { useVoiceCall } from "@/hooks/useVoiceCall";
-import VoiceCallModal from "./VoiceCallModal";
+import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
+import ZegoVoiceCallModal from "./ZegoVoiceCallModal";
 
 interface Message {
   id: string;
@@ -69,13 +69,11 @@ const DeliveryCustomerChat = ({
     myType: 'delivery_partner',
   });
 
-  // Voice call - NO useIncomingCall here, DeliveryPartnerVoiceCallContext handles it
-  const voiceCall = useVoiceCall({
-    chatId,
+  // Voice call - using ZEGOCloud
+  const voiceCall = useZegoVoiceCall({
     myId: deliveryPartnerId,
     myType: 'delivery_partner',
-    partnerId: userId,
-    partnerName: customerName,
+    myName: deliveryPartnerName,
   });
 
   // Get or create chat
@@ -214,7 +212,7 @@ const DeliveryCustomerChat = ({
     }
   };
 
-  // Handle call button - pass partnerId and callerName to avoid empty receiver
+  // Handle call button - using ZEGOCloud
   const handleCall = async () => {
     if (!chatId) {
       toast({
@@ -225,14 +223,10 @@ const DeliveryCustomerChat = ({
       return;
     }
     
-    // Request microphone first (user gesture)
-    const micPromise = voiceCall.requestMicrophone?.();
-    
     voiceCall.startCall({
+      receiverId: userId,
+      receiverName: customerName,
       chatId,
-      micPromise: micPromise ?? undefined,
-      partnerId: userId,
-      callerName: deliveryPartnerName,
     });
   };
 
@@ -427,22 +421,21 @@ const DeliveryCustomerChat = ({
         </DialogContent>
       </Dialog>
 
-      {/* Voice Call Modal - for calls initiated from this chat */}
-      <VoiceCallModal
+      {/* Voice Call Modal - using ZEGOCloud */}
+      <ZegoVoiceCallModal
         open={voiceCall.state.status !== 'idle'}
         status={voiceCall.state.status}
         partnerName={customerName}
-        partnerAvatar={null}
         duration={voiceCall.state.duration}
         isMuted={voiceCall.state.isMuted}
         isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.callerType === 'user'}
+        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'user'}
         onAnswer={voiceCall.answerCall}
         onDecline={voiceCall.declineCall}
         onEnd={voiceCall.endCall}
         onToggleMute={voiceCall.toggleMute}
         onToggleSpeaker={voiceCall.toggleSpeaker}
-        onClose={() => {}}
+        setCallContainer={voiceCall.setCallContainer}
       />
     </>
   );
