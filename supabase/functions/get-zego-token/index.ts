@@ -1,72 +1,49 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createHmac } from "https://deno.land/std@0.119.0/node/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate ZegoUIKitPrebuilt token
-function generateToken(
-  appId: number,
-  serverSecret: string,
-  roomId: string,
-  userId: string,
-  userName: string,
-  effectiveTimeInSeconds: number = 3600
-): string {
-  // For ZegoUIKitPrebuilt, we use their token generation format
-  // This is a simplified version - in production use their official token generator
-  
-  const nonce = Math.floor(Math.random() * 2147483647);
-  const createTime = Math.floor(Date.now() / 1000);
-  const expireTime = createTime + effectiveTimeInSeconds;
-
-  // Payload for the token
-  const payload = {
-    app_id: appId,
-    user_id: userId,
-    nonce,
-    ctime: createTime,
-    expire: expireTime,
-    payload: JSON.stringify({
-      room_id: roomId,
-      privilege: { 1: 1, 2: 1 },
-      stream_id_list: null,
-    }),
-  };
-
-  const payloadString = JSON.stringify(payload);
-  
-  // Create signature
-  const hmac = createHmac("sha256", serverSecret);
-  hmac.update(payloadString);
-  const signature = hmac.digest("hex");
-
-  // Encode the token
-  const tokenInfo = {
-    ...payload,
-    signature,
-  };
-
-  // Base64 encode
-  const tokenBase64 = btoa(JSON.stringify(tokenInfo));
-  
-  // Return token with version prefix (04 = version 4)
-  return `04${tokenBase64}`;
+// Helper function to convert string to Uint8Array
+function stringToUint8Array(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
 }
 
-// Alternative: Use ZegoUIKitPrebuilt.generateKitTokenForTest format
-function generateKitToken(
+// Helper function to convert ArrayBuffer to hex string
+function arrayBufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Generate HMAC-SHA256 using Web Crypto API
+async function hmacSha256(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    stringToUint8Array(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    stringToUint8Array(message)
+  );
+  
+  return arrayBufferToHex(signature);
+}
+
+// Generate kit token for ZegoUIKitPrebuilt
+async function generateKitToken(
   appId: number,
   serverSecret: string,
   roomId: string,
   userId: string,
   userName: string = ''
-): string {
-  // This generates a test token compatible with ZegoUIKitPrebuilt
-  // For production, you should use their server-side token generation SDK
-  
+): Promise<string> {
   const effectiveTime = 3600; // 1 hour
   const payloadObject = {
     app_id: appId,
@@ -87,9 +64,8 @@ function generateKitToken(
   // Create the content to sign
   const hashContent = `${appId}${serverSecret}${roomId}${userId}${effectiveTime}${nonce}${currentTime}`;
   
-  const hmac = createHmac("sha256", serverSecret);
-  hmac.update(hashContent);
-  const hash = hmac.digest("hex");
+  // Generate HMAC signature
+  const hash = await hmacSha256(serverSecret, hashContent);
 
   // Build the token
   const tokenInfo = {
@@ -143,7 +119,7 @@ serve(async (req) => {
     const appIdNum = parseInt(ZEGO_APP_ID, 10);
     
     // Generate kit token for ZegoUIKitPrebuilt
-    const token = generateKitToken(
+    const token = await generateKitToken(
       appIdNum,
       ZEGO_SERVER_SECRET,
       roomId,

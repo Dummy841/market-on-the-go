@@ -74,7 +74,8 @@ const ZegoVoiceCallModal = ({
 
   const showAnswerDecline = status === 'ringing' && isIncoming;
   const showEndCall = status === 'calling' || status === 'ongoing' || (status === 'ringing' && !isIncoming);
-  const showControls = status === 'ongoing';
+  // Show controls during calling and ongoing states
+  const showControls = status === 'calling' || status === 'ongoing';
 
   return (
     <div 
