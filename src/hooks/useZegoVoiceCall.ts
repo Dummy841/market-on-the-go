@@ -95,8 +95,15 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
   // Get token from edge function
   const getToken = useCallback(async (roomId: string): Promise<{ token: string; appId: number }> => {
+    // ZEGO userID/roomID constraints are stricter than UUIDs in practice.
+    // Use a stable, alphanumeric, shorter ID to avoid kitToken validation errors.
+    const zegoUserId = (myId || 'guest')
+      .toString()
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(0, 32);
+
     const { data, error } = await supabase.functions.invoke('get-zego-token', {
-      body: { userId: myId, roomId, userName: myName }
+      body: { userId: zegoUserId, roomId, userName: myName }
     });
 
     if (error) throw error;
@@ -127,7 +134,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       });
 
       // Generate room ID from chat ID
-      const roomId = `call_${chatId}_${Date.now()}`;
+      const roomId = `c_${chatId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}_${Date.now().toString(36)}`;
 
       // Create call record
       const { data: callData, error: callError } = await supabase
