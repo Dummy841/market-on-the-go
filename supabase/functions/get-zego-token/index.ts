@@ -127,14 +127,16 @@ serve(async (req) => {
 
     const appIdNum = parseInt(ZEGO_APP_ID, 10);
     
+    // Privilege payload required for RTC room login/publish permissions
+    // (matches ZEGO token04 privilege authorization format)
+    const payload = JSON.stringify({
+      room_id: roomId,
+      privilege: { 1: 1, 2: 1 },
+      stream_id_list: null,
+    });
+
     // Generate official Token04 (kitToken) for ZegoUIKitPrebuilt
-    const token = await generateToken04(
-      appIdNum,
-      userId,
-      ZEGO_SERVER_SECRET,
-      3600,
-      ''
-    );
+    const token = await generateToken04(appIdNum, userId, ZEGO_SERVER_SECRET, 3600, payload);
 
     console.log('Generated ZEGO token for room:', roomId, 'user:', userId);
 
