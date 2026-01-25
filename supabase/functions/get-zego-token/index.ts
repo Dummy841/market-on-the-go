@@ -5,82 +5,91 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to convert string to Uint8Array
-function stringToUint8Array(str: string): Uint8Array {
-  return new TextEncoder().encode(str);
+const encoder = new TextEncoder();
+
+function toB64(bytes: Uint8Array): string {
+  // btoa expects latin1
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
-// Helper function to convert ArrayBuffer to hex string
-function arrayBufferToHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+function makeNonce(): number {
+  // int32 range
+  return Math.floor(Math.random() * 0x7fffffff);
 }
 
-// Generate HMAC-SHA256 using Web Crypto API
-async function hmacSha256(secret: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
+function makeRandomIvString(): string {
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+  let out = '';
+  for (let i = 0; i < 16; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function pkcs7Pad(data: Uint8Array, blockSize = 16): Uint8Array {
+  const pad = blockSize - (data.length % blockSize || blockSize);
+  const out = new Uint8Array(data.length + pad);
+  out.set(data);
+  out.fill(pad, data.length);
+  return out;
+}
+
+async function aesCbcEncryptPkcs7(plainText: string, keyStr: string, ivStr: string): Promise<Uint8Array> {
+  const keyBytes = encoder.encode(keyStr);
+  const ivBytes = encoder.encode(ivStr);
+  const plainBytes = pkcs7Pad(encoder.encode(plainText), 16);
+
+  const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    stringToUint8Array(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
+    keyBytes,
+    { name: 'AES-CBC' },
     false,
-    ['sign']
+    ['encrypt']
   );
-  
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    stringToUint8Array(message)
+
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-CBC', iv: ivBytes },
+    cryptoKey,
+    plainBytes
   );
-  
-  return arrayBufferToHex(signature);
+
+  return new Uint8Array(encrypted);
 }
 
-// Generate kit token for ZegoUIKitPrebuilt
-async function generateKitToken(
-  appId: number,
-  serverSecret: string,
-  roomId: string,
-  userId: string,
-  userName: string = ''
-): Promise<string> {
-  const effectiveTime = 3600; // 1 hour
-  const payloadObject = {
-    app_id: appId,
-    room_id: roomId,
-    user_id: userId,
-    user_name: userName,
-    privilege: {
-      1: 1, // can login room
-      2: 1, // can publish stream
-    },
-    stream_id_list: null,
-  };
+// Official ZEGO Token04 (AES-CBC + base64). This is what ZegoUIKitPrebuilt expects as kitToken.
+async function generateToken04(appId: number, userId: string, secret: string, effectiveTimeInSeconds: number, payload = ''): Promise<string> {
+  if (!appId || typeof appId !== 'number') throw new Error('appId invalid');
+  if (!userId || typeof userId !== 'string') throw new Error('userId invalid');
+  if (!secret || typeof secret !== 'string' || secret.length !== 32) throw new Error('secret must be a 32 byte string');
+  if (!effectiveTimeInSeconds || typeof effectiveTimeInSeconds !== 'number') throw new Error('effectiveTimeInSeconds invalid');
 
-  const payload = JSON.stringify(payloadObject);
-  const nonce = Math.floor(Math.random() * 2147483647);
-  const currentTime = Math.floor(Date.now() / 1000);
-
-  // Create the content to sign
-  const hashContent = `${appId}${serverSecret}${roomId}${userId}${effectiveTime}${nonce}${currentTime}`;
-  
-  // Generate HMAC signature
-  const hash = await hmacSha256(serverSecret, hashContent);
-
-  // Build the token
+  const createTime = Math.floor(Date.now() / 1000);
   const tokenInfo = {
-    ver: 1,
-    hash: hash,
-    nonce: nonce,
-    expired: currentTime + effectiveTime,
+    app_id: appId,
+    user_id: userId,
+    nonce: makeNonce(),
+    ctime: createTime,
+    expire: createTime + effectiveTimeInSeconds,
+    payload: payload || '',
   };
 
-  const base64Token = btoa(JSON.stringify({
-    ...tokenInfo,
-    payload: btoa(payload),
-  }));
+  const plainText = JSON.stringify(tokenInfo);
+  const iv = makeRandomIvString();
+  const encrypted = await aesCbcEncryptPkcs7(plainText, secret, iv);
 
-  return `04${base64Token}`;
+  // Binary layout: expire(int64 BE) + ivLen(uint16 BE) + ivBytes + cipherLen(uint16 BE) + cipherBytes
+  const ivBytes = encoder.encode(iv);
+  const totalLen = 8 + 2 + ivBytes.length + 2 + encrypted.length;
+  const buf = new Uint8Array(totalLen);
+  const dv = new DataView(buf.buffer);
+
+  dv.setBigInt64(0, BigInt(tokenInfo.expire), false);
+  dv.setUint16(8, ivBytes.length, false);
+  buf.set(ivBytes, 10);
+  dv.setUint16(10 + ivBytes.length, encrypted.length, false);
+  buf.set(encrypted, 12 + ivBytes.length);
+
+  return '04' + toB64(buf);
 }
 
 serve(async (req) => {
@@ -118,13 +127,13 @@ serve(async (req) => {
 
     const appIdNum = parseInt(ZEGO_APP_ID, 10);
     
-    // Generate kit token for ZegoUIKitPrebuilt
-    const token = await generateKitToken(
+    // Generate official Token04 (kitToken) for ZegoUIKitPrebuilt
+    const token = await generateToken04(
       appIdNum,
-      ZEGO_SERVER_SECRET,
-      roomId,
       userId,
-      userName || userId
+      ZEGO_SERVER_SECRET,
+      3600,
+      ''
     );
 
     console.log('Generated ZEGO token for room:', roomId, 'user:', userId);
