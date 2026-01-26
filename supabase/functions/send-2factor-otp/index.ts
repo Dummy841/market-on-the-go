@@ -30,41 +30,58 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP via 2Factor API
+    // Generate 4-digit OTP
+    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+    console.log('Generated 4-digit OTP:', otpCode);
+
+    // Store OTP in database
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    
+    const { error: dbError } = await supabase
+      .from('user_otp')
+      .insert({
+        mobile: mobile,
+        otp_code: otpCode,
+        expires_at: expiresAt.toISOString()
+      });
+
+    if (dbError) {
+      console.error('Error storing OTP:', dbError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to generate OTP' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Send OTP via 2Factor SMS API (simple text SMS)
+    const smsText = `Your OTP is ${otpCode}. Valid for 5 minutes. Do not share with anyone.`;
     const response = await fetch(
-      `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/AUTOGEN`,
-      { method: 'GET' }
+      `https://2factor.in/API/V1/${apiKey}/ADDON_SERVICES/SEND/TSMS`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          From: 'TXTIND',
+          To: mobile,
+          Msg: smsText
+        }).toString()
+      }
     );
 
     const result = await response.json();
-    console.log('2Factor Response:', result);
+    console.log('2Factor SMS Response:', result);
 
     if (result.Status === 'Success') {
-      // Store session ID for verification
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
-      // Store session ID in user_otp table for verification
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-      
-      const { error: dbError } = await supabase
-        .from('user_otp')
-        .insert({
-          mobile: mobile,
-          otp_code: result.Details, // This is the session ID from 2Factor
-          expires_at: expiresAt.toISOString()
-        });
-
-      if (dbError) {
-        console.error('Error storing session ID:', dbError);
-      }
-
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'OTP sent successfully',
-          sessionId: result.Details 
+          message: 'OTP sent via SMS successfully'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
