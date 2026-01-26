@@ -14,12 +14,12 @@ interface RegisterFormProps {
   initialMobile?: string;
 }
 
-
 export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: RegisterFormProps) => {
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const { toast } = useToast();
@@ -41,10 +41,10 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       setMobile(initialMobile);
       setStep('register');
       setOtp('');
+      setSessionId('');
       setResendTimer(0);
     }
   }, [isOpen, initialMobile]);
-
 
   // Web OTP API - Auto-read SMS OTP
   useEffect(() => {
@@ -121,13 +121,24 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
         return;
       }
 
-      // TEST MODE: skip SMS and use default OTP
-      toast({
-        title: "OTP Generated",
-        description: "Use default OTP: 123456",
+      // Send OTP via 2Factor
+      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
+        body: { mobile, action: 'register' }
       });
-      setStep('verify');
-      setResendTimer(0);
+
+      if (error) throw error;
+
+      if (data.success) {
+        setSessionId(data.sessionId);
+        toast({
+          title: "OTP Sent",
+          description: "Please enter the 4-digit OTP sent to your mobile",
+        });
+        setStep('verify');
+        setResendTimer(30);
+      } else {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
     } catch (error: any) {
       console.error('Error sending OTP:', error);
       toast({
@@ -150,36 +161,33 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       return;
     }
 
+    if (otp.length !== 4) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid 4-digit OTP",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // TEST MODE: accept default OTP
-      if (otp !== '123456') {
-        // Verify OTP from database
-        const { data: otpData, error: otpError } = await supabase
-          .from('user_otp')
-          .select('*')
-          .eq('mobile', mobile)
-          .eq('otp_code', otp)
-          .eq('is_used', false)
-          .gt('expires_at', new Date().toISOString())
-          .maybeSingle();
+      // Verify OTP via 2Factor
+      const { data, error } = await supabase.functions.invoke('verify-2factor-otp', {
+        body: { sessionId, otp }
+      });
 
-        if (otpError || !otpData) {
-          toast({
-            title: "Error",
-            description: "Invalid or expired OTP",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-          return;
-        }
+      if (error) throw error;
 
-        // Mark OTP as used
-        await supabase
-          .from('user_otp')
-          .update({ is_used: true })
-          .eq('id', otpData.id);
+      if (!data.success) {
+        toast({
+          title: "Error",
+          description: data.error || "Invalid OTP",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
 
       // Create user
@@ -203,11 +211,11 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       onSuccess(user);
       onClose();
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying OTP:', error);
       toast({
         title: "Error",
-        description: "Registration failed. Please try again.",
+        description: error.message || "Registration failed. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -216,12 +224,33 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
   };
 
   const handleResendOtp = async () => {
-    // TEST MODE: just prompt for the default OTP
-    toast({
-      title: "OTP Generated",
-      description: "Use default OTP: 123456",
-    });
-    setResendTimer(0);
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
+        body: { mobile, action: 'register' }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setSessionId(data.sessionId);
+        toast({
+          title: "OTP Sent",
+          description: "New OTP sent to your mobile",
+        });
+        setResendTimer(30);
+      } else {
+        throw new Error(data.error || 'Failed to resend OTP');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -229,6 +258,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
     setName("");
     setMobile("");
     setOtp("");
+    setSessionId("");
     setResendTimer(0);
   };
 
@@ -304,10 +334,10 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
                   id="otp"
                   type="text"
                   inputMode="numeric"
-                  placeholder="Enter 6-digit OTP"
+                  placeholder="Enter 4-digit OTP"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  maxLength={6}
+                  maxLength={4}
                   className="text-center text-2xl font-bold tracking-[0.5em] h-14 border-2 border-primary/30 focus:border-primary"
                 />
               </div>
@@ -321,7 +351,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
                 </Button>
                 <Button 
                   onClick={handleVerifyOtp}
-                  disabled={isLoading || otp.length !== 6}
+                  disabled={isLoading || otp.length !== 4}
                   className="flex-1"
                 >
                   {isLoading ? (

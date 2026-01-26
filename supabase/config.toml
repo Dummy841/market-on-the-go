@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.get-zego-token]
 verify_jwt = false
+
+[functions.send-2factor-otp]
+verify_jwt = false
+
+[functions.verify-2factor-otp]
+verify_jwt = false
