@@ -52,12 +52,13 @@ serve(async (req) => {
       );
     }
 
+    // Return 200 with success: false so frontend can handle gracefully
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: result.Details || 'Invalid OTP' 
+        error: result.Details === 'OTP Mismatch' ? 'Invalid OTP. Please check and try again.' : (result.Details || 'Invalid OTP')
       }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
