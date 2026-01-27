@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,9 +14,10 @@ serve(async (req) => {
   try {
     const { sessionId, otp } = await req.json();
 
+    // sessionId is now the mobile number
     if (!sessionId || !otp) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Session ID and OTP are required' }),
+        JSON.stringify({ success: false, error: 'Mobile number and OTP are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -23,41 +25,58 @@ serve(async (req) => {
     if (otp.length !== 4) {
       return new Response(
         JSON.stringify({ success: false, error: 'OTP must be 4 digits' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const apiKey = Deno.env.get('TWOFACTOR_API_KEY');
-    
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: '2Factor API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify OTP via 2Factor API
-    const response = await fetch(
-      `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY/${sessionId}/${otp}`,
-      { method: 'GET' }
-    );
-
-    const result = await response.json();
-    console.log('2Factor Verify Response:', result);
-
-    if (result.Status === 'Success' && result.Details === 'OTP Matched') {
-      return new Response(
-        JSON.stringify({ success: true, message: 'OTP verified successfully' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Return 200 with success: false so frontend can handle gracefully
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get the latest unused OTP for this mobile number
+    const { data: otpRecord, error: fetchError } = await supabase
+      .from('user_otp')
+      .select('*')
+      .eq('mobile', sessionId)
+      .eq('is_used', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (fetchError || !otpRecord) {
+      console.error('OTP not found:', fetchError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'OTP expired or not found. Please request a new OTP.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if OTP is expired
+    const expiresAt = new Date(otpRecord.expires_at);
+    if (new Date() > expiresAt) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'OTP has expired. Please request a new OTP.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify OTP matches
+    if (otpRecord.otp_code !== otp) {
+      console.log('OTP mismatch - Expected:', otpRecord.otp_code, 'Received:', otp);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid OTP. Please check and try again.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Mark OTP as used
+    await supabase
+      .from('user_otp')
+      .update({ is_used: true })
+      .eq('id', otpRecord.id);
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: result.Details === 'OTP Mismatch' ? 'Invalid OTP. Please check and try again.' : (result.Details || 'Invalid OTP')
-      }),
+      JSON.stringify({ success: true, message: 'OTP verified successfully' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
