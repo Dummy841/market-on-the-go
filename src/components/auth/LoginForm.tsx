@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 interface LoginFormProps {
   isOpen: boolean;
@@ -18,11 +18,12 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
   const [step, setStep] = useState<'login' | 'verify'>('login');
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
-  const [sessionId, setSessionId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [error, setError] = useState("");
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isVerifyingRef = useRef(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -50,7 +51,8 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
         signal
       }).then((otpCredential: any) => {
         if (otpCredential && otpCredential.code) {
-          setOtp(otpCredential.code);
+          const code = otpCredential.code.slice(0, 4); // Ensure 4 digits
+          setOtp(code);
           toast({
             title: "OTP Auto-filled",
             description: "OTP was automatically read from SMS",
@@ -70,22 +72,24 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     };
   }, [step, toast]);
 
+  // Auto-submit when 4 digits entered
+  useEffect(() => {
+    if (otp.length === 4 && step === 'verify' && !isLoading && !isVerifyingRef.current) {
+      isVerifyingRef.current = true;
+      handleVerifyOtp();
+    }
+  }, [otp, step, isLoading]);
+
   const handleSendOtp = async () => {
+    setError("");
+    
     if (!mobile.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your mobile number",
-        variant: "destructive",
-      });
+      setError("Please enter your mobile number");
       return;
     }
 
     if (mobile.length !== 10) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid 10-digit mobile number",
-        variant: "destructive",
-      });
+      setError("Please enter a valid 10-digit mobile number");
       return;
     }
 
@@ -121,64 +125,54 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       if (error) throw error;
 
       if (data.success) {
-        setSessionId(data.sessionId);
         toast({
           title: "OTP Sent",
           description: "Please enter the 4-digit OTP sent to your mobile",
         });
         setStep('verify');
         setResendTimer(30);
+        setOtp("");
+        isVerifyingRef.current = false;
       } else {
         throw new Error(data.error || 'Failed to send OTP');
       }
     } catch (error: any) {
       console.error('Error sending OTP:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send OTP. Please try again.",
-        variant: "destructive",
-      });
+      setError(error.message || "Failed to send OTP. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleVerifyOtp = async () => {
+    setError("");
+    
     if (!otp.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter the OTP",
-        variant: "destructive",
-      });
+      setError("Please enter the OTP");
+      isVerifyingRef.current = false;
       return;
     }
 
     if (otp.length !== 4) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid 4-digit OTP",
-        variant: "destructive",
-      });
+      setError("Please enter a valid 4-digit OTP");
+      isVerifyingRef.current = false;
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Verify OTP via 2Factor
+      // Verify OTP via database (using mobile as sessionId)
       const { data, error } = await supabase.functions.invoke('verify-2factor-otp', {
-        body: { sessionId, otp }
+        body: { sessionId: mobile, otp }
       });
 
       if (error) throw error;
 
       if (!data.success) {
-        toast({
-          title: "Error",
-          description: data.error || "Invalid OTP",
-          variant: "destructive",
-        });
+        setError(data.error || "Invalid OTP");
         setIsLoading(false);
+        isVerifyingRef.current = false;
         return;
       }
 
@@ -201,17 +195,15 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       resetForm();
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Login failed. Please try again.",
-        variant: "destructive",
-      });
+      setError(error.message || "Login failed. Please try again.");
+      isVerifyingRef.current = false;
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleResendOtp = async () => {
+    setError("");
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
@@ -221,21 +213,18 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       if (error) throw error;
 
       if (data.success) {
-        setSessionId(data.sessionId);
         toast({
           title: "OTP Sent",
           description: "New OTP sent to your mobile",
         });
         setResendTimer(30);
+        setOtp("");
+        isVerifyingRef.current = false;
       } else {
         throw new Error(data.error || 'Failed to resend OTP');
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to resend OTP",
-        variant: "destructive",
-      });
+      setError(error.message || "Failed to resend OTP");
     } finally {
       setIsLoading(false);
     }
@@ -245,13 +234,20 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     setStep('login');
     setMobile("");
     setOtp("");
-    setSessionId("");
     setResendTimer(0);
+    setError("");
+    isVerifyingRef.current = false;
   };
 
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  const handleOtpChange = (value: string) => {
+    const numericValue = value.replace(/\D/g, '').slice(0, 4);
+    setOtp(numericValue);
+    setError(""); // Clear error when typing
   };
 
   return (
@@ -277,11 +273,20 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
                     type="tel"
                     placeholder="Enter your mobile number"
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => {
+                      setMobile(e.target.value.replace(/\D/g, ''));
+                      setError("");
+                    }}
                     maxLength={10}
                     className="rounded-l-none"
                   />
                 </div>
+                {error && (
+                  <div className="flex items-center gap-2 text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <p className="text-sm font-medium">{error}</p>
+                  </div>
+                )}
               </div>
               <Button 
                 onClick={handleSendOtp}
@@ -311,17 +316,30 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
                   id="otp"
                   type="text"
                   inputMode="numeric"
+                  autoComplete="one-time-code"
                   placeholder="Enter 4-digit OTP"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => handleOtpChange(e.target.value)}
                   maxLength={4}
                   className="text-center text-2xl font-bold tracking-[0.5em] h-14 border-2 border-primary/30 focus:border-primary"
+                  autoFocus
                 />
+                {error && (
+                  <div className="flex items-center justify-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                    <p className="text-sm font-semibold text-destructive">{error}</p>
+                  </div>
+                )}
               </div>
               <div className="flex space-x-2">
                 <Button 
                   variant="outline"
-                  onClick={() => setStep('login')}
+                  onClick={() => {
+                    setStep('login');
+                    setError("");
+                    setOtp("");
+                    isVerifyingRef.current = false;
+                  }}
                   className="flex-1"
                 >
                   Back

@@ -32,7 +32,7 @@ serve(async (req) => {
 
     // Generate 4-digit OTP
     const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
-    console.log('Generated 4-digit OTP:', otpCode);
+    console.log('Generated 4-digit OTP for mobile:', mobile);
 
     // Store OTP in database
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -41,6 +41,13 @@ serve(async (req) => {
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
     
+    // Delete any existing unused OTPs for this mobile
+    await supabase
+      .from('user_otp')
+      .delete()
+      .eq('mobile', mobile)
+      .eq('is_used', false);
+
     const { error: dbError } = await supabase
       .from('user_otp')
       .insert({
@@ -57,21 +64,11 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP via 2Factor SMS API (simple text SMS)
-    const smsText = `Your OTP is ${otpCode}. Valid for 5 minutes. Do not share with anyone.`;
+    // Send OTP via 2Factor SMS Template API - this sends TEXT SMS not voice call
+    // Using the OTP template format that 2Factor expects
     const response = await fetch(
-      `https://2factor.in/API/V1/${apiKey}/ADDON_SERVICES/SEND/TSMS`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          From: 'TXTIND',
-          To: mobile,
-          Msg: smsText
-        }).toString()
-      }
+      `https://2factor.in/API/V1/${apiKey}/SMS/+91${mobile}/${otpCode}`,
+      { method: 'GET' }
     );
 
     const result = await response.json();
@@ -81,7 +78,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'OTP sent via SMS successfully'
+          message: 'OTP sent via SMS successfully',
+          sessionId: mobile // Use mobile as session identifier for DB lookup
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
