@@ -214,7 +214,7 @@ export const ZippyPassModal = ({
         throw new Error(orderError?.message || 'Failed to create payment order');
       }
 
-      // Open Razorpay checkout
+      // Open Razorpay checkout with UPI intent for mobile apps
       const options = {
         key: razorpayOrder.key_id,
         amount: razorpayOrder.amount,
@@ -263,11 +263,50 @@ export const ZippyPassModal = ({
         theme: {
           color: '#f97316'
         },
+        // Enable all payment methods including UPI apps
+        config: {
+          display: {
+            blocks: {
+              utib: {
+                name: "Pay using UPI",
+                instruments: [
+                  {
+                    method: "upi",
+                    flows: ["intent", "collect", "qr"],
+                    apps: ["google_pay", "phonepe", "paytm", "cred", "bhim"]
+                  }
+                ]
+              },
+              other: {
+                name: "Other Payment Methods",
+                instruments: [
+                  { method: "card" },
+                  { method: "netbanking" },
+                  { method: "wallet" }
+                ]
+              }
+            },
+            sequence: ["block.utib", "block.other"],
+            preferences: {
+              show_default_blocks: true
+            }
+          }
+        },
+        // Enable UPI intent flow for mobile apps
+        method: {
+          upi: {
+            flow: 'intent'
+          }
+        },
         modal: {
           ondismiss: function () {
             setIsProcessing(false);
-          }
-        }
+          },
+          confirm_close: true,
+          escape: false
+        },
+        callback_url: window.location.origin,
+        redirect: false
       };
       const razorpay = new window.Razorpay(options);
       razorpay.open();

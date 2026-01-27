@@ -345,7 +345,7 @@ export const Checkout = () => {
 
       console.log('Razorpay order created:', razorpayOrder);
 
-      // Open Razorpay checkout
+      // Open Razorpay checkout with UPI intent for mobile apps
       const options = {
         key: razorpayOrder.key_id,
         amount: razorpayOrder.amount,
@@ -413,6 +413,41 @@ export const Checkout = () => {
         theme: {
           color: '#16a34a'
         },
+        // Enable all payment methods including UPI apps
+        config: {
+          display: {
+            blocks: {
+              utib: { // UPI block
+                name: "Pay using UPI",
+                instruments: [
+                  {
+                    method: "upi",
+                    flows: ["intent", "collect", "qr"],
+                    apps: ["google_pay", "phonepe", "paytm", "cred", "bhim"]
+                  }
+                ]
+              },
+              other: { // Other payment methods
+                name: "Other Payment Methods",
+                instruments: [
+                  { method: "card" },
+                  { method: "netbanking" },
+                  { method: "wallet" }
+                ]
+              }
+            },
+            sequence: ["block.utib", "block.other"],
+            preferences: {
+              show_default_blocks: true
+            }
+          }
+        },
+        // Enable UPI intent flow for mobile apps
+        method: {
+          upi: {
+            flow: 'intent'
+          }
+        },
         modal: {
           ondismiss: function() {
             setIsPlacingOrder(false);
@@ -421,8 +456,13 @@ export const Checkout = () => {
               description: "You cancelled the payment. Please try again.",
               variant: "destructive"
             });
-          }
-        }
+          },
+          confirm_close: true,
+          escape: false
+        },
+        // Callback URL for UPI intent redirect
+        callback_url: window.location.origin + '/checkout',
+        redirect: false
       };
 
       const razorpay = new window.Razorpay(options);
