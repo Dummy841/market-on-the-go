@@ -40,7 +40,7 @@ const sellerSchema = z.object({
   manual_longitude: z.string().optional(),
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['active', 'inactive']).default('active'),
-  category: z.string().default('food_delivery'),
+  categories: z.array(z.string()).min(1, 'At least one category is required'),
   subcategories: z.array(z.string()).default([]),
 });
 
@@ -67,7 +67,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     defaultValues: {
       status: 'active',
       franchise_percentage: 0,
-      category: 'food_delivery',
+      categories: [],
       manual_latitude: '',
       manual_longitude: '',
       subcategories: []
@@ -125,8 +125,8 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
     setValue
   } = form;
 
-  const selectedCategory = watch('category');
-  const filteredSubcategories = subcategories.filter(s => s.category === selectedCategory);
+  const selectedCategories = watch('categories') || [];
+  const filteredSubcategories = subcategories.filter(s => selectedCategories.includes(s.category));
 
   const accountNumber = watch('account_number');
   const ifscCode = watch('ifsc_code');
@@ -288,7 +288,8 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             franchise_percentage: data.franchise_percentage,
             status: data.status === 'active' ? 'approved' : 'inactive',
             profile_photo_url: profilePhotoUrl || null,
-            category: data.category,
+            category: data.categories[0] || 'food_delivery',
+            categories: data.categories.join(','),
             subcategory: data.subcategories.length > 0 ? data.subcategories.join(', ') : null,
             is_bank_verified: true,
           },
@@ -531,25 +532,49 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select
-              value={watch('category')}
-              onValueChange={(value) => {
-                setValue('category', value);
-                setValue('subcategories', []); // Reset subcategories when category changes
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent className="z-[9999]">
-                {modules.map((module) => (
-                  <SelectItem key={module.id} value={module.slug}>
-                    {module.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Categories (Select multiple)</Label>
+            <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
+              {modules.map((module) => {
+                const isChecked = selectedCategories.includes(module.slug);
+                return (
+                  <div key={module.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`category-${module.id}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) => {
+                        const current = watch('categories') || [];
+                        if (checked) {
+                          setValue('categories', [...current, module.slug]);
+                        } else {
+                          setValue('categories', current.filter(c => c !== module.slug));
+                          // Also remove subcategories that belong to this category
+                          const currentSubs = watch('subcategories') || [];
+                          const subsToKeep = currentSubs.filter(sub => {
+                            const subCat = subcategories.find(s => s.name === sub);
+                            return subCat?.category !== module.slug;
+                          });
+                          setValue('subcategories', subsToKeep);
+                        }
+                      }}
+                    />
+                    <Label 
+                      htmlFor={`category-${module.id}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {module.title}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
+            {selectedCategories.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Selected: {selectedCategories.map(c => modules.find(m => m.slug === c)?.title || c).join(', ')}
+              </p>
+            )}
+            {errors.categories && (
+              <p className="text-sm text-destructive">{errors.categories.message}</p>
+            )}
           </div>
 
           {filteredSubcategories.length > 0 && (
