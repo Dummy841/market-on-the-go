@@ -413,40 +413,42 @@ export const Checkout = () => {
         theme: {
           color: '#16a34a'
         },
-        // Enable all payment methods including UPI apps
+        // Enable all payment methods including UPI apps for Android/iOS
         config: {
           display: {
             blocks: {
-              utib: { // UPI block
-                name: "Pay using UPI",
+              banks: {
+                name: "Pay using UPI Apps",
                 instruments: [
                   {
                     method: "upi",
-                    flows: ["intent", "collect", "qr"],
-                    apps: ["google_pay", "phonepe", "paytm", "cred", "bhim"]
+                    flows: ["intent"],
+                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim", "amazon_pay", "freecharge", "mobikwik"]
                   }
                 ]
               },
-              other: { // Other payment methods
+              other: {
                 name: "Other Payment Methods",
                 instruments: [
+                  { method: "upi", flows: ["collect", "qr"] },
                   { method: "card" },
                   { method: "netbanking" },
                   { method: "wallet" }
                 ]
               }
             },
-            sequence: ["block.utib", "block.other"],
+            sequence: ["block.banks", "block.other"],
             preferences: {
-              show_default_blocks: true
+              show_default_blocks: false
             }
           }
         },
-        // Enable UPI intent flow for mobile apps
+        // Force UPI intent flow for mobile apps
         method: {
-          upi: {
-            flow: 'intent'
-          }
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true
         },
         modal: {
           ondismiss: function() {
