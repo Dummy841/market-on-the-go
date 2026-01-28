@@ -30,10 +30,12 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isModuleActive, setIsModuleActive] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     getUserLocation();
+    checkModuleStatus();
     
     // Listen for address changes from the Header
     const handleAddressChanged = (event: CustomEvent) => {
@@ -53,10 +55,30 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
   }, []);
 
   useEffect(() => {
-    if (userLocation) {
+    checkModuleStatus();
+  }, [category]);
+
+  useEffect(() => {
+    if (userLocation && isModuleActive === true) {
       fetchRestaurants();
     }
-  }, [userLocation, category]);
+  }, [userLocation, category, isModuleActive]);
+
+  const checkModuleStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('service_modules')
+        .select('is_active')
+        .eq('slug', category)
+        .maybeSingle();
+
+      if (error) throw error;
+      setIsModuleActive(data?.is_active ?? true);
+    } catch (error) {
+      console.error('Error checking module status:', error);
+      setIsModuleActive(true); // Default to active if check fails
+    }
+  };
 
   const getUserLocation = async () => {
     try {
@@ -129,9 +151,10 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
         .select('id, seller_name, profile_photo_url, status, is_online, seller_latitude, seller_longitude, category, subcategory')
         .eq('status', 'approved');
       
-      // Filter by category
+      // Filter by category using the new categories column OR the old category column
       if (category) {
-        query = query.eq('category', category);
+        // Use ilike to check if categories contains the current category
+        query = query.or(`categories.ilike.%${category}%,category.eq.${category}`);
       }
 
       const { data, error } = await query;
@@ -223,6 +246,23 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
   const handleRestaurantClick = (restaurantId: string) => {
     navigate(`/restaurant/${restaurantId}`);
   };
+  // Show Coming Soon if module is inactive
+  if (isModuleActive === false) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+          <svg className="w-12 h-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold text-foreground mb-2">Coming Soon!</h3>
+        <p className="text-muted-foreground text-center max-w-sm">
+          This service will be available soon in your area. Stay tuned for updates!
+        </p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="text-center py-8">

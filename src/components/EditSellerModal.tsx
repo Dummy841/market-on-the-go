@@ -38,7 +38,7 @@ const editSellerSchema = z.object({
   franchise_percentage: z.number().min(0, 'Franchise percentage must be at least 0').max(100, 'Franchise percentage cannot exceed 100'),
   status: z.enum(['approved', 'pending', 'inactive']),
   is_online: z.boolean(),
-  category: z.string().min(1, 'Category is required'),
+  categories: z.array(z.string()).min(1, 'At least one category is required'),
 });
 
 type EditSellerFormData = z.infer<typeof editSellerSchema>;
@@ -57,6 +57,7 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
   const [modules, setModules] = useState<ServiceModule[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const { toast } = useToast();
   
   const form = useForm<EditSellerFormData>({
@@ -71,8 +72,6 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
     watch,
     setValue
   } = form;
-
-  const selectedCategory = watch('category');
 
   // Fetch modules and subcategories
   useEffect(() => {
@@ -93,6 +92,15 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
 
   useEffect(() => {
     if (seller && open) {
+      // Parse existing categories
+      const existingCategories = (seller as any).categories;
+      let parsedCategories: string[] = [];
+      if (existingCategories) {
+        parsedCategories = existingCategories.split(',').map((s: string) => s.trim()).filter(Boolean);
+      } else if ((seller as any).category) {
+        parsedCategories = [(seller as any).category];
+      }
+      
       reset({
         owner_name: seller.owner_name,
         seller_name: seller.seller_name,
@@ -105,9 +113,10 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
         franchise_percentage: seller.franchise_percentage || 0,
         status: seller.status as 'approved' | 'pending' | 'inactive',
         is_online: seller.is_online,
-        category: (seller as any).category || 'food_delivery',
+        categories: parsedCategories,
       });
       setProfilePhotoUrl(seller.profile_photo_url || '');
+      setSelectedCategories(parsedCategories);
       
       // Parse existing subcategories
       const existingSubcategories = (seller as any).subcategory;
@@ -120,9 +129,9 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
     }
   }, [seller, open, reset]);
 
-  // Filter subcategories based on selected category
+  // Filter subcategories based on selected categories
   const filteredSubcategories = subcategories.filter(
-    sub => sub.category === selectedCategory
+    sub => selectedCategories.includes(sub.category)
   );
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,7 +190,8 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
           status: data.status,
           is_online: data.is_online,
           profile_photo_url: profilePhotoUrl || null,
-          category: data.category,
+          category: data.categories[0] || 'food_delivery',
+          categories: data.categories.join(','),
           subcategory: selectedSubcategories.join(', '),
           updated_at: new Date().toISOString(),
         })
@@ -363,25 +373,50 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category (Module)</Label>
-              <Select
-                value={watch('category')}
-                onValueChange={(value) => {
-                  setValue('category', value);
-                  setSelectedSubcategories([]); // Reset subcategories when category changes
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent className="z-[9999]">
-                  {modules.map((module) => (
-                    <SelectItem key={module.id} value={module.slug}>
-                      {module.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Categories (Select multiple)</Label>
+              <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
+                {modules.map((module) => {
+                  const isChecked = selectedCategories.includes(module.slug);
+                  return (
+                    <div key={module.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-category-${module.id}`}
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          let newCategories: string[];
+                          if (checked) {
+                            newCategories = [...selectedCategories, module.slug];
+                          } else {
+                            newCategories = selectedCategories.filter(c => c !== module.slug);
+                            // Also remove subcategories that belong to this category
+                            const subsToKeep = selectedSubcategories.filter(sub => {
+                              const subCat = subcategories.find(s => s.name === sub);
+                              return subCat?.category !== module.slug;
+                            });
+                            setSelectedSubcategories(subsToKeep);
+                          }
+                          setSelectedCategories(newCategories);
+                          setValue('categories', newCategories);
+                        }}
+                      />
+                      <Label 
+                        htmlFor={`edit-category-${module.id}`}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {module.title}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+              {selectedCategories.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {selectedCategories.map(c => modules.find(m => m.slug === c)?.title || c).join(', ')}
+                </p>
+              )}
+              {errors.categories && (
+                <p className="text-sm text-destructive">{errors.categories.message}</p>
+              )}
             </div>
 
             {filteredSubcategories.length > 0 && (

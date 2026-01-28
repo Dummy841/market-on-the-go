@@ -503,6 +503,7 @@ export type Database = {
         Row: {
           account_number: string
           bank_name: string
+          categories: string | null
           category: string
           created_at: string
           franchise_percentage: number | null
@@ -525,6 +526,7 @@ export type Database = {
         Insert: {
           account_number: string
           bank_name: string
+          categories?: string | null
           category?: string
           created_at?: string
           franchise_percentage?: number | null
@@ -547,6 +549,7 @@ export type Database = {
         Update: {
           account_number?: string
           bank_name?: string
+          categories?: string | null
           category?: string
           created_at?: string
           franchise_percentage?: number | null
