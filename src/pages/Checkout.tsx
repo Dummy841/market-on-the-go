@@ -413,42 +413,26 @@ export const Checkout = () => {
         theme: {
           color: '#16a34a'
         },
-        // Enable all payment methods including UPI apps for Android/iOS
+        // Force UPI intent flow - prioritize native app redirects
         config: {
           display: {
             blocks: {
-              banks: {
-                name: "Pay using UPI Apps",
+              upi: {
+                name: "Pay using UPI",
                 instruments: [
                   {
                     method: "upi",
                     flows: ["intent"],
-                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim", "amazon_pay", "freecharge", "mobikwik"]
+                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim"]
                   }
-                ]
-              },
-              other: {
-                name: "Other Payment Methods",
-                instruments: [
-                  { method: "upi", flows: ["collect", "qr"] },
-                  { method: "card" },
-                  { method: "netbanking" },
-                  { method: "wallet" }
                 ]
               }
             },
-            sequence: ["block.banks", "block.other"],
+            sequence: ["block.upi"],
             preferences: {
-              show_default_blocks: false
+              show_default_blocks: true
             }
           }
-        },
-        // Force UPI intent flow for mobile apps
-        method: {
-          upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true
         },
         modal: {
           ondismiss: function() {
@@ -460,10 +444,10 @@ export const Checkout = () => {
             });
           },
           confirm_close: true,
-          escape: false
+          escape: false,
+          backdropclose: false
         },
-        // Callback URL for UPI intent redirect
-        callback_url: window.location.origin + '/checkout',
+        // Critical for UPI intent on Android
         redirect: false
       };
 

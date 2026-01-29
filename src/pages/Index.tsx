@@ -1,20 +1,20 @@
 import { Header } from "@/components/Header";
-import { UniversalSearchBar } from "@/components/UniversalSearchBar";
-import { ServiceCategories } from "@/components/ServiceCategories";
-import { HomeCategorySellers } from "@/components/HomeCategorySellers";
+import { HomeBanner } from "@/components/HomeBanner";
+import { HomeSearchBar } from "@/components/HomeSearchBar";
+import { HomeProductsGrid } from "@/components/HomeProductsGrid";
 import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import NotificationPermissionBanner from "@/components/NotificationPermissionBanner";
-import { HomeBanner } from "@/components/HomeBanner";
-import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useUserAuth } from "@/contexts/UserAuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
-  const navigate = useNavigate();
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const { user, isAuthenticated } = useUserAuth();
 
   useEffect(() => {
     getUserLocation();
@@ -35,6 +35,42 @@ const Index = () => {
       window.removeEventListener('addressChanged', handleAddressChanged as EventListener);
     };
   }, []);
+
+  // Request microphone permission after login
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      requestMicrophonePermission();
+    }
+  }, [isAuthenticated, user]);
+
+  const requestMicrophonePermission = async () => {
+    try {
+      // Check if permission was already requested
+      const permissionRequested = localStorage.getItem('mic_permission_requested');
+      if (permissionRequested) return;
+
+      // Check if browser supports permissions API
+      if ('permissions' in navigator) {
+        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (result.state === 'granted' || result.state === 'denied') {
+          localStorage.setItem('mic_permission_requested', 'true');
+          return;
+        }
+      }
+
+      // Request permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStorage.setItem('mic_permission_requested', 'true');
+      toast({
+        title: "Voice search enabled",
+        description: "You can now use voice search to find products",
+      });
+    } catch (error) {
+      // User denied or error occurred - mark as requested to not ask again
+      localStorage.setItem('mic_permission_requested', 'true');
+      console.log('Microphone permission not granted');
+    }
+  };
 
   const getUserLocation = async () => {
     try {
@@ -102,22 +138,14 @@ const Index = () => {
       <NotificationPermissionBanner />
       <Header />
       <main>
+        {/* Banner scrolls with content */}
         <HomeBanner />
-        <ServiceCategories onFoodDeliveryClick={() => navigate('/restaurants')} />
         
-        {/* Instamart Section */}
-        <HomeCategorySellers 
-          title="Instamart - Quick Delivery" 
-          category="instamart" 
-          userLocation={userLocation}
-        />
+        {/* Sticky search bar */}
+        <HomeSearchBar />
         
-        {/* Dairy Products Section */}
-        <HomeCategorySellers 
-          title="Dairy Products - Fresh Daily" 
-          category="dairy" 
-          userLocation={userLocation}
-        />
+        {/* Products grid - 2 column layout */}
+        <HomeProductsGrid userLocation={userLocation} />
       </main>
       <Footer />
       <BottomNav />
