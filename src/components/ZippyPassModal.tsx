@@ -263,51 +263,36 @@ export const ZippyPassModal = ({
         theme: {
           color: '#f97316'
         },
-        // Enable all payment methods including UPI apps for Android/iOS
+        // Force UPI intent flow - prioritize native app redirects
         config: {
           display: {
             blocks: {
-              banks: {
-                name: "Pay using UPI Apps",
+              upi: {
+                name: "Pay using UPI",
                 instruments: [
                   {
                     method: "upi",
                     flows: ["intent"],
-                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim", "amazon_pay", "freecharge", "mobikwik"]
+                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim"]
                   }
-                ]
-              },
-              other: {
-                name: "Other Payment Methods",
-                instruments: [
-                  { method: "upi", flows: ["collect", "qr"] },
-                  { method: "card" },
-                  { method: "netbanking" },
-                  { method: "wallet" }
                 ]
               }
             },
-            sequence: ["block.banks", "block.other"],
+            sequence: ["block.upi"],
             preferences: {
-              show_default_blocks: false
+              show_default_blocks: true
             }
           }
-        },
-        // Force UPI intent flow for mobile apps
-        method: {
-          upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true
         },
         modal: {
           ondismiss: function () {
             setIsProcessing(false);
           },
           confirm_close: true,
-          escape: false
+          escape: false,
+          backdropclose: false
         },
-        callback_url: window.location.origin,
+        // Critical for UPI intent on Android
         redirect: false
       };
       const razorpay = new window.Razorpay(options);

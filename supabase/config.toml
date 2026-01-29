@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.verify-2factor-otp]
 verify_jwt = false
+
+[functions.voice-search-products]
+verify_jwt = false
