@@ -7,14 +7,25 @@ import { BottomNav } from "@/components/BottomNav";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import NotificationPermissionBanner from "@/components/NotificationPermissionBanner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUserAuth } from "@/contexts/UserAuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
 
 const Index = () => {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const { user, isAuthenticated } = useUserAuth();
+  const { getTotalItems } = useCart();
+  const navigate = useNavigate();
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   useEffect(() => {
     getUserLocation();
@@ -142,13 +153,35 @@ const Index = () => {
         <HomeBanner />
         
         {/* Sticky search bar */}
-        <HomeSearchBar />
+        <HomeSearchBar onSearch={handleSearch} />
         
         {/* Products grid - 2 column layout */}
-        <HomeProductsGrid userLocation={userLocation} />
+        <HomeProductsGrid userLocation={userLocation} searchQuery={searchQuery} />
       </main>
       <Footer />
       <BottomNav />
+      
+      {/* Floating View Cart Button */}
+      {getTotalItems() > 0 && (
+        <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 p-4 pointer-events-none">
+          <Button
+            onClick={() => navigate('/cart')}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 shadow-lg flex items-center justify-between pointer-events-auto rounded-full"
+          >
+            <div className="flex items-center gap-2">
+              <span className="bg-white/20 px-2 py-1 rounded text-sm">
+                {getTotalItems()}
+              </span>
+              <span>Item{getTotalItems() > 1 ? 's' : ''} added</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>View Cart</span>
+              <ChevronRight className="h-5 w-5" />
+            </div>
+          </Button>
+        </div>
+      )}
+      
       <OrderTrackingButton onClick={() => setShowTrackingModal(true)} />
       <OrderTrackingModal isOpen={showTrackingModal} onClose={() => setShowTrackingModal(false)} />
     </div>

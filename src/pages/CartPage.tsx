@@ -14,9 +14,6 @@ const CartPage = () => {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
 
   const itemTotal = getTotalPrice();
-  const deliveryFee = itemTotal >= 499 ? 0 : 19;
-  const platformFee = Math.round(itemTotal * 0.05);
-  const totalAmount = itemTotal + deliveryFee + platformFee;
 
   const handleCheckout = () => {
     navigate('/checkout');
@@ -54,7 +51,7 @@ const CartPage = () => {
 
         {/* Proceed to Checkout below restaurant name */}
         <Button onClick={handleCheckout} size="lg" className="w-full mb-6" variant="food">
-          Proceed to Checkout • ₹{totalAmount}
+          Proceed to Checkout • ₹{itemTotal}
         </Button>
 
         {/* Cart Items */}
@@ -88,22 +85,13 @@ const CartPage = () => {
 
         {/* Bill Summary */}
         <section className="border rounded-lg p-4 space-y-2 mb-24">
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between font-medium">
             <span>Item Total</span>
             <span>₹{itemTotal}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span>Delivery Fee</span>
-            <span>{deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Platform Fee</span>
-            <span>₹{platformFee}</span>
-          </div>
-          <div className="border-t pt-2 flex justify-between font-medium">
-            <span>TO PAY</span>
-            <span>₹{totalAmount}</span>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Delivery fee, platform fee will be calculated at checkout
+          </p>
         </section>
       </main>
       <Footer />

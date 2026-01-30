@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { HomeProductCard } from './HomeProductCard';
+import { HomeSellerCard } from './HomeSellerCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { calculateDistance } from '@/lib/distanceUtils';
 
 interface Item {
@@ -20,18 +22,28 @@ interface Item {
   distance?: number;
 }
 
-interface HomeProductsGridProps {
-  userLocation: { lat: number; lng: number } | null;
+interface Seller {
+  id: string;
+  seller_name: string;
+  owner_name: string;
+  profile_photo_url: string | null;
+  is_online: boolean;
 }
 
-export const HomeProductsGrid = ({ userLocation }: HomeProductsGridProps) => {
+interface HomeProductsGridProps {
+  userLocation: { lat: number; lng: number } | null;
+  searchQuery?: string;
+}
+
+export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProductsGridProps) => {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>({});
+  const [searchSellers, setSearchSellers] = useState<Seller[]>([]);
 
   useEffect(() => {
     fetchProducts();
-  }, [userLocation]);
+  }, [userLocation, searchQuery]);
 
   const fetchProducts = async () => {
     try {
@@ -50,12 +62,13 @@ export const HomeProductsGrid = ({ userLocation }: HomeProductsGridProps) => {
       if (activeCategories.length === 0) {
         setItems([]);
         setGroupedItems({});
+        setSearchSellers([]);
         setLoading(false);
         return;
       }
 
-      // Fetch items from sellers in active categories
-      const { data: itemsData, error: itemsError } = await supabase
+      // Build query for items
+      let itemsQuery = supabase
         .from('items')
         .select(`
           id,
@@ -77,6 +90,13 @@ export const HomeProductsGrid = ({ userLocation }: HomeProductsGridProps) => {
         `)
         .eq('is_active', true)
         .eq('sellers.status', 'approved');
+
+      // Apply search filter if query exists
+      if (searchQuery) {
+        itemsQuery = itemsQuery.or(`item_name.ilike.%${searchQuery}%,item_info.ilike.%${searchQuery}%`);
+      }
+
+      const { data: itemsData, error: itemsError } = await itemsQuery;
 
       if (itemsError) throw itemsError;
 
@@ -133,17 +153,35 @@ export const HomeProductsGrid = ({ userLocation }: HomeProductsGridProps) => {
           });
       }
 
-      // Group items by category
-      const grouped: Record<string, Item[]> = {};
-      formattedItems.forEach(item => {
-        if (!grouped[item.category]) {
-          grouped[item.category] = [];
-        }
-        grouped[item.category].push(item);
-      });
+      // If searching, also fetch matching sellers
+      if (searchQuery) {
+        const { data: sellersData } = await supabase
+          .from('sellers')
+          .select('id, seller_name, owner_name, profile_photo_url, is_online')
+          .eq('status', 'approved')
+          .ilike('seller_name', `%${searchQuery}%`)
+          .limit(5);
 
-      setItems(formattedItems);
-      setGroupedItems(grouped);
+        setSearchSellers(sellersData || []);
+
+        // When searching, don't group by category
+        setGroupedItems({});
+        setItems(formattedItems);
+      } else {
+        setSearchSellers([]);
+        
+        // Group items by category when not searching
+        const grouped: Record<string, Item[]> = {};
+        formattedItems.forEach(item => {
+          if (!grouped[item.category]) {
+            grouped[item.category] = [];
+          }
+          grouped[item.category].push(item);
+        });
+
+        setItems(formattedItems);
+        setGroupedItems(grouped);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -183,6 +221,56 @@ export const HomeProductsGrid = ({ userLocation }: HomeProductsGridProps) => {
     );
   }
 
+  // Searching mode - show flat results with sellers
+  if (searchQuery) {
+    const hasResults = items.length > 0 || searchSellers.length > 0;
+
+    if (!hasResults) {
+      return (
+        <div className="px-4 py-8 text-center">
+          <p className="text-muted-foreground">
+            No results found for "{searchQuery}"
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="px-4 py-4 space-y-6">
+        {/* Sellers Section */}
+        {searchSellers.length > 0 && (
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              Sellers
+              <Badge variant="secondary">{searchSellers.length}</Badge>
+            </h3>
+            <div className="space-y-3">
+              {searchSellers.map(seller => (
+                <HomeSellerCard key={seller.id} seller={seller} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Products Section */}
+        {items.length > 0 && (
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              Products
+              <Badge variant="secondary">{items.length}</Badge>
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {items.map(item => (
+                <HomeProductCard key={item.id} item={item} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // No products available
   if (items.length === 0) {
     return (
       <div className="px-4 py-8 text-center">
@@ -193,6 +281,7 @@ export const HomeProductsGrid = ({ userLocation }: HomeProductsGridProps) => {
     );
   }
 
+  // Default: grouped by category
   return (
     <div className="px-4 py-4 space-y-6">
       {Object.entries(groupedItems).map(([category, categoryItems]) => (
