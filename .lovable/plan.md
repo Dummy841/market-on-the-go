@@ -1,159 +1,102 @@
 
+## Implementation Plan: Fix Multiple UI and Functionality Issues
 
-## Implementation Plan
-
-Based on your requirements, I will implement 4 major features to transform the home page into a product-centric experience with voice search capability.
-
----
-
-### Feature 1: Remove Modules and Show Products Directly on Home Page
-
-**Current State:** The Index page shows module cards (INSTAMART, DAIRY PRODUCTS) via `ServiceCategories` component, then seller cards via `HomeCategorySellers`.
-
-**Goal:** Remove module cards entirely. Show products from all active modules directly on the home page in a 2-column grid layout with product cards (image, name, price, ADD button).
-
-**Changes Required:**
-
-1. **Index.tsx:**
-   - Remove `ServiceCategories` component import and usage
-   - Add a new component `HomeProductsGrid` that fetches products from all active modules' sellers
-   - Display products in 2-column grid (like the reference image)
-   - Each product card shows: image, name, price, +ADD button
-   - Products grouped by category/seller with section headers
-
-2. **Create new component `HomeProductsGrid.tsx`:**
-   - Fetch all active modules from `service_modules` table
-   - For each active module category, fetch sellers and their items
-   - Display items in a 2-column responsive grid
-   - Each item card: product image, item name, price (in yellow badge), info icon (if item_info exists), +ADD button (green)
-   - Filter by user location (within 10km radius)
-   - Sort by distance and online status
+This plan addresses 6 issues reported in your Android app and web preview.
 
 ---
 
-### Feature 2: Sticky Search Bar After Banner (Scrolls with Content)
+## Issue Summary
 
-**Current State:** `UniversalSearchBar` exists but is not prominently placed and the banner is fixed.
-
-**Goal:** Banner should scroll up with content. After banner, show a sticky search bar that allows searching by item name, description, or seller name. When seller is found, show a card with "View" button.
-
-**Changes Required:**
-
-1. **Index.tsx:**
-   - Add a new search section immediately after `HomeBanner`
-   - Create a new `HomeSearchBar` component with:
-     - Input field: "Search items, products, sellers..."
-     - Voice search button (microphone icon)
-   - Search results dropdown showing:
-     - **Products:** Direct product cards with ADD button
-     - **Sellers:** Seller card with avatar, name, owner, "View" button
-
-2. **Create new component `HomeSearchBar.tsx`:**
-   - Search input with icon
-   - Real-time search as user types
-   - Results categorized:
-     - Items: Show product cards with ADD functionality
-     - Sellers: Show seller card with "View" button that navigates to seller's product list
-   - When "View" clicked on seller: Navigate to a filtered view showing all that seller's products
-   - Integration point for voice search (Feature 4)
-
-3. **Update layout:**
-   - Remove fixed positioning from banner
-   - Banner scrolls with content naturally
-   - Search bar appears right after banner
+| # | Problem | File(s) to Change |
+|---|---------|-------------------|
+| 1 | Search bar hidden under header on Index page | `HomeSearchBar.tsx`, `Header.tsx` |
+| 2 | "View Cart" button missing after adding products on home page | `Index.tsx` (add floating cart button) |
+| 3 | Razorpay UPI not showing apps (shows "Enter UPI ID" instead) | `Checkout.tsx`, `ZippyPassModal.tsx` |
+| 4 | Search results appear in modal instead of filtering the page | `HomeSearchBar.tsx`, `Index.tsx` |
+| 5 | Voice search not working (doesn't show searched products) | `HomeSearchBar.tsx`, `useVoiceSearch.ts` |
+| 6 | Map touch not working (zoom, drag, Confirm button) | `FullScreenLocationPicker.tsx` |
+| 7 | Cart page showing fees (should only show item total) | `CartPage.tsx` |
 
 ---
 
-### Feature 3: Seller Products View (When Clicking "View" on Seller)
+## Phase 1: Fix Search Bar Visibility
 
-**Current State:** When clicking a seller, it navigates to `/restaurant/:id` which shows the full restaurant menu page with header, restaurant info, etc.
+**Problem:** The sticky search bar at `top-16` overlaps with or hides under the header. The header height may vary on different devices (especially with safe-area insets).
 
-**Goal:** When clicking "View" on a searched seller in the home page, show a compact view with the seller card and all their products in a 2-column grid (like the reference image 3).
+**Solution:**
+1. Change the HomeSearchBar sticky positioning to use a proper offset that accounts for the Header height
+2. Ensure proper z-index stacking so search results don't conflict with Header
 
-**Changes Required:**
-
-1. **Option A - Keep existing navigation:**
-   - The current `/restaurant/:id` page already shows seller products
-   - This flow already works, just needs UI refinement
-
-2. **Option B - Inline expansion (recommended):**
-   - When "View" is clicked, expand the seller card inline to show their products
-   - Products displayed in 2-column grid below the seller info
-   - This provides a seamless experience without navigation
-
-   Implementation:
-   - Add state in `HomeSearchBar` to track "expanded seller"
-   - When expanded, fetch and display seller's items
-   - Show items in 2-column grid with ADD buttons
+**Technical Changes (HomeSearchBar.tsx):**
+```tsx
+// Current: sticky top-16 z-40
+// Change to: sticky top-[calc(4rem+env(safe-area-inset-top))] z-40
+// This ensures the search bar sits directly below the header
+```
 
 ---
 
-### Feature 4: Voice Search with AI Product Suggestions
+## Phase 2: Add Floating "View Cart" Button on Index Page
 
-**Current State:** No voice search or AI integration exists.
+**Problem:** After adding products on the home page, there's no way to navigate to cart without using the header or going to a restaurant page.
 
-**Goal:** After user login, request microphone permission. When user speaks, use AI to understand what they want and suggest matching products from the database.
+**Solution:** Add a floating "View Cart" button at the bottom of the Index page (similar to RestaurantMenu.tsx)
 
-**Changes Required:**
+**Technical Changes (Index.tsx):**
+```tsx
+import { useCart } from '@/contexts/CartContext';
+import { ChevronRight } from 'lucide-react';
 
-1. **Request microphone permission after login:**
-   - In `UserAuthContext.tsx` or `Index.tsx`, after successful login:
-     - Check if permission already granted
-     - If not, request microphone permission
-     - Store permission status
+// Inside component:
+const { getTotalItems } = useCart();
 
-2. **Create Voice Search Hook `useVoiceSearch.ts`:**
-   - Use Web Speech API (`SpeechRecognition`) for speech-to-text
-   - Capture user's spoken query
-   - Send to backend for AI processing
-
-3. **Create Edge Function `voice-search-products/index.ts`:**
-   - Receive transcribed text
-   - Use Lovable AI (gemini-3-flash-preview) to:
-     - Understand user intent
-     - Extract product keywords
-     - Match against database items
-   - Return matched products
-
-4. **Integrate with `HomeSearchBar`:**
-   - Add microphone button
-   - When clicked, start listening
-   - Show visual feedback (listening indicator)
-   - When speech detected, process through AI
-   - Display matching products
-
-5. **AI Prompt Design:**
-   - System prompt: "You are a product matching assistant. Given a user's spoken request, extract product keywords and categories they might be looking for."
-   - Tool calling to return structured output: `{ keywords: string[], category?: string }`
+// In JSX, before </div> closing:
+{getTotalItems() > 0 && (
+  <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 p-4 pointer-events-none">
+    <Button
+      onClick={() => navigate('/cart')}
+      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 shadow-lg flex items-center justify-between pointer-events-auto rounded-full"
+    >
+      <div className="flex items-center gap-2">
+        <span className="bg-white/20 px-2 py-1 rounded text-sm">
+          {getTotalItems()}
+        </span>
+        <span>Item{getTotalItems() > 1 ? 's' : ''} added</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span>View Cart</span>
+        <ChevronRight className="h-5 w-5" />
+      </div>
+    </Button>
+  </div>
+)}
+```
 
 ---
 
-### Feature 5: Fix Razorpay UPI Intent Flow on Android
+## Phase 3: Fix Razorpay UPI Intent for Android App (WebView)
 
-**Current State:** Despite previous configuration, UPI apps are not showing and it defaults to "Enter UPI ID" input.
+**Problem:** UPI apps (PhonePe, GPay, Paytm) not showing when clicking UPI - instead shows "Enter UPI ID" input.
 
-**Root Cause Analysis:** The Razorpay configuration might not be correctly forcing intent flow on Android. The `method` object needs restructuring.
+**Root Cause:** Capacitor's WebView on Android doesn't natively support UPI intent deep links (`upi://`, `intent://`). The Razorpay config alone isn't enough - the WebView needs to be configured to handle these custom URL schemes.
 
-**Changes Required:**
+**Solution (Two-Part):**
 
-1. **Update `Checkout.tsx` and `ZippyPassModal.tsx`:**
-   - Restructure the Razorpay options to properly force UPI intent
-   - Add explicit `external` configuration for UPI apps
-   - Use `prefill` with VPA if available
-   - Add proper handling for intent callback
-
-2. **Key Configuration Changes:**
+### Part A: Update Razorpay Configuration (Checkout.tsx, ZippyPassModal.tsx)
 ```javascript
-// Force intent-only for UPI
-options.config = {
+// Force intent flow with explicit method config
+config: {
   display: {
     blocks: {
       upi: {
-        name: "Pay via UPI",
-        instruments: [{
-          method: "upi",
-          flows: ["intent"]
-        }]
+        name: "Pay using UPI",
+        instruments: [
+          {
+            method: "upi",
+            flows: ["intent"],
+            apps: ["phonepe", "google_pay", "paytm", "bhim", "cred"]
+          }
+        ]
       }
     },
     sequence: ["block.upi"],
@@ -161,59 +104,204 @@ options.config = {
       show_default_blocks: true
     }
   }
-};
-
-// Remove method object which might override config
-// Add external handler for native apps
-options.external = {
-  wallets: ['phonepe', 'gpay', 'paytm']
-};
+},
+// Critical: Don't use redirect
+redirect: false,
+// Method preferences (backup)
+method: {
+  upi: {
+    flow: "intent"
+  }
+}
 ```
 
-3. **Add fallback handling:**
-   - If intent fails, show toast with instructions
-   - Provide manual UPI ID option as secondary
+### Part B: Android Native Configuration Required (User Action)
+Since you're running in a Capacitor Android WebView, native configuration is required:
+
+**For the Android app, you need to modify:**
+
+1. **android/app/src/main/java/.../MainActivity.java** - Add WebViewClient to handle UPI intents:
+```java
+@Override
+public boolean shouldOverrideUrlLoading(WebView view, String url) {
+    if (url.startsWith("upi://") || url.startsWith("intent://")) {
+        try {
+            Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    return false;
+}
+```
+
+2. **capacitor.config.json** - Add server configuration:
+```json
+{
+  "server": {
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "webContentsDebuggingEnabled": true
+  }
+}
+```
+
+Since this requires native Android code changes that you need to make locally after pulling the project, I'll add instructions in the implementation.
 
 ---
 
-### Technical Summary
+## Phase 4: Convert Search to In-Page Filter
+
+**Problem:** Search results appear in a dropdown modal overlay instead of filtering the product grid on the page.
+
+**Solution:** 
+1. Remove the dropdown results from HomeSearchBar
+2. Pass search query to HomeProductsGrid to filter products
+3. Show sellers inline in the grid when searching
+
+**Technical Changes:**
+
+### HomeSearchBar.tsx:
+- Remove the dropdown results container
+- Emit search query to parent component via callback
+- Keep voice search functionality
+- Add search state (query, isSearching)
+
+### Index.tsx:
+- Add state for search query
+- Pass searchQuery to HomeProductsGrid
+- When searching, hide category headers and show filtered results
+
+### HomeProductsGrid.tsx:
+- Accept searchQuery prop
+- Filter items by name/description when query exists
+- Also fetch and show matching sellers inline
+- Show HomeSellerCard components inline (not in modal)
+
+---
+
+## Phase 5: Fix Voice Search
+
+**Problem:** Voice search captures audio but doesn't trigger product search.
+
+**Root Cause:** The voice search hook sets `searchResults` with keywords, but the HomeSearchBar doesn't use these keywords to perform the actual product search.
+
+**Solution:** Connect the voice search keywords to the search functionality
+
+**Technical Changes (HomeSearchBar.tsx):**
+```tsx
+// After voice processing completes with keywords:
+useEffect(() => {
+  if (searchResults?.keywords?.length > 0) {
+    // Join keywords and trigger search
+    const searchTerm = searchResults.keywords.join(' ');
+    setSearchQuery(searchTerm);
+    onSearch?.(searchTerm); // Pass to parent for filtering
+  }
+}, [searchResults]);
+```
+
+---
+
+## Phase 6: Fix Map Touch Interactions
+
+**Problem:** Map doesn't respond to touch (zoom, drag, marker drag) and "Confirm & proceed" button doesn't work in FullScreenLocationPicker.
+
+**Root Cause Analysis:** The map container has `touchAction: 'none'` which blocks all touch events. Also, the button may be blocked by an overlay or z-index issue.
+
+**Solution:**
+
+**Technical Changes (FullScreenLocationPicker.tsx):**
+
+1. **Remove blocking touchAction:**
+```tsx
+// Current:
+<div className="flex-1 relative" style={{ touchAction: 'none' }}>
+
+// Change to:
+<div className="flex-1 relative">
+```
+
+2. **Ensure button is clickable:**
+```tsx
+// Add pointer-events-auto to the bottom sheet
+<div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto">
+```
+
+3. **Fix marker color (use default red):**
+```tsx
+// Current: MapPin with primary color
+// Change: Remove custom styling, use default Google Maps marker
+// Remove the overlay pin and use the Marker component from Google Maps
+```
+
+4. **Alternative: Use draggable Marker instead of center-pin approach:**
+Instead of a fixed center pin overlay and detecting map center on idle, use an actual draggable Google Maps Marker that the user can move.
+
+---
+
+## Phase 7: Remove Fees from Cart Page (Already Correct)
+
+**Review:** Looking at the CartPage.tsx code, it currently shows:
+- Item Total
+- Delivery Fee
+- Platform Fee
+- TO PAY
+
+**Change Required:** Remove the fee display from CartPage, showing only Item Total. Keep fees only on Checkout page.
+
+**Technical Changes (CartPage.tsx):**
+```tsx
+// Remove these lines:
+const deliveryFee = itemTotal >= 499 ? 0 : 19;
+const platformFee = Math.round(itemTotal * 0.05);
+const totalAmount = itemTotal + deliveryFee + platformFee;
+
+// Change button to show only item total:
+<Button onClick={handleCheckout} size="lg" className="w-full mb-6" variant="food">
+  Proceed to Checkout • ₹{itemTotal}
+</Button>
+
+// Remove the Bill Summary section with fees, keep only Item Total
+```
+
+---
+
+## Technical Summary
 
 | File | Changes |
 |------|---------|
-| `src/pages/Index.tsx` | Remove ServiceCategories, add HomeSearchBar, add HomeProductsGrid |
-| `src/components/HomeSearchBar.tsx` | New: Search bar with voice integration |
-| `src/components/HomeProductsGrid.tsx` | New: 2-column product grid from all active modules |
-| `src/components/HomeProductCard.tsx` | New: Individual product card component |
-| `src/components/HomeSellerCard.tsx` | New: Seller card with View button for search results |
-| `src/hooks/useVoiceSearch.ts` | New: Voice recognition hook |
-| `supabase/functions/voice-search-products/index.ts` | New: AI-powered product matching |
-| `src/pages/Checkout.tsx` | Update Razorpay UPI configuration |
-| `src/components/ZippyPassModal.tsx` | Update Razorpay UPI configuration |
-| `src/contexts/UserAuthContext.tsx` | Add microphone permission request after login |
+| `src/components/HomeSearchBar.tsx` | Fix sticky position, remove dropdown, pass query to parent, connect voice search |
+| `src/pages/Index.tsx` | Add search state, pass to grid, add floating cart button |
+| `src/components/HomeProductsGrid.tsx` | Accept searchQuery prop, filter products, show sellers inline |
+| `src/pages/Checkout.tsx` | Update Razorpay UPI config with proper intent flow |
+| `src/components/ZippyPassModal.tsx` | Same Razorpay UPI fix |
+| `src/components/FullScreenLocationPicker.tsx` | Fix touch handling, fix button, fix marker color |
+| `src/pages/CartPage.tsx` | Remove fees display, show only item total |
 
 ---
 
-### Implementation Order
+## Implementation Order
 
-1. **Phase 1 - Home Page Redesign:**
-   - Create `HomeProductsGrid` component
-   - Create `HomeProductCard` component  
-   - Update `Index.tsx` to remove modules and show products
+1. Fix search bar visibility (quick positioning fix)
+2. Add floating View Cart button to Index
+3. Fix CartPage to show only item total
+4. Convert search to in-page filter with voice integration
+5. Fix map touch interactions and button
+6. Update Razorpay UPI config (note: native Android changes needed for full UPI intent support)
 
-2. **Phase 2 - Search Functionality:**
-   - Create `HomeSearchBar` component
-   - Create `HomeSellerCard` component
-   - Implement search with results dropdown
-   - Add seller expansion with products view
+---
 
-3. **Phase 3 - Voice Search:**
-   - Create `useVoiceSearch` hook
-   - Create `voice-search-products` edge function
-   - Add microphone permission request after login
-   - Integrate voice search with search bar
+## Important Note for Razorpay UPI
 
-4. **Phase 4 - Razorpay Fix:**
-   - Update Checkout.tsx configuration
-   - Update ZippyPassModal.tsx configuration
-   - Test on Android device
+The UPI intent flow in a Capacitor WebView requires native Android code changes. After implementing the Razorpay config changes:
 
+1. Pull the project to your local machine
+2. Add the WebViewClient override in MainActivity.java to handle `upi://` and `intent://` URLs
+3. Run `npx cap sync android`
+4. Rebuild the Android app
+
+Without the native changes, the WebView cannot open external UPI apps. As an alternative workaround, you could set `redirect: true` in Razorpay options to redirect to Razorpay's hosted page in an external browser, which can handle UPI intents properly.
