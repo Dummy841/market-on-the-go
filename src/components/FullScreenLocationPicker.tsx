@@ -231,7 +231,7 @@ const FullScreenLocationPicker = ({
       </div>
       
       {/* Map Container */}
-      <div className="flex-1 relative" style={{ touchAction: 'none' }}>
+      <div className="flex-1 relative">
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -282,13 +282,13 @@ const FullScreenLocationPicker = ({
               }}
             />
             
-            {/* Fixed Center Pin Overlay */}
+            {/* Fixed Center Pin Overlay - Default Google red color */}
             <div 
               className="absolute left-1/2 top-1/2 -translate-x-1/2 pointer-events-none z-10"
               style={{ transform: 'translate(-50%, -100%)' }}
             >
               <div className="relative">
-                <MapPin className="h-12 w-12 text-primary drop-shadow-lg" fill="hsl(var(--primary))" />
+                <MapPin className="h-12 w-12 drop-shadow-lg" style={{ color: '#EA4335' }} fill="#EA4335" />
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-1 bg-black/30 rounded-full" />
               </div>
             </div>
@@ -308,7 +308,7 @@ const FullScreenLocationPicker = ({
       </div>
       
       {/* Bottom Sheet */}
-      <div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto">
         <div className="flex items-start gap-3 mb-3">
           <MapPin className="h-5 w-5 shrink-0 text-primary mt-0.5" />
           <div className="flex-1 min-w-0">
