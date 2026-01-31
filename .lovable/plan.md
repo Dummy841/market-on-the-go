@@ -1,307 +1,382 @@
 
-## Implementation Plan: Fix Multiple UI and Functionality Issues
 
-This plan addresses 6 issues reported in your Android app and web preview.
+# Implementation Plan: Multiple Bug Fixes and Enhancements
 
----
-
-## Issue Summary
-
-| # | Problem | File(s) to Change |
-|---|---------|-------------------|
-| 1 | Search bar hidden under header on Index page | `HomeSearchBar.tsx`, `Header.tsx` |
-| 2 | "View Cart" button missing after adding products on home page | `Index.tsx` (add floating cart button) |
-| 3 | Razorpay UPI not showing apps (shows "Enter UPI ID" instead) | `Checkout.tsx`, `ZippyPassModal.tsx` |
-| 4 | Search results appear in modal instead of filtering the page | `HomeSearchBar.tsx`, `Index.tsx` |
-| 5 | Voice search not working (doesn't show searched products) | `HomeSearchBar.tsx`, `useVoiceSearch.ts` |
-| 6 | Map touch not working (zoom, drag, Confirm button) | `FullScreenLocationPicker.tsx` |
-| 7 | Cart page showing fees (should only show item total) | `CartPage.tsx` |
+This plan addresses 8 issues reported across the seller dashboard, user home page, location picker, voice search, splash screen, and Android back button handling.
 
 ---
 
-## Phase 1: Fix Search Bar Visibility
+## Summary of Issues
 
-**Problem:** The sticky search bar at `top-16` overlaps with or hides under the header. The header height may vary on different devices (especially with safe-area insets).
+| # | Issue | Location | Status |
+|---|-------|----------|--------|
+| 1 | Add subcategory dropdown in seller "Add Item" form | SellerItemsForm.tsx, EditItemModal.tsx | New feature |
+| 2 | Show products grouped by subcategory on home page | HomeProductsGrid.tsx | Enhancement |
+| 3 | Menu items should display in table format | MyMenu.tsx | UI change |
+| 4 | Search showing inactive module sellers/items | HomeProductsGrid.tsx | Bug fix |
+| 5 | Voice search conflict message "Google cannot record" | useVoiceSearch.ts | Bug fix |
+| 6 | Location picker touch not working (zoom, drag, button, back) | FullScreenLocationPicker.tsx | Critical bug |
+| 7 | Android back button not working on Cart/Dairy pages | useAndroidBackButton.ts | Bug fix |
+| 8 | Splash screen text size too small | SplashScreen.tsx | UI enhancement |
 
-**Solution:**
-1. Change the HomeSearchBar sticky positioning to use a proper offset that accounts for the Header height
-2. Ensure proper z-index stacking so search results don't conflict with Header
+---
 
-**Technical Changes (HomeSearchBar.tsx):**
-```tsx
-// Current: sticky top-16 z-40
-// Change to: sticky top-[calc(4rem+env(safe-area-inset-top))] z-40
-// This ensures the search bar sits directly below the header
+## Issue 1: Add Subcategory Dropdown in Seller "Add Item" Form
+
+### Problem
+When sellers add new items, they cannot select which subcategory the item belongs to. Subcategories should be filtered based on the seller's existing categories.
+
+### Solution
+Add a subcategory dropdown in both `SellerItemsForm.tsx` and `EditItemModal.tsx`. The dropdown will show subcategories that match the seller's assigned categories.
+
+### Database Changes
+Add `subcategory_id` column to the `items` table to store which subcategory an item belongs to.
+
+### Technical Implementation
+
+**Migration:** Add subcategory_id column to items table
+```sql
+ALTER TABLE items ADD COLUMN subcategory_id UUID REFERENCES subcategories(id);
+```
+
+**SellerItemsForm.tsx changes:**
+1. Fetch seller's categories from `seller.category` and `seller.categories`
+2. Fetch subcategories that match these categories from `subcategories` table
+3. Add a Select dropdown for subcategory selection
+4. Save `subcategory_id` when inserting item
+
+**EditItemModal.tsx changes:**
+1. Same as above - add subcategory dropdown
+2. Pre-populate with existing subcategory when editing
+
+---
+
+## Issue 2: Show Products Grouped by Subcategory on Home Page
+
+### Problem
+Currently products are grouped by category (Food/Instamart/Dairy). User wants products grouped by subcategory only.
+
+### Solution
+Modify `HomeProductsGrid.tsx` to:
+1. Fetch subcategory info along with items
+2. Group items by subcategory name instead of category
+3. Show subcategory headings with products underneath
+
+### Technical Implementation
+
+**HomeProductsGrid.tsx changes:**
+1. Join items with subcategories table to get subcategory name
+2. Group items by `subcategory_id` and display subcategory name as section header
+3. For items without subcategory, group under "Other" or the category name
+4. Update the rendering logic to show subcategory-based grouping
+
+---
+
+## Issue 3: Menu Items in Table Format
+
+### Problem
+The "My Menu" section in seller dashboard shows items as cards in a grid. User wants them in a table format.
+
+### Solution
+Replace the grid of cards with a responsive table showing: Image, Name, Price, Status, and Actions (Edit/Deactivate).
+
+### Technical Implementation
+
+**MyMenu.tsx changes:**
+1. Import Table components from shadcn/ui
+2. Replace the grid layout with a Table component
+3. Table columns: Image (thumbnail), Item Name, Price, Status (Active/Inactive badge), Actions
+4. Keep mobile responsiveness with horizontal scroll if needed
+
+---
+
+## Issue 4: Search Showing Inactive Module Sellers
+
+### Problem
+When searching, sellers from inactive modules (e.g., food_delivery when it's disabled) are still appearing in results.
+
+### Solution
+Filter out sellers whose categories don't match any active modules when searching.
+
+### Technical Implementation
+
+**HomeProductsGrid.tsx changes:**
+1. In the search sellers query, join with `service_modules` to verify the seller's categories match active modules
+2. Add filter: Only show sellers where at least one of their categories is in the active modules list
+3. Apply same logic for items - only show items from sellers in active categories
+
+**Code logic:**
+```typescript
+// When searching sellers
+const { data: sellersData } = await supabase
+  .from('sellers')
+  .select('id, seller_name, owner_name, profile_photo_url, is_online, category, categories')
+  .eq('status', 'approved')
+  .ilike('seller_name', `%${searchQuery}%`)
+  .limit(5);
+
+// Filter sellers by active categories
+const filteredSellers = sellersData?.filter(seller => {
+  const sellerCategories = seller.categories?.split(',').map(c => c.trim()) || [seller.category];
+  return sellerCategories.some(cat => activeCategories.includes(cat));
+});
 ```
 
 ---
 
-## Phase 2: Add Floating "View Cart" Button on Index Page
+## Issue 5: Voice Search Google Conflict Error
 
-**Problem:** After adding products on the home page, there's no way to navigate to cart without using the header or going to a restaurant page.
+### Problem
+Error message appears: "Speech Recognition and Synthesis from Google cannot record now as Zippy is recording."
 
-**Solution:** Add a floating "View Cart" button at the bottom of the Index page (similar to RestaurantMenu.tsx)
+This happens because the app is trying to use microphone while Google's speech recognition is already using it (or vice versa).
 
-**Technical Changes (Index.tsx):**
-```tsx
-import { useCart } from '@/contexts/CartContext';
-import { ChevronRight } from 'lucide-react';
+### Root Cause
+The voice search is requesting microphone access via `getUserMedia()` before starting speech recognition. This creates a conflict.
 
-// Inside component:
-const { getTotalItems } = useCart();
+### Solution
+Remove the redundant `getUserMedia()` call in `startListening`. The SpeechRecognition API handles its own microphone access.
 
-// In JSX, before </div> closing:
-{getTotalItems() > 0 && (
-  <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 p-4 pointer-events-none">
-    <Button
-      onClick={() => navigate('/cart')}
-      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 shadow-lg flex items-center justify-between pointer-events-auto rounded-full"
-    >
-      <div className="flex items-center gap-2">
-        <span className="bg-white/20 px-2 py-1 rounded text-sm">
-          {getTotalItems()}
-        </span>
-        <span>Item{getTotalItems() > 1 ? 's' : ''} added</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span>View Cart</span>
-        <ChevronRight className="h-5 w-5" />
-      </div>
-    </Button>
-  </div>
-)}
-```
+### Technical Implementation
 
----
-
-## Phase 3: Fix Razorpay UPI Intent for Android App (WebView)
-
-**Problem:** UPI apps (PhonePe, GPay, Paytm) not showing when clicking UPI - instead shows "Enter UPI ID" input.
-
-**Root Cause:** Capacitor's WebView on Android doesn't natively support UPI intent deep links (`upi://`, `intent://`). The Razorpay config alone isn't enough - the WebView needs to be configured to handle these custom URL schemes.
-
-**Solution (Two-Part):**
-
-### Part A: Update Razorpay Configuration (Checkout.tsx, ZippyPassModal.tsx)
-```javascript
-// Force intent flow with explicit method config
-config: {
-  display: {
-    blocks: {
-      upi: {
-        name: "Pay using UPI",
-        instruments: [
-          {
-            method: "upi",
-            flows: ["intent"],
-            apps: ["phonepe", "google_pay", "paytm", "bhim", "cred"]
-          }
-        ]
-      }
-    },
-    sequence: ["block.upi"],
-    preferences: {
-      show_default_blocks: true
-    }
+**useVoiceSearch.ts changes:**
+```typescript
+const startListening = useCallback(async () => {
+  if (!isSupported) {
+    toast({
+      title: "Not supported",
+      description: "Voice search is not supported in your browser",
+      variant: "destructive",
+    });
+    return;
   }
-},
-// Critical: Don't use redirect
-redirect: false,
-// Method preferences (backup)
-method: {
-  upi: {
-    flow: "intent"
+
+  try {
+    // Remove the getUserMedia call - SpeechRecognition handles its own mic access
+    // The browser will prompt for permission if needed
+    
+    setTranscript('');
+    setSearchResults(null);
+    setIsListening(true);
+    recognitionRef.current?.start();
+  } catch (error) {
+    console.error('Voice recognition error:', error);
+    toast({
+      title: "Voice search error",
+      description: "Please try again",
+      variant: "destructive",
+    });
+    setIsListening(false);
   }
-}
-```
-
-### Part B: Android Native Configuration Required (User Action)
-Since you're running in a Capacitor Android WebView, native configuration is required:
-
-**For the Android app, you need to modify:**
-
-1. **android/app/src/main/java/.../MainActivity.java** - Add WebViewClient to handle UPI intents:
-```java
-@Override
-public boolean shouldOverrideUrlLoading(WebView view, String url) {
-    if (url.startsWith("upi://") || url.startsWith("intent://")) {
-        try {
-            Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-            startActivity(intent);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-    return false;
-}
-```
-
-2. **capacitor.config.json** - Add server configuration:
-```json
-{
-  "server": {
-    "allowNavigation": ["*"]
-  },
-  "android": {
-    "webContentsDebuggingEnabled": true
-  }
-}
-```
-
-Since this requires native Android code changes that you need to make locally after pulling the project, I'll add instructions in the implementation.
-
----
-
-## Phase 4: Convert Search to In-Page Filter
-
-**Problem:** Search results appear in a dropdown modal overlay instead of filtering the product grid on the page.
-
-**Solution:** 
-1. Remove the dropdown results from HomeSearchBar
-2. Pass search query to HomeProductsGrid to filter products
-3. Show sellers inline in the grid when searching
-
-**Technical Changes:**
-
-### HomeSearchBar.tsx:
-- Remove the dropdown results container
-- Emit search query to parent component via callback
-- Keep voice search functionality
-- Add search state (query, isSearching)
-
-### Index.tsx:
-- Add state for search query
-- Pass searchQuery to HomeProductsGrid
-- When searching, hide category headers and show filtered results
-
-### HomeProductsGrid.tsx:
-- Accept searchQuery prop
-- Filter items by name/description when query exists
-- Also fetch and show matching sellers inline
-- Show HomeSellerCard components inline (not in modal)
-
----
-
-## Phase 5: Fix Voice Search
-
-**Problem:** Voice search captures audio but doesn't trigger product search.
-
-**Root Cause:** The voice search hook sets `searchResults` with keywords, but the HomeSearchBar doesn't use these keywords to perform the actual product search.
-
-**Solution:** Connect the voice search keywords to the search functionality
-
-**Technical Changes (HomeSearchBar.tsx):**
-```tsx
-// After voice processing completes with keywords:
-useEffect(() => {
-  if (searchResults?.keywords?.length > 0) {
-    // Join keywords and trigger search
-    const searchTerm = searchResults.keywords.join(' ');
-    setSearchQuery(searchTerm);
-    onSearch?.(searchTerm); // Pass to parent for filtering
-  }
-}, [searchResults]);
+}, [isSupported]);
 ```
 
 ---
 
-## Phase 6: Fix Map Touch Interactions
+## Issue 6: Location Picker Touch Not Working
 
-**Problem:** Map doesn't respond to touch (zoom, drag, marker drag) and "Confirm & proceed" button doesn't work in FullScreenLocationPicker.
+### Problem
+Multiple issues with FullScreenLocationPicker:
+1. Map cannot be zoomed or dragged on touch devices
+2. "Confirm & proceed" button not responding
+3. Back button (arrow) not working
+4. Marker not movable
 
-**Root Cause Analysis:** The map container has `touchAction: 'none'` which blocks all touch events. Also, the button may be blocked by an overlay or z-index issue.
+### Root Cause Analysis
+Looking at the current code:
+- `mapContainerStyle={{ touchAction: 'auto' }}` is set, which should work
+- `gestureHandling: 'greedy'` is set
+- Button uses `onClick` which should work
 
-**Solution:**
+The issue may be that there's an invisible overlay blocking touch events, or the z-index stacking is wrong.
 
-**Technical Changes (FullScreenLocationPicker.tsx):**
+### Solution
+1. Ensure the map container doesn't have any blocking overlays
+2. Make the bottom sheet explicitly allow pointer events
+3. Ensure the header back button is clickable
+4. Add explicit touch handling for the map
 
-1. **Remove blocking touchAction:**
+### Technical Implementation
+
+**FullScreenLocationPicker.tsx changes:**
+
+1. Remove any potential touch blockers
+2. Add explicit pointer-events handling
+3. Ensure buttons use type="button" to prevent form submission issues
+4. Add touch-action: pan-x pan-y to map container for better mobile support
+
 ```tsx
-// Current:
-<div className="flex-1 relative" style={{ touchAction: 'none' }}>
+// Map container - ensure touch works
+<div className="flex-1 relative overflow-hidden">
+  {/* Map component */}
+  <GoogleMap
+    mapContainerClassName="w-full h-full absolute inset-0"
+    mapContainerStyle={{ 
+      touchAction: 'pan-x pan-y',
+      WebkitUserSelect: 'none',
+      userSelect: 'none'
+    }}
+    // ... rest of props
+    options={{
+      // ... existing options
+      gestureHandling: 'greedy',
+      draggable: true,
+      scrollwheel: true,
+      disableDoubleClickZoom: false,
+    }}
+  />
+</div>
 
-// Change to:
-<div className="flex-1 relative">
-```
+// Bottom sheet - ensure clickable
+<div className="relative z-20 bg-background ... pointer-events-auto" 
+     style={{ touchAction: 'manipulation' }}>
+  <Button
+    type="button"  // Explicit type
+    onClick={handleConfirm}
+    className="..."
+  >
+    Confirm & proceed
+  </Button>
+</div>
 
-2. **Ensure button is clickable:**
-```tsx
-// Add pointer-events-auto to the bottom sheet
-<div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto">
-```
-
-3. **Fix marker color (use default red):**
-```tsx
-// Current: MapPin with primary color
-// Change: Remove custom styling, use default Google Maps marker
-// Remove the overlay pin and use the Marker component from Google Maps
-```
-
-4. **Alternative: Use draggable Marker instead of center-pin approach:**
-Instead of a fixed center pin overlay and detecting map center on idle, use an actual draggable Google Maps Marker that the user can move.
-
----
-
-## Phase 7: Remove Fees from Cart Page (Already Correct)
-
-**Review:** Looking at the CartPage.tsx code, it currently shows:
-- Item Total
-- Delivery Fee
-- Platform Fee
-- TO PAY
-
-**Change Required:** Remove the fee display from CartPage, showing only Item Total. Keep fees only on Checkout page.
-
-**Technical Changes (CartPage.tsx):**
-```tsx
-// Remove these lines:
-const deliveryFee = itemTotal >= 499 ? 0 : 19;
-const platformFee = Math.round(itemTotal * 0.05);
-const totalAmount = itemTotal + deliveryFee + platformFee;
-
-// Change button to show only item total:
-<Button onClick={handleCheckout} size="lg" className="w-full mb-6" variant="food">
-  Proceed to Checkout • ₹{itemTotal}
+// Header back button - ensure clickable
+<Button
+  type="button"
+  variant="ghost"
+  size="icon"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  }}
+  className="h-10 w-10 rounded-full shrink-0 pointer-events-auto"
+>
+  <ArrowLeft className="h-5 w-5" />
 </Button>
-
-// Remove the Bill Summary section with fees, keep only Item Total
 ```
 
 ---
 
-## Technical Summary
+## Issue 7: Android Back Button Not Working on Certain Pages
 
-| File | Changes |
-|------|---------|
-| `src/components/HomeSearchBar.tsx` | Fix sticky position, remove dropdown, pass query to parent, connect voice search |
-| `src/pages/Index.tsx` | Add search state, pass to grid, add floating cart button |
-| `src/components/HomeProductsGrid.tsx` | Accept searchQuery prop, filter products, show sellers inline |
-| `src/pages/Checkout.tsx` | Update Razorpay UPI config with proper intent flow |
-| `src/components/ZippyPassModal.tsx` | Same Razorpay UPI fix |
-| `src/components/FullScreenLocationPicker.tsx` | Fix touch handling, fix button, fix marker color |
-| `src/pages/CartPage.tsx` | Remove fees display, show only item total |
+### Problem
+The Android hardware back button doesn't work on Cart page, Dairy products page, and possibly other pages. User stays on same page instead of going back.
+
+### Root Cause Analysis
+The `useAndroidBackButton` hook is defined in `App.tsx` inside `AppContent` component. It should be working, but there may be issues with:
+1. Route detection not working correctly
+2. Navigation not triggering properly
+3. The hook may need to be more aggressive in handling navigation
+
+### Solution
+Improve the back button handler to:
+1. Always try to navigate back using window.history
+2. Use a fallback approach if React Router navigation fails
+3. Add logging to debug issues
+
+### Technical Implementation
+
+**useAndroidBackButton.ts changes:**
+```typescript
+import { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+
+export const useAndroidBackButton = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const backButtonListener = App.addListener('backButton', () => {
+      console.log('Back button pressed on:', location.pathname);
+      
+      // If we're on the home page, exit the app
+      if (location.pathname === '/') {
+        App.exitApp();
+        return;
+      }
+      
+      // For all other pages, try to go back
+      // Check if there's history to go back to
+      if (window.history.length > 1) {
+        // Use window.history.back() which is more reliable in Capacitor
+        window.history.back();
+      } else {
+        // No history, navigate to home
+        navigate('/', { replace: true });
+      }
+    });
+
+    return () => {
+      backButtonListener.then(listener => listener.remove());
+    };
+  }, [navigate, location.pathname]);
+};
+```
+
+The key change is using `window.history.back()` instead of `navigate(-1)` which is more reliable in Capacitor WebViews.
+
+---
+
+## Issue 8: Splash Screen Text Size Too Small
+
+### Problem
+The "Welcome to" and "Zippy" text on the splash screen are too small.
+
+### Solution
+Increase the text sizes in the splash screen component.
+
+### Technical Implementation
+
+**SplashScreen.tsx changes:**
+```tsx
+// Current sizes:
+// "Welcome to": text-2xl md:text-3xl
+// "Zippy": text-4xl md:text-5xl
+
+// New sizes:
+// "Welcome to": text-3xl md:text-4xl
+// "Zippy": text-5xl md:text-6xl
+
+<h1 className="text-3xl md:text-4xl text-primary-foreground font-medium italic mb-1">
+  {welcomeText}
+</h1>
+<div className="text-5xl md:text-6xl text-primary-foreground font-bold italic">
+  {/* Zippy letters */}
+</div>
+```
 
 ---
 
 ## Implementation Order
 
-1. Fix search bar visibility (quick positioning fix)
-2. Add floating View Cart button to Index
-3. Fix CartPage to show only item total
-4. Convert search to in-page filter with voice integration
-5. Fix map touch interactions and button
-6. Update Razorpay UPI config (note: native Android changes needed for full UPI intent support)
+1. **Database Migration** - Add subcategory_id to items table
+2. **Seller Item Forms** - Add subcategory dropdown to SellerItemsForm and EditItemModal
+3. **Home Page Grouping** - Update HomeProductsGrid to group by subcategory
+4. **Search Filter** - Fix inactive module filtering in HomeProductsGrid
+5. **Voice Search** - Remove getUserMedia conflict in useVoiceSearch
+6. **Location Picker** - Fix touch handling and button clicks
+7. **Back Button** - Use window.history.back() in useAndroidBackButton
+8. **Splash Screen** - Increase text sizes
+9. **My Menu Table** - Convert grid to table format
 
 ---
 
-## Important Note for Razorpay UPI
+## Files to Modify
 
-The UPI intent flow in a Capacitor WebView requires native Android code changes. After implementing the Razorpay config changes:
+| File | Changes |
+|------|---------|
+| `supabase/migrations/` | Add subcategory_id column to items |
+| `src/integrations/supabase/types.ts` | Update Items type |
+| `src/components/SellerItemsForm.tsx` | Add subcategory dropdown |
+| `src/components/EditItemModal.tsx` | Add subcategory dropdown |
+| `src/components/HomeProductsGrid.tsx` | Group by subcategory, fix search filter |
+| `src/components/MyMenu.tsx` | Convert to table layout |
+| `src/hooks/useVoiceSearch.ts` | Remove getUserMedia call |
+| `src/components/FullScreenLocationPicker.tsx` | Fix touch handling |
+| `src/hooks/useAndroidBackButton.ts` | Use window.history.back() |
+| `src/components/SplashScreen.tsx` | Increase text sizes |
 
-1. Pull the project to your local machine
-2. Add the WebViewClient override in MainActivity.java to handle `upi://` and `intent://` URLs
-3. Run `npx cap sync android`
-4. Rebuild the Android app
-
-Without the native changes, the WebView cannot open external UPI apps. As an alternative workaround, you could set `redirect: true` in Razorpay options to redirect to Razorpay's hosted page in an external browser, which can handle UPI intents properly.
