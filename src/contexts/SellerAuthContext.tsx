@@ -17,6 +17,9 @@ export interface Seller {
   seller_longitude?: number;
   franchise_percentage?: number;
   password_hash?: string;
+  category?: string;
+  categories?: string;
+  subcategory?: string;
   created_at: string;
   updated_at: string;
 }

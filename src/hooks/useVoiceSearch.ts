@@ -76,7 +76,7 @@ export const useVoiceSearch = () => {
     };
   }, [isSupported]);
 
-  const startListening = useCallback(async () => {
+  const startListening = useCallback(() => {
     if (!isSupported) {
       toast({
         title: "Not supported",
@@ -87,20 +87,20 @@ export const useVoiceSearch = () => {
     }
 
     try {
-      // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+      // Don't call getUserMedia - let SpeechRecognition handle its own mic access
+      // This prevents the "Google cannot record" conflict error
       setTranscript('');
       setSearchResults(null);
       setIsListening(true);
       recognitionRef.current?.start();
     } catch (error) {
-      console.error('Microphone permission error:', error);
+      console.error('Voice recognition error:', error);
       toast({
-        title: "Microphone access denied",
-        description: "Please allow microphone access to use voice search",
+        title: "Voice search error",
+        description: "Please try again",
         variant: "destructive",
       });
+      setIsListening(false);
     }
   }, [isSupported]);
 

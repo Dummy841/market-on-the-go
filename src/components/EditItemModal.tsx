@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,13 @@ interface Item {
   item_photo_url?: string;
   seller_price: number;
   item_info?: string | null;
+  subcategory_id?: string | null;
+}
+
+interface Subcategory {
+  id: string;
+  name: string;
+  category: string;
 }
 
 interface EditItemModalProps {
@@ -27,25 +35,72 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
   const [formData, setFormData] = useState({
     item_name: '',
     seller_price: '',
-    item_info: ''
+    item_info: '',
+    subcategory_id: ''
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const { toast } = useToast();
   const { seller } = useSellerAuth();
+
+  useEffect(() => {
+    if (open && seller) {
+      fetchSubcategories();
+    }
+  }, [open, seller]);
 
   useEffect(() => {
     if (item && open) {
       setFormData({
         item_name: item.item_name,
         seller_price: item.seller_price.toString(),
-        item_info: item.item_info || ''
+        item_info: item.item_info || '',
+        subcategory_id: item.subcategory_id || ''
       });
       setImagePreview(item.item_photo_url || null);
       setImageFile(null);
     }
   }, [item, open]);
+
+  const fetchSubcategories = async () => {
+    if (!seller) return;
+
+    try {
+      // Get seller's categories
+      const sellerCategories: string[] = [];
+      if (seller.category) {
+        sellerCategories.push(seller.category);
+      }
+      if (seller.categories) {
+        const additionalCategories = seller.categories.split(',').map(c => c.trim());
+        additionalCategories.forEach(cat => {
+          if (!sellerCategories.includes(cat)) {
+            sellerCategories.push(cat);
+          }
+        });
+      }
+
+      if (sellerCategories.length === 0) {
+        setSubcategories([]);
+        return;
+      }
+
+      // Fetch subcategories that match seller's categories
+      const { data, error } = await supabase
+        .from('subcategories')
+        .select('id, name, category')
+        .eq('is_active', true)
+        .in('category', sellerCategories)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setSubcategories(data || []);
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -116,7 +171,8 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
           item_photo_url: imageUrl,
           seller_price: parseFloat(formData.seller_price),
           franchise_price: parseFloat(formData.seller_price),
-          item_info: formData.item_info || null
+          item_info: formData.item_info || null,
+          subcategory_id: formData.subcategory_id || null
         })
         .eq('id', item.id);
 
@@ -143,7 +199,7 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Item</DialogTitle>
         </DialogHeader>
@@ -180,9 +236,9 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
                   </Button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  <Upload className="w-8 h-8 text-gray-400" />
-                  <span className="mt-2 text-sm text-gray-500">Upload item photo</span>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted">
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                  <span className="mt-2 text-sm text-muted-foreground">Upload item photo</span>
                   <input
                     type="file"
                     className="hidden"
@@ -205,6 +261,28 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
               required
             />
           </div>
+
+          {/* Subcategory Dropdown */}
+          {subcategories.length > 0 && (
+            <div>
+              <Label htmlFor="subcategory">Subcategory</Label>
+              <Select
+                value={formData.subcategory_id}
+                onValueChange={(value) => handleInputChange('subcategory_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subcategory" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subcategories.map((subcat) => (
+                    <SelectItem key={subcat.id} value={subcat.id}>
+                      {subcat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="item_info">Item Info (Optional)</Label>

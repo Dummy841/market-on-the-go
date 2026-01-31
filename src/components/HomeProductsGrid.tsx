@@ -19,6 +19,8 @@ interface Item {
   seller_latitude: number | null;
   seller_longitude: number | null;
   category: string;
+  subcategory_id: string | null;
+  subcategory_name: string | null;
   distance?: number;
 }
 
@@ -28,6 +30,8 @@ interface Seller {
   owner_name: string;
   profile_photo_url: string | null;
   is_online: boolean;
+  category: string;
+  categories: string | null;
 }
 
 interface HomeProductsGridProps {
@@ -40,6 +44,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   const [loading, setLoading] = useState(true);
   const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>({});
   const [searchSellers, setSearchSellers] = useState<Seller[]>([]);
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
 
   useEffect(() => {
     fetchProducts();
@@ -57,15 +62,27 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
 
       if (modulesError) throw modulesError;
 
-      const activeCategories = modules?.map(m => m.slug) || [];
+      const activeCats = modules?.map(m => m.slug) || [];
+      setActiveCategories(activeCats);
 
-      if (activeCategories.length === 0) {
+      if (activeCats.length === 0) {
         setItems([]);
         setGroupedItems({});
         setSearchSellers([]);
         setLoading(false);
         return;
       }
+
+      // Fetch subcategories for grouping
+      const { data: subcategoriesData } = await supabase
+        .from('subcategories')
+        .select('id, name, category')
+        .eq('is_active', true);
+
+      const subcategoryMap = new Map<string, { name: string; category: string }>();
+      subcategoriesData?.forEach(sub => {
+        subcategoryMap.set(sub.id, { name: sub.name, category: sub.category });
+      });
 
       // Build query for items
       let itemsQuery = supabase
@@ -78,6 +95,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           item_info,
           is_active,
           seller_id,
+          subcategory_id,
           sellers!inner(
             seller_name,
             is_online,
@@ -107,11 +125,12 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           // Check if seller belongs to any active category
           const sellerCategory = seller.category;
           const sellerCategories = seller.categories ? seller.categories.split(',').map((c: string) => c.trim()) : [];
-          return activeCategories.includes(sellerCategory) || 
-                 sellerCategories.some((c: string) => activeCategories.includes(c));
+          return activeCats.includes(sellerCategory) || 
+                 sellerCategories.some((c: string) => activeCats.includes(c));
         })
         .map(item => {
           const seller = item.sellers as any;
+          const subcatInfo = item.subcategory_id ? subcategoryMap.get(item.subcategory_id) : null;
           return {
             id: item.id,
             item_name: item.item_name,
@@ -125,6 +144,8 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             seller_latitude: seller.seller_latitude,
             seller_longitude: seller.seller_longitude,
             category: seller.category,
+            subcategory_id: item.subcategory_id,
+            subcategory_name: subcatInfo?.name || null,
           };
         });
 
@@ -153,30 +174,40 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           });
       }
 
-      // If searching, also fetch matching sellers
+      // If searching, also fetch matching sellers (only from active categories)
       if (searchQuery) {
         const { data: sellersData } = await supabase
           .from('sellers')
-          .select('id, seller_name, owner_name, profile_photo_url, is_online')
+          .select('id, seller_name, owner_name, profile_photo_url, is_online, category, categories')
           .eq('status', 'approved')
           .ilike('seller_name', `%${searchQuery}%`)
-          .limit(5);
+          .limit(10);
 
-        setSearchSellers(sellersData || []);
+        // Filter sellers to only show those from active categories
+        const filteredSellers = (sellersData || []).filter(seller => {
+          const sellerCategory = seller.category;
+          const sellerCategories = seller.categories ? seller.categories.split(',').map((c: string) => c.trim()) : [];
+          return activeCats.includes(sellerCategory) || 
+                 sellerCategories.some((c: string) => activeCats.includes(c));
+        }).slice(0, 5);
 
-        // When searching, don't group by category
+        setSearchSellers(filteredSellers);
+
+        // When searching, don't group by subcategory
         setGroupedItems({});
         setItems(formattedItems);
       } else {
         setSearchSellers([]);
         
-        // Group items by category when not searching
+        // Group items by subcategory name (not category)
         const grouped: Record<string, Item[]> = {};
         formattedItems.forEach(item => {
-          if (!grouped[item.category]) {
-            grouped[item.category] = [];
+          // Use subcategory name if available, otherwise use "Other"
+          const groupKey = item.subcategory_name || 'Other';
+          if (!grouped[groupKey]) {
+            grouped[groupKey] = [];
           }
-          grouped[item.category].push(item);
+          grouped[groupKey].push(item);
         });
 
         setItems(formattedItems);
@@ -187,16 +218,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     } finally {
       setLoading(false);
     }
-  };
-
-  const getCategoryTitle = (slug: string): string => {
-    const titles: Record<string, string> = {
-      instamart: 'Instamart - Quick Delivery',
-      dairy: 'Dairy Products - Fresh Daily',
-      food_delivery: 'Food Delivery',
-      services: 'Services',
-    };
-    return titles[slug] || slug.charAt(0).toUpperCase() + slug.slice(1);
   };
 
   if (loading) {
@@ -281,16 +302,16 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
-  // Default: grouped by category
+  // Default: grouped by subcategory
   return (
     <div className="px-4 py-4 space-y-6">
-      {Object.entries(groupedItems).map(([category, categoryItems]) => (
-        <div key={category}>
+      {Object.entries(groupedItems).map(([subcategoryName, subcategoryItems]) => (
+        <div key={subcategoryName}>
           <h2 className="text-lg font-semibold mb-3">
-            {getCategoryTitle(category)}
+            {subcategoryName}
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            {categoryItems.map(item => (
+            {subcategoryItems.map(item => (
               <HomeProductCard key={item.id} item={item} />
             ))}
           </div>

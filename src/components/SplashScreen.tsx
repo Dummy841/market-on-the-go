@@ -60,12 +60,12 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       }`}
     >
       <div className="text-center px-4">
-        {/* Welcome to - static text */}
-        <h1 className="text-2xl md:text-3xl text-primary-foreground font-medium italic mb-1">
+        {/* Welcome to - static text - BIGGER */}
+        <h1 className="text-4xl md:text-5xl text-primary-foreground font-medium italic mb-2">
           {welcomeText}
         </h1>
-        {/* Zippy - animated letters with pop effect */}
-        <div className="text-4xl md:text-5xl text-primary-foreground font-bold italic">
+        {/* Zippy - animated letters with pop effect - BIGGER */}
+        <div className="text-6xl md:text-7xl text-primary-foreground font-bold italic">
           {zippyText.split('').map((letter, index) => (
             <span
               key={index}

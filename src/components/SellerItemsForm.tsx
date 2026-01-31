@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
+
+interface Subcategory {
+  id: string;
+  name: string;
+  category: string;
+}
 
 interface SellerItemsFormProps {
   open: boolean;
@@ -19,13 +26,60 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
   const [formData, setFormData] = useState({
     item_name: '',
     seller_price: '',
-    item_info: ''
+    item_info: '',
+    subcategory_id: ''
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const { toast } = useToast();
   const { seller } = useSellerAuth();
+
+  // Fetch subcategories based on seller's categories
+  useEffect(() => {
+    if (open && seller) {
+      fetchSubcategories();
+    }
+  }, [open, seller]);
+
+  const fetchSubcategories = async () => {
+    if (!seller) return;
+
+    try {
+      // Get seller's categories
+      const sellerCategories: string[] = [];
+      if (seller.category) {
+        sellerCategories.push(seller.category);
+      }
+      if (seller.categories) {
+        const additionalCategories = seller.categories.split(',').map(c => c.trim());
+        additionalCategories.forEach(cat => {
+          if (!sellerCategories.includes(cat)) {
+            sellerCategories.push(cat);
+          }
+        });
+      }
+
+      if (sellerCategories.length === 0) {
+        setSubcategories([]);
+        return;
+      }
+
+      // Fetch subcategories that match seller's categories
+      const { data, error } = await supabase
+        .from('subcategories')
+        .select('id, name, category')
+        .eq('is_active', true)
+        .in('category', sellerCategories)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setSubcategories(data || []);
+    } catch (error) {
+      console.error('Error fetching subcategories:', error);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -95,8 +149,9 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
           item_name: formData.item_name,
           item_photo_url: imageUrl,
           seller_price: parseFloat(formData.seller_price),
-          franchise_price: parseFloat(formData.seller_price), // Set same as seller_price (required field)
-          item_info: formData.item_info || null
+          franchise_price: parseFloat(formData.seller_price),
+          item_info: formData.item_info || null,
+          subcategory_id: formData.subcategory_id || null
         });
 
       if (error) throw error;
@@ -110,7 +165,8 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
       setFormData({
         item_name: '',
         seller_price: '',
-        item_info: ''
+        item_info: '',
+        subcategory_id: ''
       });
       setImageFile(null);
       setImagePreview(null);
@@ -130,7 +186,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Item</DialogTitle>
         </DialogHeader>
@@ -167,9 +223,9 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
                   </Button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
-                  <Upload className="w-8 h-8 text-gray-400" />
-                  <span className="mt-2 text-sm text-gray-500">Upload item photo</span>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted">
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                  <span className="mt-2 text-sm text-muted-foreground">Upload item photo</span>
                   <input
                     type="file"
                     className="hidden"
@@ -192,6 +248,28 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
               required
             />
           </div>
+
+          {/* Subcategory Dropdown */}
+          {subcategories.length > 0 && (
+            <div>
+              <Label htmlFor="subcategory">Subcategory</Label>
+              <Select
+                value={formData.subcategory_id}
+                onValueChange={(value) => handleInputChange('subcategory_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subcategory" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subcategories.map((subcat) => (
+                    <SelectItem key={subcat.id} value={subcat.id}>
+                      {subcat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="item_info">Item Info (Optional)</Label>
