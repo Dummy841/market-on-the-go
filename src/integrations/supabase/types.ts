@@ -194,6 +194,7 @@ export type Database = {
           item_photo_url: string | null
           seller_id: string
           seller_price: number
+          subcategory_id: string | null
           updated_at: string
         }
         Insert: {
@@ -206,6 +207,7 @@ export type Database = {
           item_photo_url?: string | null
           seller_id: string
           seller_price: number
+          subcategory_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -218,6 +220,7 @@ export type Database = {
           item_photo_url?: string | null
           seller_id?: string
           seller_price?: number
+          subcategory_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -226,6 +229,13 @@ export type Database = {
             columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "subcategories"
             referencedColumns: ["id"]
           },
         ]

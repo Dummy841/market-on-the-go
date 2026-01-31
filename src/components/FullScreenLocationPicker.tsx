@@ -177,16 +177,27 @@ const FullScreenLocationPicker = ({
     }
   }, [isLoaded]);
 
-  const handleConfirm = () => {
+  const handleConfirm = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     onLocationSelect(
       selectedLat,
       selectedLng,
       locationAddress || `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`
     );
     onClose();
-  };
+  }, [selectedLat, selectedLng, locationAddress, onLocationSelect, onClose]);
 
-  const handleLocateMe = () => {
+  const handleBack = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  }, [onClose]);
+
+  const handleLocateMe = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!navigator.geolocation) return;
     
     setIsLocating(true);
@@ -208,7 +219,7 @@ const FullScreenLocationPicker = ({
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
-  };
+  }, []);
 
   if (!open) return null;
 
@@ -218,20 +229,25 @@ const FullScreenLocationPicker = ({
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
       {/* Header */}
-      <div className="relative z-20 bg-background pt-[env(safe-area-inset-top)] px-3 pb-2 flex items-center gap-3 border-b">
+      <div 
+        className="relative z-30 bg-background pt-[env(safe-area-inset-top)] px-3 pb-2 flex items-center gap-3 border-b"
+        style={{ touchAction: 'manipulation' }}
+      >
         <Button
+          type="button"
           variant="ghost"
           size="icon"
-          onClick={onClose}
-          className="h-10 w-10 rounded-full shrink-0"
+          onClick={handleBack}
+          onTouchEnd={handleBack}
+          className="h-10 w-10 rounded-full shrink-0 pointer-events-auto"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-lg font-semibold">Select Delivery Location</h1>
       </div>
       
-      {/* Map Container */}
-      <div className="flex-1 relative">
+      {/* Map Container - Remove any touch blocking */}
+      <div className="flex-1 relative overflow-hidden">
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -240,6 +256,7 @@ const FullScreenLocationPicker = ({
                 Google Maps is blocked by your API key settings.
               </p>
               <Button
+                type="button"
                 variant="outline"
                 className="mt-4"
                 onClick={() => reverseGeocode(selectedLat, selectedLng)}
@@ -258,8 +275,13 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full"
-              mapContainerStyle={{ touchAction: 'auto' }}
+              mapContainerClassName="w-full h-full absolute inset-0"
+              mapContainerStyle={{ 
+                touchAction: 'pan-x pan-y pinch-zoom',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                WebkitTouchCallout: 'none',
+              }}
               center={controlledCenter}
               zoom={17}
               onLoad={handleMapLoad}
@@ -295,11 +317,14 @@ const FullScreenLocationPicker = ({
             
             {/* Locate Me Button */}
             <Button
+              type="button"
               variant="secondary"
               size="icon"
               onClick={handleLocateMe}
+              onTouchEnd={handleLocateMe}
               disabled={isLocating}
-              className="absolute bottom-4 right-4 h-12 w-12 rounded-full shadow-lg bg-background border z-10"
+              className="absolute bottom-4 right-4 h-12 w-12 rounded-full shadow-lg bg-background border z-20 pointer-events-auto"
+              style={{ touchAction: 'manipulation' }}
             >
               <Locate className={`h-5 w-5 ${isLocating ? 'animate-pulse' : ''}`} />
             </Button>
@@ -307,8 +332,11 @@ const FullScreenLocationPicker = ({
         )}
       </div>
       
-      {/* Bottom Sheet */}
-      <div className="relative z-20 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto">
+      {/* Bottom Sheet - Ensure it's clickable */}
+      <div 
+        className="relative z-30 bg-background rounded-t-2xl shadow-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        style={{ touchAction: 'manipulation' }}
+      >
         <div className="flex items-start gap-3 mb-3">
           <MapPin className="h-5 w-5 shrink-0 text-primary mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -320,7 +348,9 @@ const FullScreenLocationPicker = ({
         <Button
           type="button"
           onClick={handleConfirm}
-          className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl"
+          onTouchEnd={handleConfirm}
+          className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl pointer-events-auto"
+          style={{ touchAction: 'manipulation' }}
         >
           Confirm & proceed
         </Button>

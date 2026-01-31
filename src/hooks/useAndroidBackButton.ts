@@ -11,16 +11,22 @@ export const useAndroidBackButton = () => {
     // Only run on native platforms (Android/iOS)
     if (!Capacitor.isNativePlatform()) return;
 
-    const backButtonListener = App.addListener('backButton', ({ canGoBack }) => {
+    const backButtonListener = App.addListener('backButton', () => {
+      console.log('Back button pressed on:', location.pathname);
+      
       // If we're on the home page, exit the app
       if (location.pathname === '/') {
         App.exitApp();
-      } else if (canGoBack || window.history.length > 1) {
-        // Navigate back in app history
-        navigate(-1);
+        return;
+      }
+      
+      // For all other pages, use window.history.back() which is more reliable
+      // in Capacitor WebViews than React Router's navigate(-1)
+      if (window.history.length > 1) {
+        window.history.back();
       } else {
-        // No history, go to home
-        navigate('/');
+        // No history, navigate to home
+        navigate('/', { replace: true });
       }
     });
 
