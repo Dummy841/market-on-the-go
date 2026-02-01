@@ -1,367 +1,370 @@
 
 
-# Implementation Plan: Multiple Bug Fixes and Enhancements
+# Implementation Plan: Fix Multiple UI and Functionality Issues
 
-This plan addresses 8 issues reported across the seller dashboard, user home page, location picker, voice search, splash screen, and Android back button handling.
+This plan addresses 7 distinct issues reported across the seller dashboard, user home page, order tracking, location picker, and delivery partner voice calling.
 
 ---
 
 ## Summary of Issues
 
-| # | Issue | Location | Status |
-|---|-------|----------|--------|
-| 1 | Add subcategory dropdown in seller "Add Item" form | SellerItemsForm.tsx, EditItemModal.tsx | New feature |
-| 2 | Show products grouped by subcategory on home page | HomeProductsGrid.tsx | Enhancement |
-| 3 | Menu items should display in table format | MyMenu.tsx | UI change |
-| 4 | Search showing inactive module sellers/items | HomeProductsGrid.tsx | Bug fix |
-| 5 | Voice search conflict message "Google cannot record" | useVoiceSearch.ts | Bug fix |
-| 6 | Location picker touch not working (zoom, drag, button, back) | FullScreenLocationPicker.tsx | Critical bug |
-| 7 | Android back button not working on Cart/Dairy pages | useAndroidBackButton.ts | Bug fix |
-| 8 | Splash screen text size too small | SplashScreen.tsx | UI enhancement |
+| # | Issue | File(s) to Modify | Priority |
+|---|-------|-------------------|----------|
+| 1 | Subcategory dropdown not opening/empty in seller "Add Item" form | SellerItemsForm.tsx | High |
+| 2 | Razorpay not showing UPI apps on Android | Checkout.tsx + Native Android changes | Medium |
+| 3 | "Mark as Packed" showing modal again instead of closing | SellerOrderManagement.tsx | High |
+| 4 | Order tracking modal showing items + coordinates instead of clean address | OrderTrackingModal.tsx | Medium |
+| 5 | Profile icon beside arrow on header + tracking circle status text | Header.tsx, OrderTrackingButton.tsx | Low |
+| 6 | Location picker touch still not working on Android | FullScreenLocationPicker.tsx | Critical |
+| 7 | Delivery partner voice call failing - not connecting to customer | DeliveryPartnerOrders.tsx, useZegoVoiceCall.ts | High |
 
 ---
 
-## Issue 1: Add Subcategory Dropdown in Seller "Add Item" Form
-
-### Problem
-When sellers add new items, they cannot select which subcategory the item belongs to. Subcategories should be filtered based on the seller's existing categories.
-
-### Solution
-Add a subcategory dropdown in both `SellerItemsForm.tsx` and `EditItemModal.tsx`. The dropdown will show subcategories that match the seller's assigned categories.
-
-### Database Changes
-Add `subcategory_id` column to the `items` table to store which subcategory an item belongs to.
-
-### Technical Implementation
-
-**Migration:** Add subcategory_id column to items table
-```sql
-ALTER TABLE items ADD COLUMN subcategory_id UUID REFERENCES subcategories(id);
-```
-
-**SellerItemsForm.tsx changes:**
-1. Fetch seller's categories from `seller.category` and `seller.categories`
-2. Fetch subcategories that match these categories from `subcategories` table
-3. Add a Select dropdown for subcategory selection
-4. Save `subcategory_id` when inserting item
-
-**EditItemModal.tsx changes:**
-1. Same as above - add subcategory dropdown
-2. Pre-populate with existing subcategory when editing
-
----
-
-## Issue 2: Show Products Grouped by Subcategory on Home Page
-
-### Problem
-Currently products are grouped by category (Food/Instamart/Dairy). User wants products grouped by subcategory only.
-
-### Solution
-Modify `HomeProductsGrid.tsx` to:
-1. Fetch subcategory info along with items
-2. Group items by subcategory name instead of category
-3. Show subcategory headings with products underneath
-
-### Technical Implementation
-
-**HomeProductsGrid.tsx changes:**
-1. Join items with subcategories table to get subcategory name
-2. Group items by `subcategory_id` and display subcategory name as section header
-3. For items without subcategory, group under "Other" or the category name
-4. Update the rendering logic to show subcategory-based grouping
-
----
-
-## Issue 3: Menu Items in Table Format
-
-### Problem
-The "My Menu" section in seller dashboard shows items as cards in a grid. User wants them in a table format.
-
-### Solution
-Replace the grid of cards with a responsive table showing: Image, Name, Price, Status, and Actions (Edit/Deactivate).
-
-### Technical Implementation
-
-**MyMenu.tsx changes:**
-1. Import Table components from shadcn/ui
-2. Replace the grid layout with a Table component
-3. Table columns: Image (thumbnail), Item Name, Price, Status (Active/Inactive badge), Actions
-4. Keep mobile responsiveness with horizontal scroll if needed
-
----
-
-## Issue 4: Search Showing Inactive Module Sellers
-
-### Problem
-When searching, sellers from inactive modules (e.g., food_delivery when it's disabled) are still appearing in results.
-
-### Solution
-Filter out sellers whose categories don't match any active modules when searching.
-
-### Technical Implementation
-
-**HomeProductsGrid.tsx changes:**
-1. In the search sellers query, join with `service_modules` to verify the seller's categories match active modules
-2. Add filter: Only show sellers where at least one of their categories is in the active modules list
-3. Apply same logic for items - only show items from sellers in active categories
-
-**Code logic:**
-```typescript
-// When searching sellers
-const { data: sellersData } = await supabase
-  .from('sellers')
-  .select('id, seller_name, owner_name, profile_photo_url, is_online, category, categories')
-  .eq('status', 'approved')
-  .ilike('seller_name', `%${searchQuery}%`)
-  .limit(5);
-
-// Filter sellers by active categories
-const filteredSellers = sellersData?.filter(seller => {
-  const sellerCategories = seller.categories?.split(',').map(c => c.trim()) || [seller.category];
-  return sellerCategories.some(cat => activeCategories.includes(cat));
-});
-```
-
----
-
-## Issue 5: Voice Search Google Conflict Error
-
-### Problem
-Error message appears: "Speech Recognition and Synthesis from Google cannot record now as Zippy is recording."
-
-This happens because the app is trying to use microphone while Google's speech recognition is already using it (or vice versa).
+## Issue 1: Subcategory Dropdown Not Opening
 
 ### Root Cause
-The voice search is requesting microphone access via `getUserMedia()` before starting speech recognition. This creates a conflict.
+Looking at the database, the subcategories have `category` values like `food_delivery`, `dairy`, `instamart`. However, the sellers have their categories stored differently. When comparing:
+- Subcategories: `category = 'food_delivery'`, `category = 'dairy'`, `category = 'instamart'`
+- Sellers: `category = 'instamart'`, `categories = 'instamart,dairy'`
+
+The issue is that the subcategory query uses `.in('category', sellerCategories)` which should work. However, the dropdown only renders when `subcategories.length > 0`. If the fetch fails silently or returns empty, the dropdown won't show.
 
 ### Solution
-Remove the redundant `getUserMedia()` call in `startListening`. The SpeechRecognition API handles its own microphone access.
+1. Remove the conditional rendering that hides the dropdown when empty
+2. Add console logging to debug the fetch
+3. Ensure the dropdown always shows (even with placeholder if no subcategories)
 
-### Technical Implementation
-
-**useVoiceSearch.ts changes:**
-```typescript
-const startListening = useCallback(async () => {
-  if (!isSupported) {
-    toast({
-      title: "Not supported",
-      description: "Voice search is not supported in your browser",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  try {
-    // Remove the getUserMedia call - SpeechRecognition handles its own mic access
-    // The browser will prompt for permission if needed
-    
-    setTranscript('');
-    setSearchResults(null);
-    setIsListening(true);
-    recognitionRef.current?.start();
-  } catch (error) {
-    console.error('Voice recognition error:', error);
-    toast({
-      title: "Voice search error",
-      description: "Please try again",
-      variant: "destructive",
-    });
-    setIsListening(false);
-  }
-}, [isSupported]);
-```
-
----
-
-## Issue 6: Location Picker Touch Not Working
-
-### Problem
-Multiple issues with FullScreenLocationPicker:
-1. Map cannot be zoomed or dragged on touch devices
-2. "Confirm & proceed" button not responding
-3. Back button (arrow) not working
-4. Marker not movable
-
-### Root Cause Analysis
-Looking at the current code:
-- `mapContainerStyle={{ touchAction: 'auto' }}` is set, which should work
-- `gestureHandling: 'greedy'` is set
-- Button uses `onClick` which should work
-
-The issue may be that there's an invisible overlay blocking touch events, or the z-index stacking is wrong.
-
-### Solution
-1. Ensure the map container doesn't have any blocking overlays
-2. Make the bottom sheet explicitly allow pointer events
-3. Ensure the header back button is clickable
-4. Add explicit touch handling for the map
-
-### Technical Implementation
-
-**FullScreenLocationPicker.tsx changes:**
-
-1. Remove any potential touch blockers
-2. Add explicit pointer-events handling
-3. Ensure buttons use type="button" to prevent form submission issues
-4. Add touch-action: pan-x pan-y to map container for better mobile support
+### Technical Changes (SellerItemsForm.tsx)
 
 ```tsx
-// Map container - ensure touch works
-<div className="flex-1 relative overflow-hidden">
-  {/* Map component */}
-  <GoogleMap
-    mapContainerClassName="w-full h-full absolute inset-0"
-    mapContainerStyle={{ 
-      touchAction: 'pan-x pan-y',
-      WebkitUserSelect: 'none',
-      userSelect: 'none'
-    }}
-    // ... rest of props
-    options={{
-      // ... existing options
-      gestureHandling: 'greedy',
-      draggable: true,
-      scrollwheel: true,
-      disableDoubleClickZoom: false,
-    }}
-  />
-</div>
-
-// Bottom sheet - ensure clickable
-<div className="relative z-20 bg-background ... pointer-events-auto" 
-     style={{ touchAction: 'manipulation' }}>
-  <Button
-    type="button"  // Explicit type
-    onClick={handleConfirm}
-    className="..."
+// Always show subcategory dropdown, even if loading or empty
+<div>
+  <Label htmlFor="subcategory">Subcategory</Label>
+  <Select
+    value={formData.subcategory_id}
+    onValueChange={(value) => handleInputChange('subcategory_id', value)}
   >
-    Confirm & proceed
-  </Button>
+    <SelectTrigger>
+      <SelectValue placeholder={subcategories.length === 0 ? "No subcategories available" : "Select subcategory"} />
+    </SelectTrigger>
+    <SelectContent className="z-[9999]">
+      {subcategories.length === 0 ? (
+        <SelectItem value="none" disabled>No subcategories found</SelectItem>
+      ) : (
+        subcategories.map((subcat) => (
+          <SelectItem key={subcat.id} value={subcat.id}>
+            {subcat.name}
+          </SelectItem>
+        ))
+      )}
+    </SelectContent>
+  </Select>
 </div>
+```
 
-// Header back button - ensure clickable
-<Button
-  type="button"
-  variant="ghost"
-  size="icon"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onClose();
-  }}
-  className="h-10 w-10 rounded-full shrink-0 pointer-events-auto"
->
-  <ArrowLeft className="h-5 w-5" />
-</Button>
+The `z-[9999]` on SelectContent ensures it appears above the Dialog.
+
+---
+
+## Issue 2: Razorpay UPI Apps Not Showing on Android
+
+### Root Cause
+Capacitor WebView on Android cannot handle `upi://` or `intent://` URL schemes by default. The Razorpay SDK tries to open UPI apps via intent, but the WebView blocks these URLs.
+
+### Solution
+The Razorpay configuration in the code is already correct with `flows: ["intent"]` and `redirect: false`. The issue is in the native Android WebView.
+
+### Required Native Changes (User must do locally)
+After the user pulls the project:
+
+1. **Modify `android/app/src/main/java/.../MainActivity.java`**:
+```java
+import android.content.Intent;
+import android.net.Uri;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
+// In the Activity class, add a custom WebViewClient
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onStart() {
+        super.onStart();
+        WebView webView = getBridge().getWebView();
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url.startsWith("upi://") || url.startsWith("intent://")) {
+                    try {
+                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return false;
+                    }
+                }
+                return super.shouldOverrideUrlLoading(view, url);
+            }
+        });
+    }
+}
+```
+
+2. Run `npx cap sync android`
+3. Rebuild the Android app
+
+No code changes needed in Lovable for this issue - only native configuration.
+
+---
+
+## Issue 3: "Mark as Packed" Showing Modal Again
+
+### Root Cause
+In `SellerOrderManagement.tsx`, when clicking "Mark as Packed" from the order details dialog, the `updateOrderStatus` function updates the order but **does not close the dialog**. Looking at lines 430-434:
+
+```tsx
+// Close the order details dialog after accepting or rejecting
+if (newStatus === 'accepted' || newStatus === 'rejected') {
+  setShowOrderDetails(false);
+  setSelectedOrder(null);
+}
+```
+
+The dialog only closes for `accepted` or `rejected`, not for `packed`.
+
+### Solution
+Add `packed` to the conditions that close the dialog.
+
+### Technical Changes (SellerOrderManagement.tsx)
+
+```tsx
+// Line 430-434: Update to include 'packed'
+if (newStatus === 'accepted' || newStatus === 'rejected' || newStatus === 'packed') {
+  setShowOrderDetails(false);
+  setSelectedOrder(null);
+}
 ```
 
 ---
 
-## Issue 7: Android Back Button Not Working on Certain Pages
+## Issue 4: Order Tracking Modal - Remove Items + Show Clean Address
 
-### Problem
-The Android hardware back button doesn't work on Cart page, Dairy products page, and possibly other pages. User stays on same page instead of going back.
+### Root Cause
+The user wants:
+1. Remove the "Order Items" section from the tracking modal
+2. Show delivery address without latitude/longitude coordinates
 
-### Root Cause Analysis
-The `useAndroidBackButton` hook is defined in `App.tsx` inside `AppContent` component. It should be working, but there may be issues with:
-1. Route detection not working correctly
-2. Navigation not triggering properly
-3. The hook may need to be more aggressive in handling navigation
+Looking at OrderTrackingModal.tsx lines 541-552, the items are displayed. The address issue is that `delivery_address` in the database contains coordinates like: `"123 Main St, Location: 17.385, 78.486"`.
 
 ### Solution
-Improve the back button handler to:
-1. Always try to navigate back using window.history
-2. Use a fallback approach if React Router navigation fails
-3. Add logging to debug issues
+1. Remove the Order Items section from the modal
+2. Parse the delivery address to remove the coordinates part
+3. Add a "Delivery Address" section showing clean address
 
-### Technical Implementation
+### Technical Changes (OrderTrackingModal.tsx)
 
-**useAndroidBackButton.ts changes:**
-```typescript
-import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+```tsx
+// Add helper to clean the address
+const getCleanAddress = (address: string) => {
+  if (!address) return '';
+  // Remove ", Location: lat, lng" pattern
+  return address.replace(/,?\s*Location:\s*[\d.-]+,?\s*[\d.-]*/gi, '').trim();
+};
 
-export const useAndroidBackButton = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+// In the JSX - Replace Order Items section with Delivery Address
+{/* Delivery Address */}
+<div>
+  <p className="font-semibold mb-2">Delivery Address</p>
+  <p className="text-sm text-muted-foreground">
+    {getCleanAddress(activeOrder.delivery_address)}
+  </p>
+</div>
 
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+// Remove the Order Items section (lines 541-552)
+```
 
-    const backButtonListener = App.addListener('backButton', () => {
-      console.log('Back button pressed on:', location.pathname);
-      
-      // If we're on the home page, exit the app
-      if (location.pathname === '/') {
-        App.exitApp();
-        return;
-      }
-      
-      // For all other pages, try to go back
-      // Check if there's history to go back to
-      if (window.history.length > 1) {
-        // Use window.history.back() which is more reliable in Capacitor
-        window.history.back();
-      } else {
-        // No history, navigate to home
-        navigate('/', { replace: true });
-      }
-    });
+---
 
-    return () => {
-      backButtonListener.then(listener => listener.remove());
-    };
-  }, [navigate, location.pathname]);
+## Issue 5: Header Profile Icon + Tracking Button Status
+
+### Part A: Remove Profile Icon from Header (beside arrow)
+Looking at the Header, there's no extra profile icon beside an arrow in the current code. The user might be referring to the ChevronDown arrow next to the profile avatar. This seems intentional for the dropdown. Will need clarification, but assuming the user wants only the arrow without the avatar - this would break UX. 
+
+**Clarification needed**: The current UI shows Avatar + ChevronDown which is standard. No changes unless specifically requested differently.
+
+### Part B: Tracking Button Status Text
+The OrderTrackingButton currently shows status in the circle but uses simplified text. The user wants exact statuses:
+- Placed, Accepted, Packed, Out for Delivery, Delivered
+
+### Technical Changes (OrderTrackingButton.tsx)
+
+```tsx
+// Update getStatusText to show exact user-friendly statuses
+const getStatusText = () => {
+  const status = activeOrder.status;
+  const sellerStatus = activeOrder.seller_status;
+  const pickupStatus = activeOrder.pickup_status;
+
+  if (status === 'delivered') return 'Delivered';
+  if (pickupStatus === 'picked_up' || status === 'going_for_delivery') return 'Out for Delivery';
+  if (sellerStatus === 'packed') return 'Packed';
+  if (sellerStatus === 'accepted' || sellerStatus === 'preparing') return 'Accepted';
+  return 'Placed';
 };
 ```
 
-The key change is using `window.history.back()` instead of `navigate(-1)` which is more reliable in Capacitor WebViews.
+---
+
+## Issue 6: Location Picker Touch Not Working on Android
+
+### Root Cause Analysis
+The current FullScreenLocationPicker already has:
+- `touchAction: 'pan-x pan-y pinch-zoom'` on map container
+- `gestureHandling: 'greedy'`
+- `draggable: true`
+- `pointer-events-auto` on buttons
+- `onTouchEnd` handlers
+
+The issue might be the `controlledCenter` prop. When `mapReady` is false, the center is controlled, which can interfere with touch gestures. Also, the map might not be detecting touch events correctly in a Capacitor WebView.
+
+### Solution
+1. Remove controlled center entirely after first load
+2. Add explicit touch event handling on the map container
+3. Use `onClick` AND `onTouchEnd` for all interactive elements
+4. Ensure map options include all necessary touch enablers
+
+### Technical Changes (FullScreenLocationPicker.tsx)
+
+```tsx
+// Remove controlledCenter - always let map be uncontrolled after initial position
+// Use defaultCenter on first load only
+
+// Add onDragEnd to track user dragging the map
+const handleMapDragEnd = useCallback(() => {
+  if (!mapRef.current) return;
+  const center = mapRef.current.getCenter();
+  if (center) {
+    const lat = center.lat();
+    const lng = center.lng();
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    reverseGeocode(lat, lng);
+  }
+}, []);
+
+// Update GoogleMap component
+<GoogleMap
+  mapContainerClassName="w-full h-full"
+  mapContainerStyle={{ 
+    width: '100%',
+    height: '100%',
+    touchAction: 'auto',  // Let browser handle touch
+  }}
+  center={mapReady ? undefined : initialCenter}
+  zoom={17}
+  onLoad={handleMapLoad}
+  onUnmount={handleMapUnmount}
+  onIdle={handleMapIdle}
+  onDragEnd={handleMapDragEnd}
+  options={{
+    disableDefaultUI: false,
+    zoomControl: true,
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: false,
+    gestureHandling: 'greedy',
+    draggable: true,
+    scrollwheel: true,
+    disableDoubleClickZoom: false,
+    keyboardShortcuts: true,
+  }}
+/>
+```
+
+Also ensure the parent div doesn't have any CSS that blocks touch:
+
+```tsx
+<div className="flex-1 relative overflow-hidden" style={{ touchAction: 'auto' }}>
+```
 
 ---
 
-## Issue 8: Splash Screen Text Size Too Small
+## Issue 7: Delivery Partner Voice Call Failing
 
-### Problem
-The "Welcome to" and "Zippy" text on the splash screen are too small.
+### Root Cause
+Looking at the error "Call Failed - Could not start the call", the issue is in the voice call initialization. The call flow is:
+
+1. Delivery partner clicks "Call" button
+2. `handleVoiceCall` in DeliveryPartnerOrders.tsx is called
+3. It calls `voiceCall.startCall()` with `receiverId: order.user_id`
+4. The `useZegoVoiceCall` hook tries to create a call
+
+The potential issues:
+1. `navigator.mediaDevices.getUserMedia({ audio: true })` might be failing
+2. The Edge Function `get-zego-token` might be failing
+3. The Supabase channel broadcast might not be reaching the user
 
 ### Solution
-Increase the text sizes in the splash screen component.
+1. Add better error handling and logging
+2. Ensure microphone permission is properly requested
+3. Verify the token generation is working
+4. Make sure the channel naming is consistent between caller and receiver
 
-### Technical Implementation
+### Technical Changes (useZegoVoiceCall.ts)
 
-**SplashScreen.tsx changes:**
 ```tsx
-// Current sizes:
-// "Welcome to": text-2xl md:text-3xl
-// "Zippy": text-4xl md:text-5xl
+// In startCall function, add more detailed error handling
+const startCall = useCallback(async (options: {...}) => {
+  const { receiverId, receiverName, chatId } = options;
 
-// New sizes:
-// "Welcome to": text-3xl md:text-4xl
-// "Zippy": text-5xl md:text-6xl
+  try {
+    // Check if already in a call
+    if (state.status !== 'idle') {
+      console.warn('Already in a call, ignoring');
+      return;
+    }
 
-<h1 className="text-3xl md:text-4xl text-primary-foreground font-medium italic mb-1">
-  {welcomeText}
-</h1>
-<div className="text-5xl md:text-6xl text-primary-foreground font-bold italic">
-  {/* Zippy letters */}
-</div>
+    // Request microphone permission with better error handling
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (micError: any) {
+      console.error('Microphone permission error:', micError);
+      toast({
+        title: "Microphone Required",
+        description: "Please allow microphone access to make calls.",
+        variant: "destructive",
+      });
+      return; // Don't proceed without mic
+    }
+
+    // ... rest of the function
+
+  } catch (error: any) {
+    console.error('Error starting call:', error);
+    toast({
+      title: "Call Failed",
+      description: error.message || "Could not start the call. Please try again.",
+      variant: "destructive",
+    });
+    // ... cleanup
+  }
+}, [/* deps */]);
 ```
+
+Also verify the get-zego-token edge function is working by checking logs.
 
 ---
 
 ## Implementation Order
 
-1. **Database Migration** - Add subcategory_id to items table
-2. **Seller Item Forms** - Add subcategory dropdown to SellerItemsForm and EditItemModal
-3. **Home Page Grouping** - Update HomeProductsGrid to group by subcategory
-4. **Search Filter** - Fix inactive module filtering in HomeProductsGrid
-5. **Voice Search** - Remove getUserMedia conflict in useVoiceSearch
-6. **Location Picker** - Fix touch handling and button clicks
-7. **Back Button** - Use window.history.back() in useAndroidBackButton
-8. **Splash Screen** - Increase text sizes
-9. **My Menu Table** - Convert grid to table format
+1. **Issue 3** (SellerOrderManagement - Mark as Packed) - Quick fix, 2 lines
+2. **Issue 1** (Subcategory dropdown) - Fix z-index and always show dropdown
+3. **Issue 4** (Order tracking - clean address) - Remove items, parse address
+4. **Issue 5** (Tracking button status) - Update status text mapping
+5. **Issue 6** (Location picker) - Touch handling improvements
+6. **Issue 7** (Voice call) - Better error handling and debugging
+
+Issues 2 (Razorpay UPI) requires native Android code changes which must be done locally by the user.
 
 ---
 
@@ -369,14 +372,10 @@ Increase the text sizes in the splash screen component.
 
 | File | Changes |
 |------|---------|
-| `supabase/migrations/` | Add subcategory_id column to items |
-| `src/integrations/supabase/types.ts` | Update Items type |
-| `src/components/SellerItemsForm.tsx` | Add subcategory dropdown |
-| `src/components/EditItemModal.tsx` | Add subcategory dropdown |
-| `src/components/HomeProductsGrid.tsx` | Group by subcategory, fix search filter |
-| `src/components/MyMenu.tsx` | Convert to table layout |
-| `src/hooks/useVoiceSearch.ts` | Remove getUserMedia call |
-| `src/components/FullScreenLocationPicker.tsx` | Fix touch handling |
-| `src/hooks/useAndroidBackButton.ts` | Use window.history.back() |
-| `src/components/SplashScreen.tsx` | Increase text sizes |
+| `src/components/SellerItemsForm.tsx` | Always show subcategory dropdown, add z-index to SelectContent |
+| `src/components/SellerOrderManagement.tsx` | Close dialog when status is 'packed' |
+| `src/components/OrderTrackingModal.tsx` | Remove Order Items, add clean Delivery Address |
+| `src/components/OrderTrackingButton.tsx` | Update getStatusText for exact status names |
+| `src/components/FullScreenLocationPicker.tsx` | Improve touch handling for Android |
+| `src/hooks/useZegoVoiceCall.ts` | Better error handling for microphone permission |
 
