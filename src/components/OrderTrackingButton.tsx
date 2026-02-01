@@ -122,20 +122,17 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
   // Early return after all hooks
   if (!activeOrder || shouldHide) return null;
 
-  // Get short status text
-  const getStatusText = (status: string) => {
-    const statusMap: { [key: string]: string } = {
-      pending: 'Placed',
-      accepted: 'Accepted',
-      preparing: 'Preparing',
-      packed: 'Packed',
-      assigned: 'Assigned',
-      going_for_pickup: 'Pickup',
-      picked_up: 'Picked',
-      going_for_delivery: 'On Way',
-      delivered: 'Delivered'
-    };
-    return statusMap[status] || status;
+  // Get exact status text based on order state
+  const getStatusText = () => {
+    const status = activeOrder.status;
+    const sellerStatus = (activeOrder as any).seller_status;
+    const pickupStatus = (activeOrder as any).pickup_status;
+
+    if (status === 'delivered') return 'Delivered';
+    if (pickupStatus === 'picked_up' || status === 'going_for_delivery') return 'Out for Delivery';
+    if (sellerStatus === 'packed') return 'Packed';
+    if (sellerStatus === 'accepted' || sellerStatus === 'preparing') return 'Accepted';
+    return 'Placed';
   };
 
   const handleButtonClick = () => {
@@ -165,7 +162,7 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
       >
         <Package className="h-5 w-5" />
         <span className="text-[10px] font-semibold leading-tight text-center">
-          {getStatusText(activeOrder.status)}
+          {getStatusText()}
         </span>
       </button>
     </div>

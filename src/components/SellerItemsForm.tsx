@@ -249,27 +249,29 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
             />
           </div>
 
-          {/* Subcategory Dropdown */}
-          {subcategories.length > 0 && (
-            <div>
-              <Label htmlFor="subcategory">Subcategory</Label>
-              <Select
-                value={formData.subcategory_id}
-                onValueChange={(value) => handleInputChange('subcategory_id', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subcategory" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subcategories.map((subcat) => (
+          {/* Subcategory Dropdown - Always show */}
+          <div>
+            <Label htmlFor="subcategory">Subcategory</Label>
+            <Select
+              value={formData.subcategory_id}
+              onValueChange={(value) => handleInputChange('subcategory_id', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={subcategories.length === 0 ? "No subcategories available" : "Select subcategory"} />
+              </SelectTrigger>
+              <SelectContent className="z-[9999]">
+                {subcategories.length === 0 ? (
+                  <SelectItem value="none" disabled>No subcategories found for your category</SelectItem>
+                ) : (
+                  subcategories.map((subcat) => (
                     <SelectItem key={subcat.id} value={subcat.id}>
                       {subcat.name}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div>
             <Label htmlFor="item_info">Item Info (Optional)</Label>
