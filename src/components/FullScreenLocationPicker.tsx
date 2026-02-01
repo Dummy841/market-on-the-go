@@ -246,8 +246,8 @@ const FullScreenLocationPicker = ({
         <h1 className="text-lg font-semibold">Select Delivery Location</h1>
       </div>
       
-      {/* Map Container - Remove any touch blocking */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* Map Container */}
+      <div className="flex-1 relative overflow-hidden" style={{ touchAction: 'auto' }}>
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -275,14 +275,13 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full absolute inset-0"
+              mapContainerClassName="w-full h-full"
               mapContainerStyle={{ 
-                touchAction: 'pan-x pan-y pinch-zoom',
-                WebkitUserSelect: 'none',
-                userSelect: 'none',
-                WebkitTouchCallout: 'none',
+                width: '100%',
+                height: '100%',
+                touchAction: 'auto',
               }}
-              center={controlledCenter}
+              center={mapReady ? undefined : initialCenter}
               zoom={17}
               onLoad={handleMapLoad}
               onUnmount={handleMapUnmount}
@@ -301,6 +300,7 @@ const FullScreenLocationPicker = ({
                 draggable: true,
                 scrollwheel: true,
                 disableDoubleClickZoom: false,
+                keyboardShortcuts: true,
               }}
             />
             

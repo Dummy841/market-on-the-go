@@ -538,17 +538,14 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
             </div>
           )}
 
-          {/* Order Items */}
+          {/* Delivery Address */}
           <div>
-            <p className="font-semibold mb-2">Order Items</p>
-            <div className="space-y-2">
-              {items.map((item: any, index: number) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span>{item.item_name} x {item.quantity}</span>
-                  <span>₹{item.seller_price * item.quantity}</span>
-                </div>
-              ))}
-            </div>
+            <p className="font-semibold mb-2">Delivery Address</p>
+            <p className="text-sm text-muted-foreground">
+              {activeOrder.delivery_address
+                ?.replace(/,?\s*Location:\s*[\d.-]+,?\s*[\d.-]*/gi, '')
+                .trim() || 'Address not available'}
+            </p>
           </div>
         </div>
       </DialogContent>

@@ -118,9 +118,31 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   }) => {
     const { receiverId, receiverName, chatId } = options;
 
+    console.log('Starting call to:', { receiverId, receiverName, chatId, myId, myType, myName });
+
+    // Check if already in a call
+    if (state.status !== 'idle') {
+      console.warn('Already in a call, ignoring new call request');
+      return;
+    }
+
     try {
-      // Request microphone permission FIRST (user gesture)
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request microphone permission FIRST with better error handling
+      try {
+        console.log('Requesting microphone permission...');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Microphone permission granted');
+      } catch (micError: any) {
+        console.error('Microphone permission error:', micError);
+        toast({
+          title: "Microphone Required",
+          description: "Please allow microphone access to make calls. Check your browser settings.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       setState({
         status: 'calling',
@@ -278,11 +300,12 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         }, 2000);
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting call:', error);
+      const errorMessage = error?.message || 'Could not start the call';
       toast({
         title: "Call Failed",
-        description: "Could not start the call. Please try again.",
+        description: `${errorMessage}. Please check your connection and try again.`,
         variant: "destructive",
       });
       cleanup();
@@ -297,7 +320,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
     }
-  }, [myId, myType, myName, getToken, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast]);
+  }, [myId, myType, myName, state.status, getToken, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast]);
 
   // Handle incoming call
   const handleIncomingCall = useCallback((payload: PendingCall & { appId?: number }) => {

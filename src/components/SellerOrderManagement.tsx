@@ -427,8 +427,8 @@ export const SellerOrderManagement = () => {
         description: `Order has been ${newStatus.replace('_', ' ')}${newStatus === 'rejected' ? ' - Amount credited to user wallet' : ''}`
       });
 
-      // Close the order details dialog after accepting or rejecting
-      if (newStatus === 'accepted' || newStatus === 'rejected') {
+      // Close the order details dialog after accepting, rejecting, or packing
+      if (newStatus === 'accepted' || newStatus === 'rejected' || newStatus === 'packed') {
         setShowOrderDetails(false);
         setSelectedOrder(null);
       }
