@@ -278,7 +278,7 @@ const SupportChats = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[calc(100vh-200px)]">
         {/* Chat List */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Conversations</CardTitle>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'open' | 'closed')}>
@@ -337,8 +337,8 @@ const SupportChats = () => {
           </CardContent>
         </Card>
 
-        {/* Chat Messages + Order Details */}
-        <Card className="lg:col-span-3 flex flex-col">
+        {/* Chat Messages */}
+        <Card className="lg:col-span-4 flex flex-col">
           {selectedChat ? (
             <>
               <CardHeader className="pb-3 flex-shrink-0 flex flex-row items-start justify-between gap-4">
@@ -359,70 +359,6 @@ const SupportChats = () => {
                   </Button>
                 )}
               </CardHeader>
-
-              {/* Order Details Card */}
-              {orderDetails && (
-                <div className="px-4 pb-3 flex-shrink-0">
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Package className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-sm">Order Details</span>
-                        <Badge className={`text-xs ${getStatusColor(orderDetails.status)}`}>
-                          {orderDetails.status.replace(/_/g, ' ')}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                        <div>
-                          <span className="text-muted-foreground">Restaurant:</span>
-                          <span className="ml-1 font-medium">{orderDetails.seller_name}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Total:</span>
-                          <span className="ml-1 font-medium">₹{orderDetails.total_amount}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Payment:</span>
-                          <span className="ml-1">{orderDetails.payment_method}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span>{format(new Date(orderDetails.created_at), 'dd MMM, hh:mm a')}</span>
-                        </div>
-                      </div>
-
-                      {/* Items */}
-                      <div className="border-t pt-2 mt-2">
-                        <span className="text-xs text-muted-foreground">Items:</span>
-                        <div className="mt-1 space-y-1">
-                          {orderDetails.items.map((item, idx) => (
-                            <div key={idx} className="text-xs flex justify-between">
-                              <span>{item.quantity}x {item.item_name}</span>
-                              <span>₹{item.franchise_price * item.quantity}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Delivery Info */}
-                      <div className="border-t pt-2 mt-2 text-xs">
-                        <div className="flex items-start gap-1 mb-1">
-                          <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
-                          <span className="text-muted-foreground line-clamp-2">{orderDetails.delivery_address}</span>
-                        </div>
-                        {orderDetails.delivery_mobile && (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            <span>{orderDetails.delivery_mobile}</span>
-                          </div>
-                        )}
-                      </div>
-
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
               
               <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-[calc(100vh-520px)] p-4" ref={scrollRef}>
