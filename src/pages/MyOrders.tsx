@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { formatDistanceToNow } from "date-fns";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, ArrowLeft, Star, MapPin, FileText } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, AlertCircle, ArrowLeft, Star, MapPin, FileText, MessageCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { RatingModal } from "@/components/RatingModal";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import { useOrderTracking } from "@/contexts/OrderTrackingContext";
+import { SupportChatModal } from "@/components/SupportChatModal";
 interface Order {
   id: string;
   seller_id: string;
@@ -34,6 +35,11 @@ interface Order {
   created_at: string;
   is_rated: boolean;
   refund_id?: string | null;
+  assigned_delivery_partner_id?: string | null;
+  delivery_partner?: {
+    name: string;
+    mobile: string;
+  } | null;
 }
 export const MyOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -41,6 +47,9 @@ export const MyOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [showSupportChat, setShowSupportChat] = useState(false);
+  const [supportOrderId, setSupportOrderId] = useState<string | null>(null);
+  const [initialSupportMessage, setInitialSupportMessage] = useState<string | null>(null);
   const {
     user,
     isAuthenticated
@@ -54,11 +63,17 @@ export const MyOrders = () => {
       const {
         data,
         error
-      } = await supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', {
-        ascending: false
-      });
+      } = await supabase
+        .from('orders')
+        .select('*, delivery_partners(name, mobile)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      setOrders((data || []) as any);
+      const ordersWithPartner = (data || []).map((order: any) => ({
+        ...order,
+        delivery_partner: order.delivery_partners || null,
+      }));
+      setOrders(ordersWithPartner as Order[]);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({
@@ -69,6 +84,35 @@ export const MyOrders = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleHelpClick = (order: Order) => {
+    const itemsList = order.items.map(item => `${item.item_name} x${item.quantity}`).join(', ');
+    const deliveryInfo = order.delivery_partner 
+      ? `Delivered by: ${order.delivery_partner.name} (${order.delivery_partner.mobile})`
+      : 'Delivery partner: Not assigned';
+    
+    const orderDetails = `📦 Order Help Request
+
+Order ID: #${order.id}
+Restaurant: ${order.seller_name}
+Status: ${order.status.toUpperCase()}
+
+📋 Items: ${itemsList}
+
+💰 Total: ₹${order.total_amount}
+Payment: ${order.payment_method.toUpperCase()}
+
+🚚 ${deliveryInfo}
+
+📍 Delivery Address: ${order.delivery_address.replace(/Location:\s*[\d.-]+,\s*[\d.-]+/g, '').trim()}
+
+---
+Please describe your issue:`;
+
+    setSupportOrderId(order.id);
+    setInitialSupportMessage(orderDetails);
+    setShowSupportChat(true);
   };
   useEffect(() => {
     if (isAuthenticated) {
@@ -289,41 +333,55 @@ export const MyOrders = () => {
                     </div>
                   )}
 
-                  {/* View Invoice and Rate Order Buttons */}
+                  {/* View Invoice, Rate Order, and Help Buttons */}
                   {displayStatus === 'delivered' && (
-                    <div className="mt-3 pt-3 border-t flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/order/${order.id}`);
-                        }}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Invoice
-                      </Button>
-                      {!order.is_rated && (
+                    <div className="mt-3 pt-3 border-t space-y-2">
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           className="flex-1"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedOrder(order);
-                            setShowRatingModal(true);
+                            navigate(`/order/${order.id}`);
                           }}
                         >
-                          <Star className="h-4 w-4 mr-2" />
-                          Rate Experience
+                          <FileText className="h-4 w-4 mr-2" />
+                          View Invoice
                         </Button>
-                      )}
+                        {!order.is_rated && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrder(order);
+                              setShowRatingModal(true);
+                            }}
+                          >
+                            <Star className="h-4 w-4 mr-2" />
+                            Rate
+                          </Button>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHelpClick(order);
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        Help with this order
+                      </Button>
                     </div>
                   )}
 
-                  {order.is_rated && (
-                    <div className="mt-3 pt-3 border-t flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  {order.is_rated && displayStatus === 'delivered' && (
+                    <div className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <span>Rated</span>
                     </div>
@@ -355,5 +413,22 @@ export const MyOrders = () => {
         isOpen={showTrackingModal}
         onClose={() => setShowTrackingModal(false)}
       />
+
+      {/* Support Chat Modal */}
+      {user && (
+        <SupportChatModal
+          isOpen={showSupportChat}
+          onClose={() => {
+            setShowSupportChat(false);
+            setSupportOrderId(null);
+            setInitialSupportMessage(null);
+          }}
+          userId={user.id}
+          userName={user.name}
+          userMobile={user.mobile}
+          orderId={supportOrderId}
+          initialMessage={initialSupportMessage}
+        />
+      )}
     </div>;
 };
