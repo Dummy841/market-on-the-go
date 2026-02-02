@@ -3,11 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { UserOrdersModal } from "@/components/UserOrdersModal";
+import { WalletTopUpModal } from "@/components/WalletTopUpModal";
 import { formatDistanceToNow } from "date-fns";
-import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown } from "lucide-react";
+import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown, MoreVertical, Wallet, IndianRupee } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface User {
@@ -18,6 +25,7 @@ interface User {
   created_at: string;
   updated_at: string;
   hasZippyPass?: boolean;
+  walletBalance?: number;
 }
 
 const Users = () => {
@@ -26,6 +34,7 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState("");
 
@@ -48,13 +57,21 @@ const Users = () => {
 
       const zippyPassUserIds = new Set((zippyPassUsers || []).map(sub => sub.user_id));
 
-      // Mark users with active Zippy Pass
-      const usersWithPass = (data || []).map(user => ({
+      // Fetch wallet balances for all users
+      const { data: walletData } = await supabase
+        .from('user_wallets')
+        .select('user_id, balance');
+
+      const walletMap = new Map((walletData || []).map(w => [w.user_id, w.balance]));
+
+      // Mark users with active Zippy Pass and wallet balance
+      const usersWithData = (data || []).map(user => ({
         ...user,
-        hasZippyPass: zippyPassUserIds.has(user.id)
+        hasZippyPass: zippyPassUserIds.has(user.id),
+        walletBalance: walletMap.get(user.id) || 0
       }));
 
-      setUsers(usersWithPass);
+      setUsers(usersWithData);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -80,6 +97,11 @@ const Users = () => {
     setSelectedUserId(user.id);
     setSelectedUserName(user.name);
     setShowOrdersModal(true);
+  };
+
+  const handleWalletTopUp = (user: User) => {
+    setSelectedUser(user);
+    setShowWalletModal(true);
   };
 
   const totalUsers = users.length;
@@ -161,9 +183,10 @@ const Users = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Mobile</TableHead>
+                <TableHead>Wallet</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Join Date</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -195,6 +218,12 @@ const Users = () => {
                   </TableCell>
                   <TableCell>{user.mobile}</TableCell>
                   <TableCell>
+                    <div className="flex items-center text-sm font-medium">
+                      <IndianRupee className="h-3 w-3" />
+                      {(user.walletBalance || 0).toFixed(2)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant={user.is_verified ? "default" : "secondary"}>
                       {user.is_verified ? "Verified" : "Unverified"}
                     </Badge>
@@ -202,25 +231,28 @@ const Users = () => {
                   <TableCell>
                     {formatDistanceToNow(new Date(user.created_at), { addSuffix: true })}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewProfile(user)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View Profile
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleViewOrders(user)}
-                      >
-                        <FileText className="h-4 w-4 mr-1" />
-                        View Orders
-                      </Button>
-                    </div>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleViewProfile(user)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Profile
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleViewOrders(user)}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          View Orders
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleWalletTopUp(user)}>
+                          <Wallet className="h-4 w-4 mr-2" />
+                          Wallet Top Up
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -241,6 +273,17 @@ const Users = () => {
         userId={selectedUserId}
         userName={selectedUserName}
       />
+
+      {selectedUser && (
+        <WalletTopUpModal
+          isOpen={showWalletModal}
+          onClose={() => setShowWalletModal(false)}
+          userId={selectedUser.id}
+          userName={selectedUser.name}
+          currentBalance={selectedUser.walletBalance || 0}
+          onSuccess={fetchUsers}
+        />
+      )}
     </div>
   );
 };
