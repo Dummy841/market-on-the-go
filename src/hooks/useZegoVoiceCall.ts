@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { RINGTONE_DATA_URL } from "@/lib/ringtoneDataUrl";
 
 export type CallStatus = 'idle' | 'calling' | 'ringing' | 'ongoing' | 'ended' | 'declined' | 'missed';
 
@@ -50,12 +51,14 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const audioUnlockedRef = useRef(false);
   const missedCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const callRowChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCallRef = useRef<PendingCall | null>(null);
   const endingRef = useRef(false);
 
   // Preload ringtone
   useEffect(() => {
-    ringtoneRef.current = new Audio('/ringtone.mp3');
+    // Use a data-url ringtone to avoid "The element has no supported sources" errors.
+    ringtoneRef.current = new Audio(RINGTONE_DATA_URL);
     ringtoneRef.current.preload = 'auto';
     ringtoneRef.current.loop = true;
   }, []);
@@ -147,6 +150,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       supabase.removeChannel(callChannelRef.current);
       callChannelRef.current = null;
     }
+
+    if (callRowChannelRef.current) {
+      supabase.removeChannel(callRowChannelRef.current);
+      callRowChannelRef.current = null;
+    }
   }, [stopDurationTimer, clearMissedCallTimeout]);
 
   // End ongoing call (internal)
@@ -219,6 +227,47 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
   const endCall = useCallback(async () => {
     await endCallInternal({ notifyRemote: true });
+  }, [endCallInternal]);
+
+  // DB fallback: keep both sides in sync even if broadcast events are missed.
+  const subscribeToCallRow = useCallback((callId: string) => {
+    // Reset previous
+    if (callRowChannelRef.current) {
+      supabase.removeChannel(callRowChannelRef.current);
+      callRowChannelRef.current = null;
+    }
+
+    const rowChannel = supabase
+      .channel(`voice-call-row-${callId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'voice_calls',
+          filter: `id=eq.${callId}`,
+        },
+        async (payload) => {
+          const next = payload.new as { status?: string };
+          const status = next?.status;
+          if (!status) return;
+
+          if (status === 'ongoing') {
+            setState((prev) => {
+              if (prev.callId !== callId) return prev;
+              if (prev.status === 'ongoing') return prev;
+              return { ...prev, status: 'ongoing' };
+            });
+          }
+
+          if (status === 'ended' || status === 'declined' || status === 'missed') {
+            await endCallInternal({ notifyRemote: false });
+          }
+        }
+      );
+
+    callRowChannelRef.current = rowChannel;
+    rowChannel.subscribe();
   }, [endCallInternal]);
 
   // Get credentials from edge function
@@ -315,10 +364,90 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       const callId = callData.id;
       setState(prev => ({ ...prev, callId, roomId }));
 
+      // Fallback sync via DB row updates.
+      subscribeToCallRow(callId);
+
       // Use a dedicated call-scoped channel for signaling (answer/decline/ringing)
       // This avoids mismatched per-user channels causing "answered" events to be missed.
       const signalChannel = supabase.channel(`voice-call-${callId}`);
       callChannelRef.current = signalChannel;
+
+      // IMPORTANT: attach listeners BEFORE subscribe to avoid missing fast events.
+      signalChannel.on('broadcast', { event: 'call-ringing' }, ({ payload }) => {
+        if (payload?.callId !== callId) return;
+        setState(prev => (prev.status === 'calling' ? { ...prev, status: 'ringing' } : prev));
+      });
+
+      signalChannel.on('broadcast', { event: 'call-ended' }, async ({ payload }) => {
+        if (payload?.callId !== callId) return;
+        console.log('Remote ended call');
+        await endCallInternal({ notifyRemote: false });
+      });
+
+      signalChannel.on('broadcast', { event: 'call-answered' }, async ({ payload }) => {
+        if (payload?.callId !== callId) return;
+        console.log('Call answered, joining room...');
+        stopRingtone();
+        clearMissedCallTimeout();
+        setState(prev => ({ ...prev, status: 'ongoing' }));
+        startDurationTimer();
+
+        // Join the ZEGO room
+        if (zegoRef.current && containerRef.current) {
+          zegoRef.current.joinRoom({
+            container: containerRef.current,
+            scenario: {
+              mode: ZegoUIKitPrebuilt.OneONoneCall,
+            },
+            showPreJoinView: false,
+            showScreenSharingButton: false,
+            showMyCameraToggleButton: false,
+            turnOnCameraWhenJoining: false,
+            turnOnMicrophoneWhenJoining: true,
+            onLeaveRoom: () => {
+              endCallInternal({ notifyRemote: true });
+            },
+            onUserLeave: () => {
+              endCallInternal({ notifyRemote: true });
+            },
+          });
+        }
+
+        // Update call status
+        await supabase
+          .from('voice_calls')
+          .update({ status: 'ongoing', started_at: new Date().toISOString() })
+          .eq('id', callId);
+      });
+
+      signalChannel.on('broadcast', { event: 'call-declined' }, async ({ payload }) => {
+        if (payload?.callId !== callId) return;
+        console.log('Call declined');
+        stopRingtone();
+        clearMissedCallTimeout();
+
+        await supabase
+          .from('voice_calls')
+          .update({ status: 'declined', ended_at: new Date().toISOString() })
+          .eq('id', callId);
+
+        cleanup();
+        setState(prev => ({ ...prev, status: 'declined' }));
+
+        setTimeout(() => {
+          setState({
+            status: 'idle',
+            callId: null,
+            roomId: null,
+            duration: 0,
+            isMuted: false,
+            isSpeaker: false,
+            callerType: null,
+            callerName: null,
+          });
+        }, 2000);
+      });
+
       await signalChannel.subscribe();
 
       // Get ZEGO credentials from server
@@ -402,82 +531,6 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         });
       }, 30000);
 
-      // Listen for call events
-      signalChannel.on('broadcast', { event: 'call-ringing' }, ({ payload }) => {
-        if (payload?.callId !== callId) return;
-        setState(prev => (prev.status === 'calling' ? { ...prev, status: 'ringing' } : prev));
-      });
-
-      signalChannel.on('broadcast', { event: 'call-ended' }, async ({ payload }) => {
-        if (payload?.callId !== callId) return;
-        console.log('Remote ended call');
-        await endCallInternal({ notifyRemote: false });
-      });
-
-      signalChannel.on('broadcast', { event: 'call-answered' }, async ({ payload }) => {
-        if (payload?.callId !== callId) return;
-        console.log('Call answered, joining room...');
-        stopRingtone();
-        clearMissedCallTimeout();
-        setState(prev => ({ ...prev, status: 'ongoing' }));
-        startDurationTimer();
-
-        // Join the ZEGO room
-        if (zegoRef.current && containerRef.current) {
-          zegoRef.current.joinRoom({
-            container: containerRef.current,
-            scenario: {
-              mode: ZegoUIKitPrebuilt.OneONoneCall,
-            },
-            showPreJoinView: false,
-            showScreenSharingButton: false,
-            showMyCameraToggleButton: false,
-            turnOnCameraWhenJoining: false,
-            turnOnMicrophoneWhenJoining: true,
-            onLeaveRoom: () => {
-              endCallInternal({ notifyRemote: true });
-            },
-            onUserLeave: () => {
-              endCallInternal({ notifyRemote: true });
-            },
-          });
-        }
-
-        // Update call status
-        await supabase
-          .from('voice_calls')
-          .update({ status: 'ongoing', started_at: new Date().toISOString() })
-          .eq('id', callId);
-      });
-
-      signalChannel.on('broadcast', { event: 'call-declined' }, async ({ payload }) => {
-        if (payload?.callId !== callId) return;
-        console.log('Call declined');
-        stopRingtone();
-        clearMissedCallTimeout();
-        
-        await supabase
-          .from('voice_calls')
-          .update({ status: 'declined', ended_at: new Date().toISOString() })
-          .eq('id', callId);
-
-        cleanup();
-        setState(prev => ({ ...prev, status: 'declined' }));
-        
-        setTimeout(() => {
-          setState({
-            status: 'idle',
-            callId: null,
-            roomId: null,
-            duration: 0,
-            isMuted: false,
-            isSpeaker: false,
-            callerType: null,
-            callerName: null,
-          });
-        }, 2000);
-      });
-
     } catch (error: any) {
       console.error('Error starting call:', error);
       const errorMessage = error?.message || 'Could not start the call';
@@ -511,13 +564,19 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     // Subscribe to call-scoped signaling channel so caller can reliably receive answered/declined.
     const signalChannel = supabase.channel(`voice-call-${payload.callId}`);
     callChannelRef.current = signalChannel;
-    signalChannel.subscribe();
+
+    // Also sync via DB row updates (fallback).
+    subscribeToCallRow(payload.callId);
+
+    // Attach listeners BEFORE subscribe.
 
     signalChannel.on('broadcast', { event: 'call-ended' }, async ({ payload: endPayload }) => {
       if (endPayload?.callId !== payload.callId) return;
       console.log('Caller ended call while ringing/ongoing');
       await endCallInternal({ notifyRemote: false });
     });
+
+    signalChannel.subscribe();
 
     playRingtone();
     
@@ -538,7 +597,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       event: 'call-ringing',
       payload: { callId: payload.callId },
     });
-  }, [state.status, playRingtone, endCallInternal]);
+  }, [state.status, playRingtone, endCallInternal, subscribeToCallRow]);
 
   // Answer incoming call
   const answerCall = useCallback(async () => {
