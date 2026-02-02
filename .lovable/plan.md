@@ -1,212 +1,272 @@
 
+# Implementation Plan: Fix Critical Android Issues
 
-# Implementation Plan: Fix Multiple UI and Functionality Issues
-
-This plan addresses 7 distinct issues reported across the seller dashboard, user home page, order tracking, location picker, and delivery partner voice calling.
+This plan addresses 6 critical issues identified from your screenshots and testing on Android Capacitor app.
 
 ---
 
 ## Summary of Issues
 
-| # | Issue | File(s) to Modify | Priority |
-|---|-------|-------------------|----------|
-| 1 | Subcategory dropdown not opening/empty in seller "Add Item" form | SellerItemsForm.tsx | High |
-| 2 | Razorpay not showing UPI apps on Android | Checkout.tsx + Native Android changes | Medium |
-| 3 | "Mark as Packed" showing modal again instead of closing | SellerOrderManagement.tsx | High |
-| 4 | Order tracking modal showing items + coordinates instead of clean address | OrderTrackingModal.tsx | Medium |
-| 5 | Profile icon beside arrow on header + tracking circle status text | Header.tsx, OrderTrackingButton.tsx | Low |
-| 6 | Location picker touch still not working on Android | FullScreenLocationPicker.tsx | Critical |
-| 7 | Delivery partner voice call failing - not connecting to customer | DeliveryPartnerOrders.tsx, useZegoVoiceCall.ts | High |
+| # | Issue | Root Cause | Priority |
+|---|-------|------------|----------|
+| 1 | Order tracking button not showing for "out_for_delivery" orders | OrderTrackingContext checks for `going_for_delivery` but DB uses `out_for_delivery` | Critical |
+| 2 | Voice call failing with "createSpan undefined" error | ZEGOCloud SDK not initializing properly - token/SDK issue in Capacitor WebView | Critical |
+| 3 | Location picker not responding to touch (drag, zoom, buttons) | Controlled map center conflicts with touch gestures in Capacitor | Critical |
+| 4 | Header profile showing rectangle box instead of circle | Button wrapper around Avatar creating rectangular appearance | Medium |
+| 5 | Delivery PIN not showing in order tracking modal | PIN display missing from tracking modal when out for delivery | Medium |
+| 6 | Tracking button status text not matching exact flow | Status text mapping doesn't match `out_for_delivery` status | Low |
 
 ---
 
-## Issue 1: Subcategory Dropdown Not Opening
+## Issue 1: Order Tracking Not Showing for Out for Delivery Orders
 
-### Root Cause
-Looking at the database, the subcategories have `category` values like `food_delivery`, `dairy`, `instamart`. However, the sellers have their categories stored differently. When comparing:
-- Subcategories: `category = 'food_delivery'`, `category = 'dairy'`, `category = 'instamart'`
-- Sellers: `category = 'instamart'`, `categories = 'instamart,dairy'`
+**Root Cause:**
+In `OrderTrackingContext.tsx` (line 85), the active statuses include `going_for_delivery` but the actual status saved to DB is `out_for_delivery`.
 
-The issue is that the subcategory query uses `.in('category', sellerCategories)` which should work. However, the dropdown only renders when `subcategories.length > 0`. If the fetch fails silently or returns empty, the dropdown won't show.
+**Solution:**
+Add `out_for_delivery` to the active statuses list.
 
-### Solution
-1. Remove the conditional rendering that hides the dropdown when empty
-2. Add console logging to debug the fetch
-3. Ensure the dropdown always shows (even with placeholder if no subcategories)
-
-### Technical Changes (SellerItemsForm.tsx)
-
-```tsx
-// Always show subcategory dropdown, even if loading or empty
-<div>
-  <Label htmlFor="subcategory">Subcategory</Label>
-  <Select
-    value={formData.subcategory_id}
-    onValueChange={(value) => handleInputChange('subcategory_id', value)}
-  >
-    <SelectTrigger>
-      <SelectValue placeholder={subcategories.length === 0 ? "No subcategories available" : "Select subcategory"} />
-    </SelectTrigger>
-    <SelectContent className="z-[9999]">
-      {subcategories.length === 0 ? (
-        <SelectItem value="none" disabled>No subcategories found</SelectItem>
-      ) : (
-        subcategories.map((subcat) => (
-          <SelectItem key={subcat.id} value={subcat.id}>
-            {subcat.name}
-          </SelectItem>
-        ))
-      )}
-    </SelectContent>
-  </Select>
-</div>
+**File: `src/contexts/OrderTrackingContext.tsx`**
+```typescript
+// Line 85: Add out_for_delivery to active statuses
+const activeStatuses = ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'out_for_delivery'];
 ```
 
-The `z-[9999]` on SelectContent ensures it appears above the Dialog.
+Also update line 116:
+```typescript
+.in('status', ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'out_for_delivery'])
+```
 
 ---
 
-## Issue 2: Razorpay UPI Apps Not Showing on Android
+## Issue 2: Voice Call Failing with "createSpan undefined" Error
 
-### Root Cause
-Capacitor WebView on Android cannot handle `upi://` or `intent://` URL schemes by default. The Razorpay SDK tries to open UPI apps via intent, but the WebView blocks these URLs.
+**Root Cause:**
+The `ZegoUIKitPrebuilt.create(token)` call is failing because in Capacitor WebView on Android, the SDK has initialization issues. The error "Cannot read properties of undefined (reading 'createSpan')" indicates `ZegoUIKitPrebuilt.create()` returns undefined or fails silently.
 
-### Solution
-The Razorpay configuration in the code is already correct with `flows: ["intent"]` and `redirect: false`. The issue is in the native Android WebView.
+**Solution:**
+1. Add defensive checks before calling SDK methods
+2. Use dynamic import to ensure SDK is loaded
+3. Add better error handling with specific messages
+4. Ensure the SDK container element exists before joining room
 
-### Required Native Changes (User must do locally)
-After the user pulls the project:
+**File: `src/hooks/useZegoVoiceCall.ts`**
 
-1. **Modify `android/app/src/main/java/.../MainActivity.java`**:
-```java
-import android.content.Intent;
-import android.net.Uri;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+Key changes:
+- Add null check after `ZegoUIKitPrebuilt.create(token)` 
+- Wrap SDK initialization in try-catch with specific error messages
+- Delay room join to ensure SDK is ready
+- Use dynamic import pattern for Capacitor compatibility
 
-// In the Activity class, add a custom WebViewClient
-public class MainActivity extends BridgeActivity {
-    @Override
-    public void onStart() {
-        super.onStart();
-        WebView webView = getBridge().getWebView();
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("upi://") || url.startsWith("intent://")) {
-                    try {
-                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-                        startActivity(intent);
-                        return true;
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return false;
-                    }
-                }
-                return super.shouldOverrideUrlLoading(view, url);
-            }
-        });
+```typescript
+// In getToken callback, add validation
+const getToken = useCallback(async (roomId: string): Promise<{ token: string; appId: number }> => {
+  const zegoUserId = (myId || 'guest')
+    .toString()
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 32);
+
+  if (!zegoUserId || zegoUserId.length < 2) {
+    throw new Error('Invalid user ID for voice call');
+  }
+
+  const { data, error } = await supabase.functions.invoke('get-zego-token', {
+    body: { userId: zegoUserId, roomId, userName: myName }
+  });
+
+  if (error) throw new Error(error.message || 'Failed to get call token');
+  if (!data?.token) throw new Error('No token received from server');
+  
+  return data;
+}, [myId, myName]);
+
+// In startCall, add defensive checks
+try {
+  const tokenData = await getToken(roomId);
+  
+  // Defensive check - create ZEGO instance with validation
+  let zp;
+  try {
+    zp = ZegoUIKitPrebuilt.create(tokenData.token);
+    if (!zp) {
+      throw new Error('Voice call service failed to initialize');
     }
-}
-```
-
-2. Run `npx cap sync android`
-3. Rebuild the Android app
-
-No code changes needed in Lovable for this issue - only native configuration.
-
----
-
-## Issue 3: "Mark as Packed" Showing Modal Again
-
-### Root Cause
-In `SellerOrderManagement.tsx`, when clicking "Mark as Packed" from the order details dialog, the `updateOrderStatus` function updates the order but **does not close the dialog**. Looking at lines 430-434:
-
-```tsx
-// Close the order details dialog after accepting or rejecting
-if (newStatus === 'accepted' || newStatus === 'rejected') {
-  setShowOrderDetails(false);
-  setSelectedOrder(null);
-}
-```
-
-The dialog only closes for `accepted` or `rejected`, not for `packed`.
-
-### Solution
-Add `packed` to the conditions that close the dialog.
-
-### Technical Changes (SellerOrderManagement.tsx)
-
-```tsx
-// Line 430-434: Update to include 'packed'
-if (newStatus === 'accepted' || newStatus === 'rejected' || newStatus === 'packed') {
-  setShowOrderDetails(false);
-  setSelectedOrder(null);
+  } catch (sdkError: any) {
+    console.error('ZEGO SDK create error:', sdkError);
+    throw new Error('Voice call service unavailable. Please try again.');
+  }
+  
+  zegoRef.current = zp;
+  // ... rest of logic
+} catch (error) {
+  // Handle with specific message
 }
 ```
 
 ---
 
-## Issue 4: Order Tracking Modal - Remove Items + Show Clean Address
+## Issue 3: Location Picker Not Responding to Touch on Android
 
-### Root Cause
-The user wants:
-1. Remove the "Order Items" section from the tracking modal
-2. Show delivery address without latitude/longitude coordinates
+**Root Cause:**
+Even with `touchAction: 'auto'` and `gestureHandling: 'greedy'`, the controlled `center` prop on GoogleMap fights with user touch gestures in Capacitor WebViews. The map needs to be fully uncontrolled after initial render.
 
-Looking at OrderTrackingModal.tsx lines 541-552, the items are displayed. The address issue is that `delivery_address` in the database contains coordinates like: `"123 Main St, Location: 17.385, 78.486"`.
+**Solution:**
+1. Never pass `center` prop after initial load - use `ref.panTo()` for programmatic moves
+2. Remove `mapContainerStyle` touchAction - let CSS handle it
+3. Use `onCenterChanged` or `onDragEnd` to track position instead
+4. Add explicit touch handlers on the map container div
+5. Ensure `gestureHandling: 'cooperative'` for mobile
 
-### Solution
-1. Remove the Order Items section from the modal
-2. Parse the delivery address to remove the coordinates part
-3. Add a "Delivery Address" section showing clean address
+**File: `src/components/FullScreenLocationPicker.tsx`**
 
-### Technical Changes (OrderTrackingModal.tsx)
+Major changes:
+- Remove controlled `center={...}` prop entirely after initial position
+- Use `defaultCenter` instead of `center`
+- Add `onCenterChanged` callback to track map movement
+- Set map container with `touch-action: none` to let Google Maps handle all touch
+- Use `requestAnimationFrame` for smoother updates
 
 ```tsx
-// Add helper to clean the address
-const getCleanAddress = (address: string) => {
-  if (!address) return '';
-  // Remove ", Location: lat, lng" pattern
-  return address.replace(/,?\s*Location:\s*[\d.-]+,?\s*[\d.-]*/gi, '').trim();
-};
+// Remove center prop - use only for initial render once
+// After first render, let the map be fully uncontrolled
 
-// In the JSX - Replace Order Items section with Delivery Address
-{/* Delivery Address */}
-<div>
-  <p className="font-semibold mb-2">Delivery Address</p>
-  <p className="text-sm text-muted-foreground">
-    {getCleanAddress(activeOrder.delivery_address)}
-  </p>
-</div>
+<GoogleMap
+  mapContainerClassName="w-full h-full absolute inset-0"
+  mapContainerStyle={{ 
+    width: '100%',
+    height: '100%',
+  }}
+  // Don't use center after map loads - this causes touch conflicts
+  defaultCenter={initialCenter}
+  zoom={17}
+  onLoad={handleMapLoad}
+  onUnmount={handleMapUnmount}
+  onIdle={handleMapIdle}
+  onCenterChanged={handleCenterChanged}
+  options={{
+    disableDefaultUI: false,
+    zoomControl: true,
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: false,
+    clickableIcons: false,
+    gestureHandling: 'greedy',
+    draggable: true,
+    scrollwheel: true,
+    disableDoubleClickZoom: false,
+  }}
+/>
+```
 
-// Remove the Order Items section (lines 541-552)
+Also wrap the entire map container in a div that prevents parent touch interference:
+```tsx
+<div 
+  className="flex-1 relative"
+  style={{ 
+    overflow: 'hidden',
+    WebkitOverflowScrolling: 'touch',
+  }}
+>
 ```
 
 ---
 
-## Issue 5: Header Profile Icon + Tracking Button Status
+## Issue 4: Header Profile Showing Rectangle Instead of Circle
 
-### Part A: Remove Profile Icon from Header (beside arrow)
-Looking at the Header, there's no extra profile icon beside an arrow in the current code. The user might be referring to the ChevronDown arrow next to the profile avatar. This seems intentional for the dropdown. Will need clarification, but assuming the user wants only the arrow without the avatar - this would break UX. 
+**Root Cause:**
+Looking at the Header component around line 389-397, the Avatar is wrapped in a Button with `px-3` padding that creates the rectangular appearance. The dropdown trigger button has visible borders.
 
-**Clarification needed**: The current UI shows Avatar + ChevronDown which is standard. No changes unless specifically requested differently.
+**Solution:**
+Adjust the DropdownMenuTrigger button styling to be circular when showing just the avatar on mobile.
 
-### Part B: Tracking Button Status Text
-The OrderTrackingButton currently shows status in the circle but uses simplified text. The user wants exact statuses:
-- Placed, Accepted, Packed, Out for Delivery, Delivered
-
-### Technical Changes (OrderTrackingButton.tsx)
+**File: `src/components/Header.tsx`**
 
 ```tsx
-// Update getStatusText to show exact user-friendly statuses
+// Around line 388-403
+<DropdownMenuTrigger asChild>
+  <Button 
+    variant="ghost" 
+    className="flex items-center space-x-2 h-10 px-2 md:px-3 rounded-full"
+  >
+    <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
+      <Avatar className={`h-8 w-8 ${hasActivePass ? 'border-2 border-background' : ''}`}>
+        <AvatarImage src={user?.profile_photo_url || ''} alt={user?.name} />
+        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+          {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+        </AvatarFallback>
+      </Avatar>
+    </div>
+    {/* Only show on desktop */}
+    <div className="hidden md:flex flex-col items-start">
+      <span className="text-sm font-medium">{user?.name}</span>
+      <span className="text-xs text-muted-foreground">{user?.mobile}</span>
+    </div>
+    <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
+  </Button>
+</DropdownMenuTrigger>
+```
+
+Key change: Add `rounded-full` and hide the ChevronDown on mobile with `hidden md:block`.
+
+---
+
+## Issue 5: Show Delivery PIN in Order Tracking Modal
+
+**Root Cause:**
+The Order Tracking Modal doesn't display the delivery PIN when the order is out for delivery.
+
+**Solution:**
+Add a delivery PIN display section in the tracking modal, similar to how it's shown in MyOrders page.
+
+**File: `src/components/OrderTrackingModal.tsx`**
+
+Add after the status card section (around line 435):
+```tsx
+{/* Delivery PIN - Show when out for delivery */}
+{(activeOrder.status === 'out_for_delivery' || 
+  activeOrder.pickup_status === 'going_for_delivery' ||
+  activeOrder.pickup_status === 'picked_up') && 
+  activeOrder.delivery_pin && (
+  <Card className="p-4 bg-green-50 border-green-200">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-green-700 font-medium">Delivery PIN</p>
+        <p className="text-xs text-green-600">Share this PIN with delivery partner</p>
+      </div>
+      <div className="text-2xl font-bold text-green-700">
+        {activeOrder.delivery_pin}
+      </div>
+    </div>
+  </Card>
+)}
+```
+
+---
+
+## Issue 6: Tracking Button Status Text Mapping
+
+**Root Cause:**
+The `getStatusText()` function in OrderTrackingButton checks for `going_for_delivery` but the actual status is `out_for_delivery`.
+
+**Solution:**
+Update the status mapping to include `out_for_delivery`.
+
+**File: `src/components/OrderTrackingButton.tsx`**
+
+```typescript
 const getStatusText = () => {
   const status = activeOrder.status;
-  const sellerStatus = activeOrder.seller_status;
-  const pickupStatus = activeOrder.pickup_status;
+  const sellerStatus = (activeOrder as any).seller_status;
+  const pickupStatus = (activeOrder as any).pickup_status;
 
   if (status === 'delivered') return 'Delivered';
-  if (pickupStatus === 'picked_up' || status === 'going_for_delivery') return 'Out for Delivery';
+  // Add out_for_delivery to the check
+  if (pickupStatus === 'picked_up' || 
+      pickupStatus === 'going_for_delivery' || 
+      status === 'going_for_delivery' ||
+      status === 'out_for_delivery') {
+    return 'Out for Delivery';
+  }
   if (sellerStatus === 'packed') return 'Packed';
   if (sellerStatus === 'accepted' || sellerStatus === 'preparing') return 'Accepted';
   return 'Placed';
@@ -215,167 +275,39 @@ const getStatusText = () => {
 
 ---
 
-## Issue 6: Location Picker Touch Not Working on Android
+## Files to Modify
 
-### Root Cause Analysis
-The current FullScreenLocationPicker already has:
-- `touchAction: 'pan-x pan-y pinch-zoom'` on map container
-- `gestureHandling: 'greedy'`
-- `draggable: true`
-- `pointer-events-auto` on buttons
-- `onTouchEnd` handlers
-
-The issue might be the `controlledCenter` prop. When `mapReady` is false, the center is controlled, which can interfere with touch gestures. Also, the map might not be detecting touch events correctly in a Capacitor WebView.
-
-### Solution
-1. Remove controlled center entirely after first load
-2. Add explicit touch event handling on the map container
-3. Use `onClick` AND `onTouchEnd` for all interactive elements
-4. Ensure map options include all necessary touch enablers
-
-### Technical Changes (FullScreenLocationPicker.tsx)
-
-```tsx
-// Remove controlledCenter - always let map be uncontrolled after initial position
-// Use defaultCenter on first load only
-
-// Add onDragEnd to track user dragging the map
-const handleMapDragEnd = useCallback(() => {
-  if (!mapRef.current) return;
-  const center = mapRef.current.getCenter();
-  if (center) {
-    const lat = center.lat();
-    const lng = center.lng();
-    setSelectedLat(lat);
-    setSelectedLng(lng);
-    reverseGeocode(lat, lng);
-  }
-}, []);
-
-// Update GoogleMap component
-<GoogleMap
-  mapContainerClassName="w-full h-full"
-  mapContainerStyle={{ 
-    width: '100%',
-    height: '100%',
-    touchAction: 'auto',  // Let browser handle touch
-  }}
-  center={mapReady ? undefined : initialCenter}
-  zoom={17}
-  onLoad={handleMapLoad}
-  onUnmount={handleMapUnmount}
-  onIdle={handleMapIdle}
-  onDragEnd={handleMapDragEnd}
-  options={{
-    disableDefaultUI: false,
-    zoomControl: true,
-    streetViewControl: false,
-    mapTypeControl: false,
-    fullscreenControl: false,
-    gestureHandling: 'greedy',
-    draggable: true,
-    scrollwheel: true,
-    disableDoubleClickZoom: false,
-    keyboardShortcuts: true,
-  }}
-/>
-```
-
-Also ensure the parent div doesn't have any CSS that blocks touch:
-
-```tsx
-<div className="flex-1 relative overflow-hidden" style={{ touchAction: 'auto' }}>
-```
+| File | Changes |
+|------|---------|
+| `src/contexts/OrderTrackingContext.tsx` | Add `out_for_delivery` to active statuses |
+| `src/hooks/useZegoVoiceCall.ts` | Add defensive SDK checks and better error handling |
+| `src/components/FullScreenLocationPicker.tsx` | Remove controlled center, use defaultCenter |
+| `src/components/Header.tsx` | Add `rounded-full`, hide chevron on mobile |
+| `src/components/OrderTrackingModal.tsx` | Add delivery PIN display section |
+| `src/components/OrderTrackingButton.tsx` | Add `out_for_delivery` to status mapping |
 
 ---
 
-## Issue 7: Delivery Partner Voice Call Failing
+## Technical Notes
 
-### Root Cause
-Looking at the error "Call Failed - Could not start the call", the issue is in the voice call initialization. The call flow is:
+**Voice Call SDK Issue:**
+The ZEGOCloud SDK can fail in Capacitor WebViews due to:
+- Missing WebRTC permissions in the native layer
+- Token validation issues
+- SDK not fully loaded before use
 
-1. Delivery partner clicks "Call" button
-2. `handleVoiceCall` in DeliveryPartnerOrders.tsx is called
-3. It calls `voiceCall.startCall()` with `receiverId: order.user_id`
-4. The `useZegoVoiceCall` hook tries to create a call
+The defensive checks and error handling will provide better user feedback when the SDK fails.
 
-The potential issues:
-1. `navigator.mediaDevices.getUserMedia({ audio: true })` might be failing
-2. The Edge Function `get-zego-token` might be failing
-3. The Supabase channel broadcast might not be reaching the user
-
-### Solution
-1. Add better error handling and logging
-2. Ensure microphone permission is properly requested
-3. Verify the token generation is working
-4. Make sure the channel naming is consistent between caller and receiver
-
-### Technical Changes (useZegoVoiceCall.ts)
-
-```tsx
-// In startCall function, add more detailed error handling
-const startCall = useCallback(async (options: {...}) => {
-  const { receiverId, receiverName, chatId } = options;
-
-  try {
-    // Check if already in a call
-    if (state.status !== 'idle') {
-      console.warn('Already in a call, ignoring');
-      return;
-    }
-
-    // Request microphone permission with better error handling
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (micError: any) {
-      console.error('Microphone permission error:', micError);
-      toast({
-        title: "Microphone Required",
-        description: "Please allow microphone access to make calls.",
-        variant: "destructive",
-      });
-      return; // Don't proceed without mic
-    }
-
-    // ... rest of the function
-
-  } catch (error: any) {
-    console.error('Error starting call:', error);
-    toast({
-      title: "Call Failed",
-      description: error.message || "Could not start the call. Please try again.",
-      variant: "destructive",
-    });
-    // ... cleanup
-  }
-}, [/* deps */]);
-```
-
-Also verify the get-zego-token edge function is working by checking logs.
+**Location Picker Touch Issue:**
+Google Maps in React requires careful handling of the `center` prop. When `center` is controlled (passed on every render), it can conflict with touch gestures because React keeps trying to reset the position. Using `defaultCenter` instead of `center` after initial load allows the map to be fully controlled by touch.
 
 ---
 
 ## Implementation Order
 
-1. **Issue 3** (SellerOrderManagement - Mark as Packed) - Quick fix, 2 lines
-2. **Issue 1** (Subcategory dropdown) - Fix z-index and always show dropdown
-3. **Issue 4** (Order tracking - clean address) - Remove items, parse address
-4. **Issue 5** (Tracking button status) - Update status text mapping
-5. **Issue 6** (Location picker) - Touch handling improvements
-6. **Issue 7** (Voice call) - Better error handling and debugging
-
-Issues 2 (Razorpay UPI) requires native Android code changes which must be done locally by the user.
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/SellerItemsForm.tsx` | Always show subcategory dropdown, add z-index to SelectContent |
-| `src/components/SellerOrderManagement.tsx` | Close dialog when status is 'packed' |
-| `src/components/OrderTrackingModal.tsx` | Remove Order Items, add clean Delivery Address |
-| `src/components/OrderTrackingButton.tsx` | Update getStatusText for exact status names |
-| `src/components/FullScreenLocationPicker.tsx` | Improve touch handling for Android |
-| `src/hooks/useZegoVoiceCall.ts` | Better error handling for microphone permission |
-
+1. Fix order tracking status check (quick fix)
+2. Fix tracking button status text (quick fix)
+3. Add delivery PIN to tracking modal
+4. Fix header profile styling
+5. Improve voice call error handling
+6. Fix location picker touch handling
