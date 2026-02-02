@@ -276,9 +276,9 @@ const SupportChats = () => {
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-foreground">Support Chats</h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[calc(100vh-200px)]">
         {/* Chat List */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Conversations</CardTitle>
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'open' | 'closed')}>
@@ -338,7 +338,7 @@ const SupportChats = () => {
         </Card>
 
         {/* Chat Messages + Order Details */}
-        <Card className="lg:col-span-2 flex flex-col">
+        <Card className="lg:col-span-3 flex flex-col">
           {selectedChat ? (
             <>
               <CardHeader className="pb-3 flex-shrink-0 flex flex-row items-start justify-between gap-4">
