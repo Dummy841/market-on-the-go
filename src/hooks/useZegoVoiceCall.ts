@@ -93,10 +93,15 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
   }, []);
 
-  // Get token from edge function
-  const getToken = useCallback(async (roomId: string): Promise<{ token: string; appId: number }> => {
-    // ZEGO userID/roomID constraints are stricter than UUIDs in practice.
-    // Use a stable, alphanumeric, shorter ID to avoid kitToken validation errors.
+  // Get credentials from edge function
+  const getCredentials = useCallback(async (roomId: string): Promise<{ 
+    appId: number; 
+    serverSecret: string;
+    userId: string;
+    roomId: string;
+    userName: string;
+  }> => {
+    // ZEGO userID/roomID constraints: alphanumeric, max 32 chars
     const zegoUserId = (myId || 'guest')
       .toString()
       .replace(/[^a-zA-Z0-9]/g, '')
@@ -110,8 +115,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       body: { userId: zegoUserId, roomId, userName: myName }
     });
 
-    if (error) throw new Error(error.message || 'Failed to get call token');
-    if (!data?.token) throw new Error('No token received from server');
+    if (error) throw new Error(error.message || 'Failed to get call credentials');
+    if (!data?.appId || !data?.serverSecret) throw new Error('Invalid credentials from server');
     
     return data;
   }, [myId, myName]);
@@ -182,16 +187,26 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       const callId = callData.id;
       setState(prev => ({ ...prev, callId, roomId }));
 
-      // Get ZEGO token
-      const tokenData = await getToken(roomId);
+      // Get ZEGO credentials from server
+      const creds = await getCredentials(roomId);
+      console.log('Got ZEGO credentials:', { appId: creds.appId, userId: creds.userId, roomId });
       
-      // Create ZEGO instance with defensive checks for Capacitor WebView
-      let zp;
+      // Create ZEGO instance using generateKitTokenForTest with server-provided credentials
+      let zp: ReturnType<typeof ZegoUIKitPrebuilt.create> | null = null;
       try {
-        zp = ZegoUIKitPrebuilt.create(tokenData.token);
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+          creds.appId,
+          creds.serverSecret,
+          creds.roomId,
+          creds.userId,
+          creds.userName
+        );
+        console.log('Generated kitToken, creating ZEGO instance...');
+        zp = ZegoUIKitPrebuilt.create(kitToken);
         if (!zp) {
           throw new Error('Voice call service failed to initialize');
         }
+        console.log('ZEGO instance created successfully');
       } catch (sdkError: any) {
         console.error('ZEGO SDK create error:', sdkError);
         throw new Error('Voice call service unavailable. Please try again.');
@@ -213,7 +228,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
           callerId: myId,
           callerName: myName,
           callerType: myType,
-          appId: tokenData.appId,
+          appId: creds.appId,
         },
       });
 
@@ -335,7 +350,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
     }
-  }, [myId, myType, myName, state.status, getToken, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast]);
+  }, [myId, myType, myName, state.status, getCredentials, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast]);
 
   // Handle incoming call
   const handleIncomingCall = useCallback((payload: PendingCall & { appId?: number }) => {
@@ -389,16 +404,26 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       setState(prev => ({ ...prev, status: 'ongoing' }));
       startDurationTimer();
 
-      // Get token
-      const tokenData = await getToken(pending.roomId);
+      // Get credentials from server
+      const creds = await getCredentials(pending.roomId);
+      console.log('Got ZEGO credentials for answer:', { appId: creds.appId, userId: creds.userId });
       
-      // Create ZEGO instance with defensive checks for Capacitor WebView
-      let zp;
+      // Create ZEGO instance using generateKitTokenForTest
+      let zp: ReturnType<typeof ZegoUIKitPrebuilt.create> | null = null;
       try {
-        zp = ZegoUIKitPrebuilt.create(tokenData.token);
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+          creds.appId,
+          creds.serverSecret,
+          creds.roomId,
+          creds.userId,
+          creds.userName
+        );
+        console.log('Generated kitToken for answer, creating ZEGO instance...');
+        zp = ZegoUIKitPrebuilt.create(kitToken);
         if (!zp) {
           throw new Error('Voice call service failed to initialize');
         }
+        console.log('ZEGO instance created successfully for answer');
       } catch (sdkError: any) {
         console.error('ZEGO SDK create error:', sdkError);
         throw new Error('Voice call service unavailable. Please try again.');
@@ -461,7 +486,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
     }
-  }, [getToken, stopRingtone, startDurationTimer, toast]);
+  }, [getCredentials, myName, stopRingtone, startDurationTimer, toast]);
 
   // Decline incoming call
   const declineCall = useCallback(async () => {
