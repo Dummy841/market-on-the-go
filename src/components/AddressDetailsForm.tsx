@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Mic, Home, Briefcase, Users, MapPin } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,31 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserAuth } from '@/contexts/UserAuthContext';
 
 const VILLAGE_OPTIONS = ['Atmakur', 'Dudyala', 'Karivena'];
+
+const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+// Removes "house, apartment, village" prefix from a full address when present.
+// This prevents duplicates when editing, because saved `full_address` already includes these parts.
+const stripAddressPrefix = (fullAddress: string, parts: Array<string | undefined | null>) => {
+  let result = normalizeSpaces(fullAddress || "");
+  const cleanParts = parts
+    .map((p) => normalizeSpaces(String(p ?? "")))
+    .filter(Boolean);
+
+  if (cleanParts.length === 0) return result;
+
+  const prefix = cleanParts.join(", ");
+  const lowerResult = result.toLowerCase();
+  const lowerPrefix = prefix.toLowerCase();
+
+  if (lowerResult.startsWith(lowerPrefix + ",")) {
+    result = result.slice(prefix.length + 1).trim();
+  } else if (lowerResult.startsWith(lowerPrefix)) {
+    result = result.slice(prefix.length).trim();
+  }
+
+  return result.replace(/^[,\s]+/, "");
+};
 interface AddressDetailsFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +77,12 @@ const AddressDetailsForm = ({
   const [isSaving, setIsSaving] = useState(false);
   const [existingLabels, setExistingLabels] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [labelTouched, setLabelTouched] = useState(false);
+  const labelTouchedRef = useRef(false);
+
+  useEffect(() => {
+    labelTouchedRef.current = labelTouched;
+  }, [labelTouched]);
 
   // Load user's mobile number on component mount
   useEffect(() => {
@@ -72,6 +103,7 @@ const AddressDetailsForm = ({
     if (!open) {
       // Reset initialization flag when dialog closes
       setIsInitialized(false);
+      setLabelTouched(false);
       return;
     }
 
@@ -109,10 +141,12 @@ const AddressDetailsForm = ({
       const labels = data?.map(addr => addr.label) || [];
       setExistingLabels(labels);
 
-      // Set default label to first available option
-      const availableLabel = labelOptions.find(option => !labels.includes(option.value));
-      if (availableLabel) {
-        setSelectedLabel(availableLabel.value);
+      // Only auto-pick a label for *new* addresses and only if user hasn't interacted.
+      if (!editingAddress && !labelTouchedRef.current) {
+        const availableLabel = labelOptions.find(option => !labels.includes(option.value));
+        if (availableLabel) {
+          setSelectedLabel(availableLabel.value);
+        }
       }
     } catch (error) {
       console.error('Error loading existing labels:', error);
@@ -179,7 +213,13 @@ const AddressDetailsForm = ({
       // Build full address without duplicating house/apartment in the geocoded address
       // The geocoded address from location picker already contains the area details
       // We prepend house number and apartment to it
-      const geocodedAddress = locationData.address;
+      // For edit flows, `locationData.address` might still contain the already-saved full_address.
+      // Strip the current parts first so we don't keep appending duplicates.
+      const geocodedAddress = stripAddressPrefix(locationData.address, [
+        houseNumber,
+        apartmentArea,
+        villageCity,
+      ]);
       
       // Remove any existing house number prefix from geocoded address to avoid duplication
       // The geocoded address typically starts with street details
@@ -333,13 +373,17 @@ const AddressDetailsForm = ({
               </Label>
               
               <div className="grid grid-cols-2 gap-3">
-                {labelOptions.map(({
+                 {labelOptions.map(({
                 value,
                 icon: Icon,
                 label
               }) => {
                 const isUsed = existingLabels.includes(value);
-                return <Button key={value} variant={selectedLabel === value ? "default" : "outline"} className={`h-12 flex items-center gap-2 ${selectedLabel === value ? 'bg-primary text-primary-foreground' : isUsed ? 'text-muted-foreground opacity-50 cursor-not-allowed' : 'text-muted-foreground'}`} onClick={() => !isUsed && setSelectedLabel(value)} disabled={isUsed}>
+                 return <Button key={value} variant={selectedLabel === value ? "default" : "outline"} className={`h-12 flex items-center gap-2 ${selectedLabel === value ? 'bg-primary text-primary-foreground' : isUsed ? 'text-muted-foreground opacity-50 cursor-not-allowed' : 'text-muted-foreground'}`} onClick={() => {
+                   if (isUsed) return;
+                   setLabelTouched(true);
+                   setSelectedLabel(value);
+                 }} disabled={isUsed}>
                       <Icon className="h-4 w-4" />
                       <span className="text-sm">{label}</span>
                       {isUsed && <span className="text-xs ml-1">(Used)</span>}
