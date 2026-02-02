@@ -361,7 +361,7 @@ const SupportChats = () => {
               </CardHeader>
               
               <CardContent className="flex-1 overflow-hidden p-0">
-                <ScrollArea className="h-[calc(100vh-520px)] p-4" ref={scrollRef}>
+                <ScrollArea className="h-[calc(100vh-320px)] p-4" ref={scrollRef}>
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       No messages yet
