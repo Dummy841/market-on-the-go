@@ -79,6 +79,54 @@ export const Checkout = () => {
     longitude?: number;
     mobile?: string;
   } | null>(null);
+  const [isAddressValid, setIsAddressValid] = useState(true);
+
+  // Helper function to validate address distance from restaurant
+  const validateAddressDistance = (
+    addressLat: number | undefined,
+    addressLng: number | undefined
+  ): boolean => {
+    const restaurantLatRaw = cartRestaurantLatitude ?? cartItems[0]?.seller_latitude ?? null;
+    const restaurantLngRaw = cartRestaurantLongitude ?? cartItems[0]?.seller_longitude ?? null;
+
+    const restaurantLat = typeof restaurantLatRaw === "number" ? restaurantLatRaw : Number(restaurantLatRaw);
+    const restaurantLng = typeof restaurantLngRaw === "number" ? restaurantLngRaw : Number(restaurantLngRaw);
+
+    const addrLat = addressLat == null ? NaN : Number(addressLat);
+    const addrLng = addressLng == null ? NaN : Number(addressLng);
+
+    if (
+      Number.isFinite(restaurantLat) &&
+      Number.isFinite(restaurantLng) &&
+      Number.isFinite(addrLat) &&
+      Number.isFinite(addrLng)
+    ) {
+      const distance = calculateDistance(addrLat, addrLng, restaurantLat, restaurantLng);
+      console.log("Address validation - Distance:", distance, "km");
+      return distance <= 10;
+    }
+
+    // If coordinates are missing, consider valid (will be caught later)
+    return true;
+  };
+
+  // Validate selected address whenever it changes or cart restaurant changes
+  useEffect(() => {
+    if (selectedAddress?.latitude && selectedAddress?.longitude) {
+      const valid = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
+      setIsAddressValid(valid);
+      
+      if (!valid) {
+        setAttemptedAddress({
+          label: selectedAddress.label,
+          address: selectedAddress.address,
+          latitude: selectedAddress.latitude,
+          longitude: selectedAddress.longitude,
+        });
+        setShowDeliveryNotAvailableModal(true);
+      }
+    }
+  }, [selectedAddress, cartRestaurantLatitude, cartRestaurantLongitude, cartItems]);
 
   // Load Razorpay script
   useEffect(() => {
@@ -206,6 +254,21 @@ export const Checkout = () => {
       });
       setShowAddressSelector(true);
       return;
+    }
+
+    // Validate address distance before payment
+    if (selectedAddress.latitude && selectedAddress.longitude) {
+      const isValid = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
+      if (!isValid) {
+        setAttemptedAddress({
+          label: selectedAddress.label,
+          address: selectedAddress.address,
+          latitude: selectedAddress.latitude,
+          longitude: selectedAddress.longitude,
+        });
+        setShowDeliveryNotAvailableModal(true);
+        return;
+      }
     }
 
     // Only check Razorpay if we need to pay via Razorpay (totalAmount > 0)
