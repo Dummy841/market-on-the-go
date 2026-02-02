@@ -80,43 +80,107 @@ export const Checkout = () => {
     mobile?: string;
   } | null>(null);
   const [isAddressValid, setIsAddressValid] = useState(true);
+  const [sellerCoordinates, setSellerCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // Fetch seller coordinates from database if not available in cart
+  useEffect(() => {
+    const fetchSellerCoordinates = async () => {
+      if (cartItems.length === 0) return;
+      
+      const sellerId = cartItems[0]?.seller_id;
+      if (!sellerId) return;
+
+      // Check if we already have valid coordinates
+      const hasValidCartCoords = 
+        cartRestaurantLatitude != null && 
+        cartRestaurantLongitude != null && 
+        cartRestaurantLatitude !== 0 && 
+        cartRestaurantLongitude !== 0;
+
+      if (hasValidCartCoords) {
+        setSellerCoordinates({
+          latitude: cartRestaurantLatitude!,
+          longitude: cartRestaurantLongitude!
+        });
+        return;
+      }
+
+      // Fetch from database
+      try {
+        const { data, error } = await supabase
+          .from('sellers')
+          .select('seller_latitude, seller_longitude')
+          .eq('id', sellerId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching seller coordinates:', error);
+          return;
+        }
+
+        if (data?.seller_latitude && data?.seller_longitude) {
+          console.log('Fetched seller coordinates from DB:', data);
+          setSellerCoordinates({
+            latitude: Number(data.seller_latitude),
+            longitude: Number(data.seller_longitude)
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching seller coordinates:', error);
+      }
+    };
+
+    fetchSellerCoordinates();
+  }, [cartItems, cartRestaurantLatitude, cartRestaurantLongitude]);
 
   // Helper function to validate address distance from restaurant
   const validateAddressDistance = (
     addressLat: number | undefined,
     addressLng: number | undefined
-  ): boolean => {
-    const restaurantLatRaw = cartRestaurantLatitude ?? cartItems[0]?.seller_latitude ?? null;
-    const restaurantLngRaw = cartRestaurantLongitude ?? cartItems[0]?.seller_longitude ?? null;
-
-    const restaurantLat = typeof restaurantLatRaw === "number" ? restaurantLatRaw : Number(restaurantLatRaw);
-    const restaurantLng = typeof restaurantLngRaw === "number" ? restaurantLngRaw : Number(restaurantLngRaw);
+  ): { isValid: boolean; distance: number } => {
+    // Get seller coordinates from state (fetched from DB if needed)
+    const restaurantLat = sellerCoordinates?.latitude;
+    const restaurantLng = sellerCoordinates?.longitude;
 
     const addrLat = addressLat == null ? NaN : Number(addressLat);
     const addrLng = addressLng == null ? NaN : Number(addressLng);
 
+    console.log("Validating address distance:", {
+      sellerCoords: { lat: restaurantLat, lng: restaurantLng },
+      addressCoords: { lat: addrLat, lng: addrLng }
+    });
+
     if (
+      restaurantLat != null &&
+      restaurantLng != null &&
       Number.isFinite(restaurantLat) &&
       Number.isFinite(restaurantLng) &&
+      restaurantLat !== 0 &&
+      restaurantLng !== 0 &&
       Number.isFinite(addrLat) &&
       Number.isFinite(addrLng)
     ) {
       const distance = calculateDistance(addrLat, addrLng, restaurantLat, restaurantLng);
       console.log("Address validation - Distance:", distance, "km");
-      return distance <= 10;
+      return { isValid: distance <= 10, distance };
     }
 
-    // If coordinates are missing, consider valid (will be caught later)
-    return true;
+    // If coordinates are missing, consider valid (will be caught later or coordinates not set)
+    console.log("Coordinates missing - skipping validation");
+    return { isValid: true, distance: 0 };
   };
 
-  // Validate selected address whenever it changes or cart restaurant changes
+  // Validate selected address whenever it changes or seller coordinates change
   useEffect(() => {
-    if (selectedAddress?.latitude && selectedAddress?.longitude) {
-      const valid = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
-      setIsAddressValid(valid);
+    if (selectedAddress?.latitude && selectedAddress?.longitude && sellerCoordinates) {
+      const { isValid, distance } = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
+      setIsAddressValid(isValid);
       
-      if (!valid) {
+      if (!isValid) {
+        console.log("Address is beyond 10km limit:", distance, "km");
         setAttemptedAddress({
           label: selectedAddress.label,
           address: selectedAddress.address,
@@ -126,7 +190,7 @@ export const Checkout = () => {
         setShowDeliveryNotAvailableModal(true);
       }
     }
-  }, [selectedAddress, cartRestaurantLatitude, cartRestaurantLongitude, cartItems]);
+  }, [selectedAddress, sellerCoordinates]);
 
   // Load Razorpay script
   useEffect(() => {
@@ -257,8 +321,8 @@ export const Checkout = () => {
     }
 
     // Validate address distance before payment
-    if (selectedAddress.latitude && selectedAddress.longitude) {
-      const isValid = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
+    if (selectedAddress.latitude && selectedAddress.longitude && sellerCoordinates) {
+      const { isValid } = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
       if (!isValid) {
         setAttemptedAddress({
           label: selectedAddress.label,
@@ -710,32 +774,28 @@ export const Checkout = () => {
         onAddressSelect={(address) => {
           console.log("Address selected:", address);
 
-          const restaurantLatRaw =
-            cartRestaurantLatitude ?? cartItems[0]?.seller_latitude ?? null;
-          const restaurantLngRaw =
-            cartRestaurantLongitude ?? cartItems[0]?.seller_longitude ?? null;
-
-          const restaurantLat =
-            typeof restaurantLatRaw === "number" ? restaurantLatRaw : Number(restaurantLatRaw);
-          const restaurantLng =
-            typeof restaurantLngRaw === "number" ? restaurantLngRaw : Number(restaurantLngRaw);
-
           const addrLat = address.latitude == null ? NaN : Number(address.latitude);
           const addrLng = address.longitude == null ? NaN : Number(address.longitude);
 
-          console.log("Restaurant location:", {
-            lat: restaurantLat,
-            lng: restaurantLng,
-          });
+          console.log("Seller coordinates:", sellerCoordinates);
+          console.log("Address coordinates:", { lat: addrLat, lng: addrLng });
 
-          // Check if address is within 10km of restaurant
+          // Check if address is within 10km of restaurant using seller coordinates from state
           if (
-            Number.isFinite(restaurantLat) &&
-            Number.isFinite(restaurantLng) &&
+            sellerCoordinates &&
+            Number.isFinite(sellerCoordinates.latitude) &&
+            Number.isFinite(sellerCoordinates.longitude) &&
+            sellerCoordinates.latitude !== 0 &&
+            sellerCoordinates.longitude !== 0 &&
             Number.isFinite(addrLat) &&
             Number.isFinite(addrLng)
           ) {
-            const distance = calculateDistance(addrLat, addrLng, restaurantLat, restaurantLng);
+            const distance = calculateDistance(
+              addrLat, 
+              addrLng, 
+              sellerCoordinates.latitude, 
+              sellerCoordinates.longitude
+            );
             console.log("Calculated distance:", distance, "km");
 
             if (distance > 10) {
@@ -750,13 +810,7 @@ export const Checkout = () => {
               return;
             }
           } else {
-            console.log("Missing/invalid coordinates - Restaurant:", {
-              restaurantLat,
-              restaurantLng,
-            }, "Address:", {
-              addrLat,
-              addrLng,
-            });
+            console.log("Missing/invalid seller coordinates - skipping distance validation");
           }
 
           // Address is valid, update it
