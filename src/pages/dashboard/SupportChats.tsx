@@ -339,10 +339,8 @@ const SupportChats = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-foreground">Support Chats</h2>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[calc(100vh-200px)]">
+    <div className="h-[calc(100vh-120px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-full">
         {/* Chat List */}
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
@@ -427,7 +425,7 @@ const SupportChats = () => {
               </CardHeader>
               
               <CardContent className="flex-1 overflow-hidden p-0">
-                <ScrollArea className="h-[calc(100vh-320px)] p-4" ref={scrollRef}>
+                <ScrollArea className="h-[calc(100vh-250px)] p-4" ref={scrollRef}>
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
                       No messages yet
