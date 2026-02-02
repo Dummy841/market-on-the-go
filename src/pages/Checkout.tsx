@@ -413,24 +413,32 @@ export const Checkout = () => {
         theme: {
           color: '#16a34a'
         },
-        // Force UPI intent flow - prioritize native app redirects
+        // Force UPI intent flow - prioritize native app redirects with all UPI apps visible
         config: {
           display: {
             blocks: {
               upi: {
-                name: "Pay using UPI",
+                name: "Pay using UPI Apps",
                 instruments: [
                   {
                     method: "upi",
-                    flows: ["intent"],
-                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim"]
+                    flows: ["intent", "collect", "qr"],
+                    apps: ["phonepe", "google_pay", "paytm", "cred", "bhim", "amazon_pay", "whatsapp", "freecharge", "mobikwik"]
                   }
+                ]
+              },
+              other: {
+                name: "Other Payment Methods",
+                instruments: [
+                  { method: "card" },
+                  { method: "netbanking" },
+                  { method: "wallet" }
                 ]
               }
             },
-            sequence: ["block.upi"],
+            sequence: ["block.upi", "block.other"],
             preferences: {
-              show_default_blocks: true
+              show_default_blocks: false
             }
           }
         },
