@@ -386,7 +386,7 @@ export const Header = () => {
             
             {isAuthenticated ? <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2 h-10 px-3">
+                  <Button variant="ghost" className="flex items-center space-x-2 h-10 px-2 md:px-3 rounded-full">
                     <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
                       <Avatar className={`h-8 w-8 ${hasActivePass ? 'border-2 border-background' : ''}`}>
                         <AvatarImage src={user?.profile_photo_url || ''} alt={user?.name} />
@@ -399,7 +399,7 @@ export const Header = () => {
                       <span className="text-sm font-medium">{user?.name}</span>
                       <span className="text-xs text-muted-foreground">{user?.mobile}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-64" align="end" sideOffset={8}>

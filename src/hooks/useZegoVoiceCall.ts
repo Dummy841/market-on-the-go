@@ -102,11 +102,17 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       .replace(/[^a-zA-Z0-9]/g, '')
       .slice(0, 32);
 
+    if (!zegoUserId || zegoUserId.length < 2) {
+      throw new Error('Invalid user ID for voice call');
+    }
+
     const { data, error } = await supabase.functions.invoke('get-zego-token', {
       body: { userId: zegoUserId, roomId, userName: myName }
     });
 
-    if (error) throw error;
+    if (error) throw new Error(error.message || 'Failed to get call token');
+    if (!data?.token) throw new Error('No token received from server');
+    
     return data;
   }, [myId, myName]);
 
@@ -179,8 +185,17 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       // Get ZEGO token
       const tokenData = await getToken(roomId);
       
-      // Create ZEGO instance
-      const zp = ZegoUIKitPrebuilt.create(tokenData.token);
+      // Create ZEGO instance with defensive checks for Capacitor WebView
+      let zp;
+      try {
+        zp = ZegoUIKitPrebuilt.create(tokenData.token);
+        if (!zp) {
+          throw new Error('Voice call service failed to initialize');
+        }
+      } catch (sdkError: any) {
+        console.error('ZEGO SDK create error:', sdkError);
+        throw new Error('Voice call service unavailable. Please try again.');
+      }
       zegoRef.current = zp;
 
       // Notify receiver via Supabase Realtime
@@ -377,8 +392,17 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       // Get token
       const tokenData = await getToken(pending.roomId);
       
-      // Create ZEGO instance and join room
-      const zp = ZegoUIKitPrebuilt.create(tokenData.token);
+      // Create ZEGO instance with defensive checks for Capacitor WebView
+      let zp;
+      try {
+        zp = ZegoUIKitPrebuilt.create(tokenData.token);
+        if (!zp) {
+          throw new Error('Voice call service failed to initialize');
+        }
+      } catch (sdkError: any) {
+        console.error('ZEGO SDK create error:', sdkError);
+        throw new Error('Voice call service unavailable. Please try again.');
+      }
       zegoRef.current = zp;
 
       if (containerRef.current) {

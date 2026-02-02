@@ -82,7 +82,7 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
         const displayStatus = getDisplayStatus(data);
 
         // Include delivered orders for 30 minutes after delivery, exclude refunded orders
-        const activeStatuses = ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery'];
+        const activeStatuses = ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'out_for_delivery'];
         const isRefunded = data.status === 'refunded';
         const isDeliveredRecently = data.status === 'delivered' && data.delivered_at && 
           (new Date().getTime() - new Date(data.delivered_at).getTime()) < 30 * 60000;
@@ -113,7 +113,7 @@ export const OrderTrackingProvider = ({ children }: { children: ReactNode }) => 
         .from('orders')
         .select('*, delivery_partners(id, name, mobile, profile_photo_url), sellers(seller_latitude, seller_longitude, seller_name)')
         .eq('user_id', user.id)
-        .in('status', ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery'])
+        .in('status', ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'out_for_delivery'])
         .order('created_at', { ascending: false })
         .limit(1);
 

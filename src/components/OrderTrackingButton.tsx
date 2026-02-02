@@ -129,7 +129,7 @@ const OrderTrackingButton = ({ onClick }: OrderTrackingButtonProps) => {
     const pickupStatus = (activeOrder as any).pickup_status;
 
     if (status === 'delivered') return 'Delivered';
-    if (pickupStatus === 'picked_up' || status === 'going_for_delivery') return 'Out for Delivery';
+    if (pickupStatus === 'picked_up' || pickupStatus === 'going_for_delivery' || status === 'going_for_delivery' || status === 'out_for_delivery') return 'Out for Delivery';
     if (sellerStatus === 'packed') return 'Packed';
     if (sellerStatus === 'accepted' || sellerStatus === 'preparing') return 'Accepted';
     return 'Placed';
