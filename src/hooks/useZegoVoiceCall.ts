@@ -51,6 +51,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const missedCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCallRef = useRef<PendingCall | null>(null);
+  const endingRef = useRef(false);
 
   // Preload ringtone
   useEffect(() => {
@@ -127,6 +128,98 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       missedCallTimeoutRef.current = null;
     }
   }, []);
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    stopDurationTimer();
+    clearMissedCallTimeout();
+
+    if (zegoRef.current) {
+      try {
+        zegoRef.current.destroy();
+      } catch (e) {
+        console.error('Error destroying ZEGO:', e);
+      }
+      zegoRef.current = null;
+    }
+
+    if (callChannelRef.current) {
+      supabase.removeChannel(callChannelRef.current);
+      callChannelRef.current = null;
+    }
+  }, [stopDurationTimer, clearMissedCallTimeout]);
+
+  // End ongoing call (internal)
+  const endCallInternal = useCallback(async (options?: { notifyRemote?: boolean }) => {
+    const notifyRemote = options?.notifyRemote ?? true;
+
+    // Prevent double-end loops (e.g., local end triggers remote end triggers local end)
+    if (endingRef.current) return;
+    endingRef.current = true;
+
+    stopRingtone();
+    stopDurationTimer();
+    clearMissedCallTimeout();
+
+    // Notify other side ASAP (before we tear down channels)
+    const currentCallId = state.callId;
+    if (notifyRemote && currentCallId && callChannelRef.current) {
+      try {
+        callChannelRef.current.send({
+          type: 'broadcast',
+          event: 'call-ended',
+          payload: { callId: currentCallId },
+        });
+      } catch (e) {
+        console.warn('Failed to broadcast call-ended:', e);
+      }
+    }
+
+    // Leave ZEGO room
+    if (zegoRef.current) {
+      try {
+        zegoRef.current.destroy();
+      } catch (e) {
+        console.error('Error destroying ZEGO:', e);
+      }
+      zegoRef.current = null;
+    }
+
+    // Update call record
+    setState(prev => {
+      if (prev.callId) {
+        supabase
+          .from('voice_calls')
+          .update({
+            status: 'ended',
+            ended_at: new Date().toISOString(),
+            duration_seconds: prev.duration,
+          })
+          .eq('id', prev.callId);
+      }
+      return { ...prev, status: 'ended' as const };
+    });
+
+    cleanup();
+
+    setTimeout(() => {
+      setState({
+        status: 'idle',
+        callId: null,
+        roomId: null,
+        duration: 0,
+        isMuted: false,
+        isSpeaker: false,
+        callerType: null,
+        callerName: null,
+      });
+      endingRef.current = false;
+    }, 2000);
+  }, [stopRingtone, stopDurationTimer, clearMissedCallTimeout, state.callId, cleanup]);
+
+  const endCall = useCallback(async () => {
+    await endCallInternal({ notifyRemote: true });
+  }, [endCallInternal]);
 
   // Get credentials from edge function
   const getCredentials = useCallback(async (roomId: string): Promise<{ 
@@ -315,6 +408,12 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         setState(prev => (prev.status === 'calling' ? { ...prev, status: 'ringing' } : prev));
       });
 
+      signalChannel.on('broadcast', { event: 'call-ended' }, async ({ payload }) => {
+        if (payload?.callId !== callId) return;
+        console.log('Remote ended call');
+        await endCallInternal({ notifyRemote: false });
+      });
+
       signalChannel.on('broadcast', { event: 'call-answered' }, async ({ payload }) => {
         if (payload?.callId !== callId) return;
         console.log('Call answered, joining room...');
@@ -336,10 +435,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
             turnOnCameraWhenJoining: false,
             turnOnMicrophoneWhenJoining: true,
             onLeaveRoom: () => {
-              endCall();
+              endCallInternal({ notifyRemote: true });
             },
             onUserLeave: () => {
-              endCall();
+              endCallInternal({ notifyRemote: true });
             },
           });
         }
@@ -399,7 +498,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
     }
-  }, [myId, myType, myName, state.status, getCredentials, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast]);
+  }, [myId, myType, myName, state.status, getCredentials, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast, endCallInternal]);
 
   // Handle incoming call
   const handleIncomingCall = useCallback((payload: PendingCall & { appId?: number }) => {
@@ -413,6 +512,12 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     const signalChannel = supabase.channel(`voice-call-${payload.callId}`);
     callChannelRef.current = signalChannel;
     signalChannel.subscribe();
+
+    signalChannel.on('broadcast', { event: 'call-ended' }, async ({ payload: endPayload }) => {
+      if (endPayload?.callId !== payload.callId) return;
+      console.log('Caller ended call while ringing/ongoing');
+      await endCallInternal({ notifyRemote: false });
+    });
 
     playRingtone();
     
@@ -433,7 +538,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       event: 'call-ringing',
       payload: { callId: payload.callId },
     });
-  }, [state.status, playRingtone]);
+  }, [state.status, playRingtone, endCallInternal]);
 
   // Answer incoming call
   const answerCall = useCallback(async () => {
@@ -495,10 +600,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
           turnOnCameraWhenJoining: false,
           turnOnMicrophoneWhenJoining: true,
           onLeaveRoom: () => {
-            endCall();
+            endCallInternal({ notifyRemote: true });
           },
           onUserLeave: () => {
-            endCall();
+            endCallInternal({ notifyRemote: true });
           },
         });
       }
@@ -540,7 +645,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
     }
-  }, [getCredentials, myName, stopRingtone, startDurationTimer, toast]);
+  }, [getCredentials, myName, stopRingtone, startDurationTimer, toast, endCallInternal]);
 
   // Decline incoming call
   const declineCall = useCallback(async () => {
@@ -578,53 +683,6 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     });
   }, [stopRingtone]);
 
-  // End ongoing call
-  const endCall = useCallback(async () => {
-    stopRingtone();
-    stopDurationTimer();
-    clearMissedCallTimeout();
-
-    // Leave ZEGO room
-    if (zegoRef.current) {
-      try {
-        zegoRef.current.destroy();
-      } catch (e) {
-        console.error('Error destroying ZEGO:', e);
-      }
-      zegoRef.current = null;
-    }
-
-    // Update call record
-    setState(prev => {
-      if (prev.callId) {
-        supabase
-          .from('voice_calls')
-          .update({
-            status: 'ended',
-            ended_at: new Date().toISOString(),
-            duration_seconds: prev.duration,
-          })
-          .eq('id', prev.callId);
-      }
-      return { ...prev, status: 'ended' as const };
-    });
-
-    cleanup();
-    
-    setTimeout(() => {
-      setState({
-        status: 'idle',
-        callId: null,
-        roomId: null,
-        duration: 0,
-        isMuted: false,
-        isSpeaker: false,
-        callerType: null,
-        callerName: null,
-      });
-    }, 2000);
-  }, [stopRingtone, stopDurationTimer, clearMissedCallTimeout]);
-
   // Toggle mute
   const toggleMute = useCallback(() => {
     setState(prev => {
@@ -638,26 +696,6 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const toggleSpeaker = useCallback(() => {
     setState(prev => ({ ...prev, isSpeaker: !prev.isSpeaker }));
   }, []);
-
-  // Cleanup function
-  const cleanup = useCallback(() => {
-    stopDurationTimer();
-    clearMissedCallTimeout();
-
-    if (zegoRef.current) {
-      try {
-        zegoRef.current.destroy();
-      } catch (e) {
-        console.error('Error destroying ZEGO:', e);
-      }
-      zegoRef.current = null;
-    }
-
-    if (callChannelRef.current) {
-      supabase.removeChannel(callChannelRef.current);
-      callChannelRef.current = null;
-    }
-  }, [stopDurationTimer, clearMissedCallTimeout]);
 
   // Listen for incoming calls
   useEffect(() => {
