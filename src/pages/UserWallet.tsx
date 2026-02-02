@@ -317,26 +317,31 @@ const UserWallet = () => {
                 <p>No transactions yet</p>
                 <p className="text-xs mt-1">Add money or get refunds from rejected orders</p>
               </div> : <div className="space-y-3">
-                {transactions.map(txn => <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${txn.type === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
-                        {txn.type === 'credit' ? <ArrowDownLeft className="h-4 w-4 text-green-600" /> : <ArrowUpRight className="h-4 w-4 text-red-600" />}
+                {transactions.map(txn => {
+                  const isCredit = txn.type !== 'debit';
+                  return (
+                    <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${isCredit ? 'bg-green-100' : 'bg-red-100'}`}>
+                          {isCredit ? <ArrowDownLeft className="h-4 w-4 text-green-600" /> : <ArrowUpRight className="h-4 w-4 text-red-600" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{txn.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(txn.created_at), 'dd MMM yyyy, hh:mm a')}
+                          </p>
+                          {txn.order_id && <p className="text-xs text-muted-foreground">
+                              Order: #{txn.order_id.slice(0, -4)}
+                              <span className="font-semibold">{txn.order_id.slice(-4)}</span>
+                            </p>}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{txn.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(txn.created_at), 'dd MMM yyyy, hh:mm a')}
-                        </p>
-                        {txn.order_id && <p className="text-xs text-muted-foreground">
-                            Order: #{txn.order_id.slice(0, -4)}
-                            <span className="font-semibold">{txn.order_id.slice(-4)}</span>
-                          </p>}
-                      </div>
+                      <Badge variant={isCredit ? 'default' : 'secondary'} className={isCredit ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}>
+                        {isCredit ? '+' : '-'}{formatCurrency(txn.amount)}
+                      </Badge>
                     </div>
-                    <Badge variant={txn.type === 'credit' ? 'default' : 'secondary'} className={txn.type === 'credit' ? 'bg-green-500' : 'bg-red-500'}>
-                      {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
-                    </Badge>
-                  </div>)}
+                  );
+                })}
               </div>}
           </CardContent>
         </Card>
