@@ -21,6 +21,45 @@ serve(async (req) => {
       );
     }
 
+    // Test account bypass - skip real SMS for test number
+    const TEST_MOBILE = '9502395261';
+    const TEST_OTP = '0000';
+    
+    if (mobile === TEST_MOBILE) {
+      console.log('Test account detected, using default OTP');
+      
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      
+      // Delete existing unused OTPs
+      await supabase
+        .from('user_otp')
+        .delete()
+        .eq('mobile', mobile)
+        .eq('is_used', false);
+      
+      // Store test OTP
+      await supabase
+        .from('user_otp')
+        .insert({
+          mobile: mobile,
+          otp_code: TEST_OTP,
+          expires_at: expiresAt.toISOString()
+        });
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Test OTP ready (use 0000)',
+          sessionId: mobile
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const apiKey = Deno.env.get('TWOFACTOR_API_KEY');
     
     if (!apiKey) {
