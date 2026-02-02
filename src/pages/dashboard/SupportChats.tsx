@@ -260,6 +260,72 @@ const SupportChats = () => {
   
   const isImageMessage = (message: string) => message.startsWith('[Image]');
   const getImageUrl = (message: string) => message.replace('[Image] ', '');
+  
+  const isOrderHelpRequest = (message: string) => message.includes('📦 Order Help Request');
+  
+  const parseOrderHelpMessage = (message: string) => {
+    const lines = message.split('\n').filter(line => line.trim());
+    const data: Record<string, string> = {};
+    
+    lines.forEach(line => {
+      if (line.includes('Order ID:')) data.orderId = line.split('Order ID:')[1]?.trim() || '';
+      if (line.includes('Restaurant:')) data.restaurant = line.split('Restaurant:')[1]?.trim() || '';
+      if (line.includes('Status:')) data.status = line.split('Status:')[1]?.trim() || '';
+      if (line.includes('Items:')) data.items = line.split('Items:')[1]?.trim() || '';
+      if (line.includes('Total:')) data.total = line.split('Total:')[1]?.trim() || '';
+      if (line.includes('Payment:')) data.payment = line.split('Payment:')[1]?.trim() || '';
+      if (line.includes('Delivered by:')) data.deliveredBy = line.split('Delivered by:')[1]?.trim() || '';
+      if (line.includes('Delivery Address:')) data.address = line.split('Delivery Address:')[1]?.trim() || '';
+    });
+    
+    return data;
+  };
+  
+  const renderOrderHelpCard = (message: string) => {
+    const data = parseOrderHelpMessage(message);
+    return (
+      <div className="bg-muted rounded-lg p-4 min-w-[500px]">
+        <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+          <span className="text-lg">📦</span>
+          <span className="font-semibold">Order Help Request</span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <div>
+            <span className="text-muted-foreground">Order ID:</span>
+            <span className="ml-1 font-medium text-primary">{data.orderId}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">💰 Total:</span>
+            <span className="ml-1 font-medium">{data.total}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Restaurant:</span>
+            <span className="ml-1">{data.restaurant}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Payment:</span>
+            <span className="ml-1">{data.payment}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Status:</span>
+            <span className="ml-1 font-medium text-emerald-600">{data.status}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">🚚 Delivered by:</span>
+            <span className="ml-1">{data.deliveredBy}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">📋 Items:</span>
+            <span className="ml-1">{data.items}</span>
+          </div>
+          <div className="col-span-2 mt-2 pt-2 border-t">
+            <span className="text-muted-foreground">📍 Address:</span>
+            <span className="ml-1 text-xs">{data.address}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -387,6 +453,8 @@ const SupportChats = () => {
                                 className="max-w-full max-h-48 rounded cursor-pointer"
                                 onClick={() => window.open(getImageUrl(msg.message), '_blank')}
                               />
+                            ) : isOrderHelpRequest(msg.message) ? (
+                              renderOrderHelpCard(msg.message)
                             ) : (
                               <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                             )}
