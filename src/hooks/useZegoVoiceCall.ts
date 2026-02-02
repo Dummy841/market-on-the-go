@@ -51,6 +51,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const audioUnlockedRef = useRef(false);
   const joinedRoomRef = useRef(false);
   const latestStateRef = useRef<ZegoVoiceCallState>(state);
+  const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const missedCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const callRowChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -97,28 +98,103 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     };
   }, []);
 
-  // Play/stop ringtone
-  const playRingtone = useCallback(() => {
+  // Start vibration pattern for incoming calls (fallback when audio blocked)
+  const startVibration = useCallback(() => {
+    // Stop any existing vibration
+    if (vibrationIntervalRef.current) {
+      clearInterval(vibrationIntervalRef.current);
+    }
+
+    // Check if vibration API is available
+    if (!('vibrate' in navigator)) return;
+
+    // Vibrate immediately
+    try {
+      navigator.vibrate([200, 100, 200, 100, 200]);
+    } catch (e) {
+      console.warn('Vibration not supported:', e);
+      return;
+    }
+
+    // Repeat vibration pattern every 2 seconds
+    vibrationIntervalRef.current = setInterval(() => {
+      try {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+      } catch {
+        // Ignore
+      }
+    }, 2000);
+  }, []);
+
+  const stopVibration = useCallback(() => {
+    if (vibrationIntervalRef.current) {
+      clearInterval(vibrationIntervalRef.current);
+      vibrationIntervalRef.current = null;
+    }
+    // Stop any ongoing vibration
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate(0);
+      } catch {
+        // Ignore
+      }
+    }
+  }, []);
+
+  // Show browser notification fallback for incoming calls
+  const showIncomingCallNotification = useCallback((callerName: string) => {
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'granted') {
+      try {
+        new Notification('📞 Incoming Call', {
+          body: `${callerName} is calling...`,
+          icon: '/favicon.ico',
+          requireInteraction: true,
+          tag: 'incoming-call',
+        });
+      } catch (e) {
+        console.warn('Browser notification failed:', e);
+      }
+    } else if (Notification.permission !== 'denied') {
+      // Request permission for future calls
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Play/stop ringtone with vibration + notification fallback
+  const playRingtone = useCallback((callerName?: string) => {
     const audio = ringtoneRef.current;
     if (!audio) return;
 
     // Try play; if blocked by autoplay policy, it will reject.
     audio.play().catch((err) => {
       console.warn('Ringtone play blocked/unavailable:', err);
-      // We can't force autoplay for incoming calls; guide the user.
+      
+      // Fallback 1: Start vibration pattern
+      startVibration();
+      
+      // Fallback 2: Show browser notification
+      if (callerName) {
+        showIncomingCallNotification(callerName);
+      }
+
+      // Guide the user
       toast({
         title: 'Sound blocked',
         description: 'Tap the screen once to enable ringtone/voice audio.',
       });
     });
-  }, [toast]);
+  }, [toast, startVibration, showIncomingCallNotification]);
 
   const stopRingtone = useCallback(() => {
     if (ringtoneRef.current) {
       ringtoneRef.current.pause();
       ringtoneRef.current.currentTime = 0;
     }
-  }, []);
+    // Also stop vibration
+    stopVibration();
+  }, [stopVibration]);
 
   // Duration timer
   const startDurationTimer = useCallback(() => {
@@ -147,6 +223,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const cleanup = useCallback(() => {
     stopDurationTimer();
     clearMissedCallTimeout();
+    stopVibration();
     joinedRoomRef.current = false;
 
     if (zegoRef.current) {
@@ -167,7 +244,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       supabase.removeChannel(callRowChannelRef.current);
       callRowChannelRef.current = null;
     }
-  }, [stopDurationTimer, clearMissedCallTimeout]);
+  }, [stopDurationTimer, clearMissedCallTimeout, stopVibration]);
 
   // End ongoing call (internal)
   const endCallInternal = useCallback(async (options?: { notifyRemote?: boolean }) => {
@@ -610,7 +687,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
     signalChannel.subscribe();
 
-    playRingtone();
+    playRingtone(payload.callerName);
     
     setState({
       status: 'ringing',
