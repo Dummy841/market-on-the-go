@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -14,7 +15,7 @@ import { UserProfileModal } from "@/components/UserProfileModal";
 import { UserOrdersModal } from "@/components/UserOrdersModal";
 import { WalletTopUpModal } from "@/components/WalletTopUpModal";
 import { formatDistanceToNow } from "date-fns";
-import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown, MoreVertical, Wallet, IndianRupee } from "lucide-react";
+import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown, MoreVertical, Wallet, IndianRupee, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface User {
@@ -37,6 +38,7 @@ const Users = () => {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchUsers = async () => {
     try {
@@ -113,6 +115,15 @@ const Users = () => {
     return userDate >= firstDayOfMonth;
   }).length;
 
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const query = searchQuery.toLowerCase();
+    return users.filter(user => 
+      user.name.toLowerCase().includes(query) || 
+      user.mobile.includes(query)
+    );
+  }, [users, searchQuery]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -131,46 +142,49 @@ const Users = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <h2 className="text-2xl font-semibold text-foreground">Users Management</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Total Users</p>
+              <p className="text-xl font-bold">{totalUsers}</p>
+            </div>
             <UsersIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              {newUsersThisMonth} new this month
-            </p>
-          </CardContent>
+          </div>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Verified Users</CardTitle>
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Verified</p>
+              <p className="text-xl font-bold text-green-600">{verifiedUsers}</p>
+            </div>
             <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{verifiedUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              {Math.round((verifiedUsers / totalUsers) * 100) || 0}% of total
-            </p>
-          </CardContent>
+          </div>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Users</CardTitle>
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">New This Month</p>
+              <p className="text-xl font-bold text-blue-600">{newUsersThisMonth}</p>
+            </div>
             <UserPlus className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{newUsersThisMonth}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
+          </div>
         </Card>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or mobile..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       <Card>
@@ -190,7 +204,7 @@ const Users = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
