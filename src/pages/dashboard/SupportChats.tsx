@@ -419,12 +419,6 @@ const SupportChats = () => {
                         )}
                       </div>
 
-                      {/* Charges Breakdown */}
-                      <div className="border-t pt-2 mt-2 grid grid-cols-3 gap-1 text-xs text-muted-foreground">
-                        <div>Delivery: ₹{orderDetails.delivery_fee}</div>
-                        <div>Platform: ₹{orderDetails.platform_fee}</div>
-                        <div>GST: ₹{orderDetails.gst_charges}</div>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
