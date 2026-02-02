@@ -49,11 +49,17 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
+  const joinedRoomRef = useRef(false);
+  const latestStateRef = useRef<ZegoVoiceCallState>(state);
   const missedCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const callRowChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCallRef = useRef<PendingCall | null>(null);
   const endingRef = useRef(false);
+
+  useEffect(() => {
+    latestStateRef.current = state;
+  }, [state]);
 
   // Preload ringtone
   useEffect(() => {
@@ -99,8 +105,13 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     // Try play; if blocked by autoplay policy, it will reject.
     audio.play().catch((err) => {
       console.warn('Ringtone play blocked/unavailable:', err);
+      // We can't force autoplay for incoming calls; guide the user.
+      toast({
+        title: 'Sound blocked',
+        description: 'Tap the screen once to enable ringtone/voice audio.',
+      });
     });
-  }, []);
+  }, [toast]);
 
   const stopRingtone = useCallback(() => {
     if (ringtoneRef.current) {
@@ -136,6 +147,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const cleanup = useCallback(() => {
     stopDurationTimer();
     clearMissedCallTimeout();
+    joinedRoomRef.current = false;
 
     if (zegoRef.current) {
       try {
@@ -222,11 +234,49 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
       endingRef.current = false;
+      joinedRoomRef.current = false;
     }, 2000);
   }, [stopRingtone, stopDurationTimer, clearMissedCallTimeout, state.callId, cleanup]);
 
   const endCall = useCallback(async () => {
     await endCallInternal({ notifyRemote: true });
+  }, [endCallInternal]);
+
+  // Join the ZEGO room as soon as BOTH: (zego instance exists) AND (modal container exists).
+  // This fixes the common race where the timer starts but audio never connects because joinRoom
+  // fired before ZegoVoiceCallModal mounted and called setCallContainer().
+  const tryJoinRoom = useCallback((source: 'caller' | 'callee' | 'container-ready') => {
+    const s = latestStateRef.current;
+    if (s.status !== 'ongoing') return;
+    if (joinedRoomRef.current) return;
+    if (!zegoRef.current) return;
+    if (!containerRef.current) return;
+
+    joinedRoomRef.current = true;
+
+    try {
+      zegoRef.current.joinRoom({
+        container: containerRef.current,
+        scenario: {
+          mode: ZegoUIKitPrebuilt.OneONoneCall,
+        },
+        showPreJoinView: false,
+        showScreenSharingButton: false,
+        showMyCameraToggleButton: false,
+        turnOnCameraWhenJoining: false,
+        turnOnMicrophoneWhenJoining: true,
+        onLeaveRoom: () => {
+          endCallInternal({ notifyRemote: true });
+        },
+        onUserLeave: () => {
+          endCallInternal({ notifyRemote: true });
+        },
+      });
+      console.log(`[ZEGO] joinRoom executed (${source})`);
+    } catch (e) {
+      console.error('[ZEGO] joinRoom failed:', e);
+      joinedRoomRef.current = false;
+    }
   }, [endCallInternal]);
 
   // DB fallback: keep both sides in sync even if broadcast events are missed.
@@ -315,6 +365,9 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
 
     try {
+      // Start ringback immediately inside the user gesture to avoid autoplay blocking.
+      playRingtone();
+
       // Request microphone permission FIRST with better error handling
       try {
         console.log('Requesting microphone permission...');
@@ -392,26 +445,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         setState(prev => ({ ...prev, status: 'ongoing' }));
         startDurationTimer();
 
-        // Join the ZEGO room
-        if (zegoRef.current && containerRef.current) {
-          zegoRef.current.joinRoom({
-            container: containerRef.current,
-            scenario: {
-              mode: ZegoUIKitPrebuilt.OneONoneCall,
-            },
-            showPreJoinView: false,
-            showScreenSharingButton: false,
-            showMyCameraToggleButton: false,
-            turnOnCameraWhenJoining: false,
-            turnOnMicrophoneWhenJoining: true,
-            onLeaveRoom: () => {
-              endCallInternal({ notifyRemote: true });
-            },
-            onUserLeave: () => {
-              endCallInternal({ notifyRemote: true });
-            },
-          });
-        }
+        // Join once the modal container is ready.
+        tryJoinRoom('caller');
 
         // Update call status
         await supabase
@@ -495,9 +530,6 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
       // We don't need to keep the receiver channel open.
       supabase.removeChannel(receiverChannel);
-
-      // Play ringback tone for caller
-      playRingtone();
 
       // Set missed call timeout (30 seconds)
       missedCallTimeoutRef.current = setTimeout(async () => {
@@ -647,25 +679,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       }
       zegoRef.current = zp;
 
-      if (containerRef.current) {
-        zp.joinRoom({
-          container: containerRef.current,
-          scenario: {
-            mode: ZegoUIKitPrebuilt.OneONoneCall,
-          },
-          showPreJoinView: false,
-          showScreenSharingButton: false,
-          showMyCameraToggleButton: false,
-          turnOnCameraWhenJoining: false,
-          turnOnMicrophoneWhenJoining: true,
-          onLeaveRoom: () => {
-            endCallInternal({ notifyRemote: true });
-          },
-          onUserLeave: () => {
-            endCallInternal({ notifyRemote: true });
-          },
-        });
-      }
+      // Join once the modal container is ready.
+      tryJoinRoom('callee');
 
       // Notify caller that call is answered
       const signalChannel = callChannelRef.current;
@@ -784,7 +799,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   // Set container ref
   const setCallContainer = useCallback((element: HTMLDivElement | null) => {
     containerRef.current = element;
-  }, []);
+    if (element) {
+      tryJoinRoom('container-ready');
+    }
+  }, [tryJoinRoom]);
 
   return {
     state,
