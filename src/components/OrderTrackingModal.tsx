@@ -434,6 +434,25 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
             </Card>
           )}
 
+          {/* Delivery PIN - Show when out for delivery */}
+          {(activeOrder.status === 'out_for_delivery' || 
+            activeOrder.status === 'going_for_delivery' ||
+            (activeOrder as any).pickup_status === 'going_for_delivery' ||
+            (activeOrder as any).pickup_status === 'picked_up') && 
+            activeOrder.delivery_pin && (
+            <Card className="p-4 bg-green-50 border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-700 font-medium">Delivery PIN</p>
+                  <p className="text-xs text-green-600">Share this PIN with delivery partner</p>
+                </div>
+                <div className="text-2xl font-bold text-green-700">
+                  {activeOrder.delivery_pin}
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Order Status */}
           <div>
             <h3 className="font-semibold text-lg mb-2">
@@ -441,7 +460,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                 ? 'Order Rejected' 
                 : ((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') 
                   ? 'Preparing your order' 
-                  : ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') 
+                  : ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery' || activeOrder.status === 'out_for_delivery') 
                     ? 'Out for delivery' 
                     : activeOrder.status === 'delivered' 
                       ? 'Delivered' 
@@ -454,7 +473,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                   : 'Restaurant was unable to accept your order. Refund will be processed shortly.'
                 : ((activeOrder as any).seller_status === 'preparing' || activeOrder.status === 'preparing') 
                   ? 'Restaurant needs a few more minutes, partner will pick up soon' 
-                  : ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery') 
+                  : ((activeOrder as any).pickup_status === 'picked_up' || activeOrder.status === 'going_for_delivery' || activeOrder.status === 'out_for_delivery') 
                     ? 'Your order is on the way' 
                     : 'Your order is being processed'}
             </p>

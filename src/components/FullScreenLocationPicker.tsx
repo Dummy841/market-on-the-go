@@ -28,8 +28,8 @@ const FullScreenLocationPicker = ({
   const { isLoaded, loadError } = useGoogleMaps();
   
   // Track if map has been initialized (to stop controlling center after first render)
-  const [mapReady, setMapReady] = useState(false);
-  const [initialCenter, setInitialCenter] = useState<{ lat: number; lng: number }>({ 
+  const [mapInitialized, setMapInitialized] = useState(false);
+  const initialCenterRef = useRef<{ lat: number; lng: number }>({ 
     lat: initialLat ?? 17.385044, 
     lng: initialLng ?? 78.486671 
   });
@@ -37,7 +37,7 @@ const FullScreenLocationPicker = ({
   // Set initial center when picker opens
   useEffect(() => {
     if (!open) {
-      setMapReady(false);
+      setMapInitialized(false);
       return;
     }
 
@@ -56,7 +56,7 @@ const FullScreenLocationPicker = ({
       startLng = initialLng;
     }
     
-    setInitialCenter({ lat: startLat, lng: startLng });
+    initialCenterRef.current = { lat: startLat, lng: startLng };
     setSelectedLat(startLat);
     setSelectedLng(startLng);
     reverseGeocode(startLat, startLng);
@@ -155,8 +155,10 @@ const FullScreenLocationPicker = ({
 
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-    // Mark map as ready so we stop controlling center prop
-    setMapReady(true);
+    // Mark map as initialized after a short delay to ensure it's fully ready
+    setTimeout(() => {
+      setMapInitialized(true);
+    }, 100);
   }, []);
 
   const handleMapUnmount = useCallback(() => {
@@ -165,7 +167,7 @@ const FullScreenLocationPicker = ({
 
   // When map stops moving, get center and reverse geocode
   const handleMapIdle = useCallback(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mapInitialized) return;
     
     const center = mapRef.current.getCenter();
     if (center) {
@@ -175,7 +177,7 @@ const FullScreenLocationPicker = ({
       setSelectedLng(lng);
       reverseGeocode(lat, lng);
     }
-  }, [isLoaded]);
+  }, [isLoaded, mapInitialized]);
 
   const handleConfirm = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -223,9 +225,6 @@ const FullScreenLocationPicker = ({
 
   if (!open) return null;
 
-  // Only use controlled center before map is ready; after that let user drag freely
-  const controlledCenter = mapReady ? undefined : initialCenter;
-
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
       {/* Header */}
@@ -246,8 +245,14 @@ const FullScreenLocationPicker = ({
         <h1 className="text-lg font-semibold">Select Delivery Location</h1>
       </div>
       
-      {/* Map Container */}
-      <div className="flex-1 relative overflow-hidden" style={{ touchAction: 'auto' }}>
+      {/* Map Container - Let Google Maps handle ALL touch events */}
+      <div 
+        className="flex-1 relative overflow-hidden"
+        style={{ 
+          touchAction: 'none', // Let Google Maps handle all touch
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
             <div className="text-center max-w-sm">
@@ -275,13 +280,13 @@ const FullScreenLocationPicker = ({
         ) : (
           <>
             <GoogleMap
-              mapContainerClassName="w-full h-full"
+              mapContainerClassName="w-full h-full absolute inset-0"
               mapContainerStyle={{ 
                 width: '100%',
                 height: '100%',
-                touchAction: 'auto',
               }}
-              center={mapReady ? undefined : initialCenter}
+              // CRITICAL: Only use center for initial render, then let map be uncontrolled
+              center={mapInitialized ? undefined : initialCenterRef.current}
               zoom={17}
               onLoad={handleMapLoad}
               onUnmount={handleMapUnmount}
@@ -296,6 +301,7 @@ const FullScreenLocationPicker = ({
                 mapTypeControl: false,
                 fullscreenControl: false,
                 clickableIcons: false,
+                // CRITICAL: greedy ensures single finger can drag (no two-finger required)
                 gestureHandling: 'greedy',
                 draggable: true,
                 scrollwheel: true,
