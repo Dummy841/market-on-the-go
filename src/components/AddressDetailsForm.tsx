@@ -27,6 +27,9 @@ interface AddressDetailsFormProps {
     latitude?: number;
     longitude?: number;
     mobile?: string;
+    house_number?: string;
+    apartment_area?: string;
+    area?: string;
   } | null;
 }
 const AddressDetailsForm = ({
@@ -48,38 +51,53 @@ const AddressDetailsForm = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [existingLabels, setExistingLabels] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load user's mobile number and existing address labels on component mount
+  // Load user's mobile number on component mount
   useEffect(() => {
-    if (user?.mobile) {
+    if (user?.mobile && !mobileNumber) {
       setMobileNumber(user.mobile);
     }
+  }, [user]);
+
+  // Load existing labels when dialog opens
+  useEffect(() => {
     if (open && user) {
       loadExistingLabels();
     }
+  }, [open, user]);
 
-    // Pre-fill form when editing an address
+  // Initialize form when dialog opens - only once per open cycle
+  useEffect(() => {
+    if (!open) {
+      // Reset initialization flag when dialog closes
+      setIsInitialized(false);
+      return;
+    }
+
+    // Only initialize once per open cycle
+    if (isInitialized) return;
+
     if (editingAddress) {
-      // Parse the address to extract house number and area
-      const addressParts = editingAddress.address.split(',');
-      if (addressParts.length > 0) {
-        setHouseNumber(addressParts[0].trim());
-      }
-      if (addressParts.length > 1) {
-        setApartmentArea(addressParts[1].trim());
-      }
-      setSelectedLabel(editingAddress.label);
-      if (editingAddress.mobile) {
-        setMobileNumber(editingAddress.mobile);
-      }
+      // Use stored values from database, not parsed from full_address
+      setHouseNumber(editingAddress.house_number || '');
+      setApartmentArea(editingAddress.apartment_area || '');
+      setVillageCity(editingAddress.area || '');
+      setSelectedLabel(editingAddress.label || 'Home');
+      setMobileNumber(editingAddress.mobile || user?.mobile || '');
+      setDirections('');
     } else {
-      // Reset form when not editing
+      // Reset form for new address
       setHouseNumber('');
       setApartmentArea('');
+      setVillageCity('');
       setDirections('');
       setSelectedLabel('Home');
+      setMobileNumber(user?.mobile || '');
     }
-  }, [user, open, editingAddress]);
+    
+    setIsInitialized(true);
+  }, [open, editingAddress, user, isInitialized]);
   const loadExistingLabels = async () => {
     if (!user) return;
     try {
@@ -157,7 +175,16 @@ const AddressDetailsForm = ({
         longitude: editingAddress?.longitude!,
         address: editingAddress?.address!
       };
-      const fullAddress = `${houseNumber}${apartmentArea ? ', ' + apartmentArea : ''}, ${locationData.address}`;
+      
+      // Build full address without duplicating house/apartment in the geocoded address
+      // The geocoded address from location picker already contains the area details
+      // We prepend house number and apartment to it
+      const geocodedAddress = locationData.address;
+      
+      // Remove any existing house number prefix from geocoded address to avoid duplication
+      // The geocoded address typically starts with street details
+      const fullAddress = `${houseNumber}${apartmentArea ? ', ' + apartmentArea : ''}${villageCity ? ', ' + villageCity : ''}, ${geocodedAddress}`;
+      
       let data, error;
       if (editingAddress) {
         // Update existing address
@@ -165,6 +192,7 @@ const AddressDetailsForm = ({
           label: selectedLabel,
           house_number: houseNumber,
           apartment_area: apartmentArea || null,
+          area: villageCity || null,
           directions: directions || null,
           mobile: mobileNumber,
           full_address: fullAddress,
@@ -180,6 +208,7 @@ const AddressDetailsForm = ({
           label: selectedLabel,
           house_number: houseNumber,
           apartment_area: apartmentArea || null,
+          area: villageCity || null,
           directions: directions || null,
           mobile: mobileNumber,
           full_address: fullAddress,
