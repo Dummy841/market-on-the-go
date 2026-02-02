@@ -3,6 +3,7 @@ import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RINGTONE_DATA_URL } from "@/lib/ringtoneDataUrl";
+import { useNativeNotifications, registerCallActionCallback, unregisterCallActionCallback } from "@/hooks/useNativeNotifications";
 
 export type CallStatus = 'idle' | 'calling' | 'ringing' | 'ongoing' | 'ended' | 'declined' | 'missed';
 
@@ -44,6 +45,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   });
   
   const { toast } = useToast();
+  const { showIncomingCallNotification, dismissIncomingCallNotification, isNative } = useNativeNotifications();
+  
   const zegoRef = useRef<ReturnType<typeof ZegoUIKitPrebuilt.create> | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,6 +55,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const joinedRoomRef = useRef(false);
   const latestStateRef = useRef<ZegoVoiceCallState>(state);
   const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const nativeNotificationIdRef = useRef<number | null>(null);
   const missedCallTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const callRowChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -141,8 +145,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
   }, []);
 
-  // Show browser notification fallback for incoming calls
-  const showIncomingCallNotification = useCallback((callerName: string) => {
+  // Show browser notification fallback for incoming calls (web only)
+  const showBrowserNotification = useCallback((callerName: string) => {
     if (!('Notification' in window)) return;
 
     if (Notification.permission === 'granted') {
@@ -174,9 +178,9 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       // Fallback 1: Start vibration pattern
       startVibration();
       
-      // Fallback 2: Show browser notification
+      // Fallback 2: Show browser notification (web only fallback)
       if (callerName) {
-        showIncomingCallNotification(callerName);
+        showBrowserNotification(callerName);
       }
 
       // Guide the user
@@ -185,7 +189,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         description: 'Tap the screen once to enable ringtone/voice audio.',
       });
     });
-  }, [toast, startVibration, showIncomingCallNotification]);
+  }, [toast, startVibration, showBrowserNotification]);
 
   const stopRingtone = useCallback(() => {
     if (ringtoneRef.current) {
@@ -663,7 +667,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   }, [myId, myType, myName, state.status, getCredentials, playRingtone, stopRingtone, clearMissedCallTimeout, startDurationTimer, toast, endCallInternal]);
 
   // Handle incoming call
-  const handleIncomingCall = useCallback((payload: PendingCall & { appId?: number }) => {
+  const handleIncomingCall = useCallback(async (payload: PendingCall & { appId?: number }) => {
     if (state.status !== 'idle') return;
 
     console.log('Incoming call:', payload);
@@ -687,6 +691,23 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
     signalChannel.subscribe();
 
+    // Show native notification for incoming call (works when app is backgrounded)
+    if (isNative) {
+      const notifId = await showIncomingCallNotification(payload.callerName, payload.callId);
+      nativeNotificationIdRef.current = notifId;
+      
+      // Register callback for notification actions (Answer/Decline buttons)
+      registerCallActionCallback(payload.callId, (action) => {
+        if (action === 'answer') {
+          // This will be handled by answerCall
+          // The app should already be in foreground from the notification tap
+        } else if (action === 'decline') {
+          // Trigger decline
+          declineCallRef.current?.();
+        }
+      });
+    }
+
     playRingtone(payload.callerName);
     
     setState({
@@ -706,7 +727,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       event: 'call-ringing',
       payload: { callId: payload.callId },
     });
-  }, [state.status, playRingtone, endCallInternal, subscribeToCallRow]);
+  }, [state.status, playRingtone, endCallInternal, subscribeToCallRow, isNative, showIncomingCallNotification]);
+
+  // Ref for decline callback (used by native notification action)
+  const declineCallRef = useRef<(() => Promise<void>) | null>(null);
 
   // Answer incoming call
   const answerCall = useCallback(async () => {
@@ -722,6 +746,16 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
 
     try {
+      // Dismiss native notification if present
+      if (nativeNotificationIdRef.current !== null) {
+        dismissIncomingCallNotification(nativeNotificationIdRef.current);
+        nativeNotificationIdRef.current = null;
+      }
+      // Unregister native callback
+      if (pending.callId) {
+        unregisterCallActionCallback(pending.callId);
+      }
+
       // Request microphone FIRST (user gesture)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((t) => t.stop());
@@ -796,13 +830,25 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         callerName: null,
       });
     }
-  }, [getCredentials, myName, stopRingtone, startDurationTimer, toast, endCallInternal]);
+  }, [getCredentials, myName, stopRingtone, startDurationTimer, toast, endCallInternal, dismissIncomingCallNotification]);
 
   // Decline incoming call
   const declineCall = useCallback(async () => {
     stopRingtone();
     
     const pending = pendingCallRef.current;
+    
+    // Dismiss native notification if present
+    if (nativeNotificationIdRef.current !== null) {
+      dismissIncomingCallNotification(nativeNotificationIdRef.current);
+      nativeNotificationIdRef.current = null;
+    }
+    
+    // Unregister native callback
+    if (pending?.callId) {
+      unregisterCallActionCallback(pending.callId);
+    }
+    
     if (pending) {
       // Notify caller (call-scoped channel)
       const signalChannel = callChannelRef.current;
@@ -832,9 +878,13 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       callerType: null,
       callerName: null,
     });
-  }, [stopRingtone]);
+  }, [stopRingtone, dismissIncomingCallNotification, cleanup]);
 
-  // Toggle mute
+  // Keep declineCallRef updated for native notification callbacks
+  useEffect(() => {
+    declineCallRef.current = declineCall;
+  }, [declineCall]);
+
   const toggleMute = useCallback(() => {
     setState(prev => {
       const newMuted = !prev.isMuted;
