@@ -23,6 +23,7 @@ interface SupportChatModalProps {
   userName: string;
   userMobile: string;
   orderId?: string | null;
+  initialMessage?: string | null;
 }
 
 export const SupportChatModal = ({
@@ -32,6 +33,7 @@ export const SupportChatModal = ({
   userName,
   userMobile,
   orderId,
+  initialMessage,
 }: SupportChatModalProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -43,12 +45,22 @@ export const SupportChatModal = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { playNotificationSound } = useChatNotificationSound();
+  const initialMessageSentRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
+      initialMessageSentRef.current = false;
       initializeChat();
     }
   }, [isOpen, orderId]);
+
+  // Send initial message after chat is ready
+  useEffect(() => {
+    if (chatId && initialMessage && !loading && !initialMessageSentRef.current && messages.length === 0) {
+      initialMessageSentRef.current = true;
+      sendMessage(initialMessage);
+    }
+  }, [chatId, initialMessage, loading, messages.length]);
 
   useEffect(() => {
     if (!chatId) return;
