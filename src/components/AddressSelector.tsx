@@ -51,6 +51,35 @@ interface AddressSelectorProps {
   selectedAddress?: SavedAddress;
 }
 
+const normalizeSpaces = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+// When editing, saved `full_address` already contains house/apartment/village.
+// We need to pass only the base (geocoded) part to the form to avoid re-prepending and creating duplicates.
+const stripAddressPrefix = (fullAddress: string, parts: Array<string | undefined | null>) => {
+  let result = normalizeSpaces(fullAddress || "");
+
+  const cleanParts = parts
+    .map((p) => normalizeSpaces(String(p ?? "")))
+    .filter(Boolean);
+
+  if (cleanParts.length === 0) return result;
+
+  // Try to strip "house, apartment, village," prefix if present
+  const prefix = cleanParts.join(", ");
+  const lowerResult = result.toLowerCase();
+  const lowerPrefix = prefix.toLowerCase();
+
+  if (lowerResult.startsWith(lowerPrefix + ",")) {
+    result = result.slice(prefix.length + 1).trim(); // remove prefix + comma
+  } else if (lowerResult.startsWith(lowerPrefix)) {
+    result = result.slice(prefix.length).trim();
+  }
+
+  // Clean leading comma/space leftovers
+  result = result.replace(/^[,\s]+/, "");
+  return result;
+};
+
 const AddressSelector = ({ 
   open, 
   onOpenChange, 
@@ -205,10 +234,17 @@ const AddressSelector = ({
   const handleEditAddress = (address: SavedAddress, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingAddress(address);
+
+    const baseAddress = stripAddressPrefix(address.address, [
+      address.house_number,
+      address.apartment_area,
+      address.area,
+    ]);
+
     setSelectedLocation({
       latitude: address.latitude!,
       longitude: address.longitude!,
-      address: address.address
+      address: baseAddress
     });
     setShowAddressForm(true);
   };
