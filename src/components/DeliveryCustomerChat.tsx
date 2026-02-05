@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
-import ZegoVoiceCallModal from "./ZegoVoiceCallModal";
+ import { useDeliveryPartnerZegoVoiceCall } from "@/contexts/DeliveryPartnerZegoVoiceCallContext";
 
 interface Message {
   id: string;
@@ -46,6 +46,7 @@ const DeliveryCustomerChat = ({
   const [customerName, setCustomerName] = useState<string>('Customer');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+   const navigate = useNavigate();
 
   // Fetch customer name
   useEffect(() => {
@@ -69,12 +70,13 @@ const DeliveryCustomerChat = ({
     myType: 'delivery_partner',
   });
 
-  // Voice call - using ZEGOCloud
-  const voiceCall = useZegoVoiceCall({
-    myId: deliveryPartnerId,
-    myType: 'delivery_partner',
-    myName: deliveryPartnerName,
-  });
+   // Voice call - using context
+   let voiceCall: ReturnType<typeof useDeliveryPartnerZegoVoiceCall> | null = null;
+   try {
+     voiceCall = useDeliveryPartnerZegoVoiceCall();
+   } catch {
+     // Context not available
+   }
 
   // Get or create chat
   const getOrCreateChat = async () => {
@@ -212,7 +214,7 @@ const DeliveryCustomerChat = ({
     }
   };
 
-  // Handle call button - using ZEGOCloud
+   // Handle call button - start call via context
   const handleCall = async () => {
     if (!chatId) {
       toast({
@@ -223,7 +225,16 @@ const DeliveryCustomerChat = ({
       return;
     }
     
-    voiceCall.startCall({
+     if (!voiceCall) {
+       toast({
+         title: "Cannot Call",
+         description: "Voice call not available.",
+         variant: "destructive",
+       });
+       return;
+     }
+ 
+     await voiceCall.startCall({
       receiverId: userId,
       receiverName: customerName,
       chatId,
@@ -419,25 +430,8 @@ const DeliveryCustomerChat = ({
             </>
           )}
         </DialogContent>
-      </Dialog>
-
-      {/* Voice Call Modal - using ZEGOCloud */}
-      <ZegoVoiceCallModal
-        open={voiceCall.state.status !== 'idle'}
-        status={voiceCall.state.status}
-        partnerName={customerName}
-        duration={voiceCall.state.duration}
-        isMuted={voiceCall.state.isMuted}
-        isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'user'}
-        onAnswer={voiceCall.answerCall}
-        onDecline={voiceCall.declineCall}
-        onEnd={voiceCall.endCall}
-        onToggleMute={voiceCall.toggleMute}
-        onToggleSpeaker={voiceCall.toggleSpeaker}
-        setCallContainer={voiceCall.setCallContainer}
-      />
-    </>
+       </Dialog>
+     </>
   );
 };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
-import ZegoVoiceCallModal from "./ZegoVoiceCallModal";
+ import { useGlobalZegoVoiceCall } from "@/contexts/GlobalZegoVoiceCallContext";
 
 interface Message {
   id: string;
@@ -51,6 +51,7 @@ const UserDeliveryChat = ({
   const [deliveryPartner, setDeliveryPartner] = useState<DeliveryPartner | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+   const navigate = useNavigate();
 
   // Typing indicator
   const { isPartnerTyping, sendTyping } = useTypingIndicator({
@@ -58,12 +59,13 @@ const UserDeliveryChat = ({
     myType: 'user',
   });
 
-  // Voice call - using ZEGOCloud
-  const voiceCall = useZegoVoiceCall({
-    myId: userId,
-    myType: 'user',
-    myName: userName,
-  });
+   // Voice call - using global context
+   let voiceCall: ReturnType<typeof useGlobalZegoVoiceCall> | null = null;
+   try {
+     voiceCall = useGlobalZegoVoiceCall();
+   } catch {
+     // Context not available
+   }
 
   // Find existing chat for this order
   const findChat = async () => {
@@ -215,14 +217,18 @@ const UserDeliveryChat = ({
     }
   };
 
-  // Handle call button - using ZEGOCloud
+   // Handle call button - navigate to voice call page
   const handleCall = async () => {
-    if (chatId && deliveryPartner) {
-      voiceCall.startCall({
+     if (chatId && deliveryPartner && voiceCall) {
+       await voiceCall.startCall({
         receiverId: deliveryPartner.id,
         receiverName: deliveryPartner.name,
         chatId,
       });
+       // Navigate to voice call page
+       if (voiceCall.state.callId) {
+         navigate(`/voice-call/${voiceCall.state.callId}`);
+       }
     }
   };
 
@@ -461,25 +467,8 @@ const UserDeliveryChat = ({
             </>
           )}
         </DialogContent>
-      </Dialog>
-
-      {/* Voice Call Modal - using ZEGOCloud */}
-      <ZegoVoiceCallModal
-        open={voiceCall.state.status !== 'idle'}
-        status={voiceCall.state.status}
-        partnerName={deliveryPartner?.name || 'Delivery Partner'}
-        duration={voiceCall.state.duration}
-        isMuted={voiceCall.state.isMuted}
-        isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'delivery_partner'}
-        onAnswer={voiceCall.answerCall}
-        onDecline={voiceCall.declineCall}
-        onEnd={voiceCall.endCall}
-        onToggleMute={voiceCall.toggleMute}
-        onToggleSpeaker={voiceCall.toggleSpeaker}
-        setCallContainer={voiceCall.setCallContainer}
-      />
-    </>
+       </Dialog>
+     </>
   );
 };
 
