@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useZegoVoiceCall, CallStatus } from '@/hooks/useZegoVoiceCall';
-import ZegoVoiceCallModal from '@/components/ZegoVoiceCallModal';
+ import IncomingCallOverlay from '@/components/voice-call/IncomingCallOverlay';
+ import VoiceCallModal from '@/components/voice-call/VoiceCallModal';
 
 interface DeliveryPartnerZegoVoiceCallContextType {
   startCall: (options: {
@@ -8,6 +9,12 @@ interface DeliveryPartnerZegoVoiceCallContextType {
     receiverName: string;
     chatId: string;
   }) => Promise<void>;
+   answerCall: () => Promise<void>;
+   declineCall: () => Promise<void>;
+   endCall: () => Promise<void>;
+   toggleMute: () => void;
+   toggleSpeaker: () => void;
+   setCallContainer: (element: HTMLDivElement | null) => void;
   state: {
     status: CallStatus;
     callId: string | null;
@@ -46,29 +53,48 @@ export const DeliveryPartnerZegoVoiceCallProvider = ({
     myName: partnerName,
   });
 
+   const isIncomingCall = voiceCall.state.status === 'ringing' && 
+     voiceCall.state.callerType === 'user';
+ 
+   const isActiveCall = voiceCall.state.status === 'calling' || 
+     voiceCall.state.status === 'ongoing';
+ 
   return (
     <DeliveryPartnerZegoVoiceCallContext.Provider value={{
       startCall: voiceCall.startCall,
+       answerCall: voiceCall.answerCall,
+       declineCall: voiceCall.declineCall,
+       endCall: voiceCall.endCall,
+       toggleMute: voiceCall.toggleMute,
+       toggleSpeaker: voiceCall.toggleSpeaker,
+       setCallContainer: voiceCall.setCallContainer,
       state: voiceCall.state,
     }}>
       {children}
       
-      {/* Global Voice Call Modal for Delivery Partners */}
-      <ZegoVoiceCallModal
-        open={voiceCall.state.status !== 'idle'}
-        status={voiceCall.state.status}
-        partnerName={voiceCall.state.callerName || 'Customer'}
-        duration={voiceCall.state.duration}
-        isMuted={voiceCall.state.isMuted}
-        isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.callerType === 'user'}
-        onAnswer={voiceCall.answerCall}
-        onDecline={voiceCall.declineCall}
-        onEnd={voiceCall.endCall}
-        onToggleMute={voiceCall.toggleMute}
-        onToggleSpeaker={voiceCall.toggleSpeaker}
-        setCallContainer={voiceCall.setCallContainer}
-      />
+       {/* Incoming Call Overlay - shows when receiving a call */}
+       {isIncomingCall && (
+         <IncomingCallOverlay
+           callerName={voiceCall.state.callerName || 'Customer'}
+           onAnswer={voiceCall.answerCall}
+           onDecline={voiceCall.declineCall}
+         />
+       )}
+ 
+       {/* Active Call Modal for ongoing/calling states */}
+       {isActiveCall && (
+         <VoiceCallModal
+           partnerName={voiceCall.state.callerName || 'Customer'}
+           status={voiceCall.state.status}
+           duration={voiceCall.state.duration}
+           isMuted={voiceCall.state.isMuted}
+           isSpeaker={voiceCall.state.isSpeaker}
+           onEnd={voiceCall.endCall}
+           onToggleMute={voiceCall.toggleMute}
+           onToggleSpeaker={voiceCall.toggleSpeaker}
+           setCallContainer={voiceCall.setCallContainer}
+         />
+       )}
     </DeliveryPartnerZegoVoiceCallContext.Provider>
   );
 };

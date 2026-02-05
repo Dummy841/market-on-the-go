@@ -35,6 +35,7 @@ import CartPage from "./pages/CartPage";
 import UserWallet from "./pages/UserWallet";
 import Profile from "./pages/Profile";
 import SplashScreen from "./components/SplashScreen";
+ import VoiceCall from "./pages/VoiceCall";
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
@@ -65,6 +66,7 @@ const AppContent = () => {
       <Route path="/my-wallet" element={<UserWallet />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/help" element={<Help />} />
+       <Route path="/voice-call/:callId" element={<VoiceCall />} />
       <Route path="/seller-login" element={<SellerLogin />} />
       <Route path="/seller-dashboard" element={<SellerDashboard />} />
       <Route path="/seller-wallet" element={<SellerWallet />} />

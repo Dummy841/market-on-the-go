@@ -14,7 +14,8 @@ import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
 import DeliveryCustomerChat from "./DeliveryCustomerChat";
 import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
 // useIncomingCall is handled globally by DeliveryPartnerZegoVoiceCallContext
-import ZegoVoiceCallModal from "./ZegoVoiceCallModal";
+ import VoiceCallModal from "./voice-call/VoiceCallModal";
+ import IncomingCallOverlay from "./voice-call/IncomingCallOverlay";
 import { cn } from "@/lib/utils";
 
 interface Order {
@@ -607,22 +608,29 @@ const DeliveryPartnerOrders = ({
         deliveryPartnerName={partnerName}
       />
 
-      {/* Voice Call Modal - using ZEGOCloud */}
-      <ZegoVoiceCallModal
-        open={voiceCall.state.status !== 'idle'}
-        status={voiceCall.state.status}
-        partnerName={voiceCallCustomerName}
-        duration={voiceCall.state.duration}
-        isMuted={voiceCall.state.isMuted}
-        isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'user'}
-        onAnswer={voiceCall.answerCall}
-        onDecline={voiceCall.declineCall}
-        onEnd={voiceCall.endCall}
-        onToggleMute={voiceCall.toggleMute}
-        onToggleSpeaker={voiceCall.toggleSpeaker}
-        setCallContainer={voiceCall.setCallContainer}
-      />
+       {/* Incoming Call Overlay */}
+       {voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'user' && (
+         <IncomingCallOverlay
+           callerName={voiceCallCustomerName}
+           onAnswer={voiceCall.answerCall}
+           onDecline={voiceCall.declineCall}
+         />
+       )}
+ 
+       {/* Active Call Modal */}
+       {(voiceCall.state.status === 'calling' || voiceCall.state.status === 'ongoing') && (
+         <VoiceCallModal
+           partnerName={voiceCallCustomerName}
+           status={voiceCall.state.status}
+           duration={voiceCall.state.duration}
+           isMuted={voiceCall.state.isMuted}
+           isSpeaker={voiceCall.state.isSpeaker}
+           onEnd={voiceCall.endCall}
+           onToggleMute={voiceCall.toggleMute}
+           onToggleSpeaker={voiceCall.toggleSpeaker}
+           setCallContainer={voiceCall.setCallContainer}
+         />
+       )}
     </div>
   );
 };

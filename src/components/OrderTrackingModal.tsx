@@ -11,8 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 import UserDeliveryChat from './UserDeliveryChat';
-import { useZegoVoiceCall } from '@/hooks/useZegoVoiceCall';
-import ZegoVoiceCallModal from './ZegoVoiceCallModal';
+ import { useGlobalZegoVoiceCall } from '@/contexts/GlobalZegoVoiceCallContext';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
@@ -76,12 +75,13 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     }
   }, [isOpen, activeOrder?.assigned_delivery_partner_id, getOrCreateChat]);
 
-  // Voice call hook - using ZEGOCloud
-  const voiceCall = useZegoVoiceCall({
-    myId: activeOrder?.user_id || '',
-    myType: 'user',
-    myName: 'Customer',
-  });
+   // Voice call - use global context
+   let voiceCall: ReturnType<typeof useGlobalZegoVoiceCall> | null = null;
+   try {
+     voiceCall = useGlobalZegoVoiceCall();
+   } catch {
+     // Context not available
+   }
 
   // Handle voice call button click
   const handleVoiceCall = async () => {
@@ -90,7 +90,7 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
       effectiveChatId = await getOrCreateChat();
     }
 
-    if (!effectiveChatId || !activeOrder?.assigned_delivery_partner_id) return;
+     if (!effectiveChatId || !activeOrder?.assigned_delivery_partner_id || !voiceCall) return;
 
     voiceCall.startCall({ 
       receiverId: activeOrder.assigned_delivery_partner_id,
@@ -593,23 +593,6 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
           userId={activeOrder.user_id}
         />
       )}
-
-      {/* Voice Call Modal - using ZEGOCloud */}
-      <ZegoVoiceCallModal
-        open={voiceCall.state.status !== 'idle'}
-        status={voiceCall.state.status}
-        partnerName={activeOrder?.delivery_partners?.name || 'Delivery Partner'}
-        duration={voiceCall.state.duration}
-        isMuted={voiceCall.state.isMuted}
-        isSpeaker={voiceCall.state.isSpeaker}
-        isIncoming={voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'delivery_partner'}
-        onAnswer={voiceCall.answerCall}
-        onDecline={voiceCall.declineCall}
-        onEnd={voiceCall.endCall}
-        onToggleMute={voiceCall.toggleMute}
-        onToggleSpeaker={voiceCall.toggleSpeaker}
-        setCallContainer={voiceCall.setCallContainer}
-      />
     </Dialog>
   );
 };
