@@ -68,10 +68,25 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
   // Preload ringtone
   useEffect(() => {
-    // Use a data-url ringtone to avoid "The element has no supported sources" errors.
-    ringtoneRef.current = new Audio(RINGTONE_DATA_URL);
-    ringtoneRef.current.preload = 'auto';
-    ringtoneRef.current.loop = true;
+    // Prefer the bundled/public ringtone mp3 (user-provided), with a safe fallback to data-url.
+    // (Some WebViews can fail to load certain file types; the data-url beep is our fallback.)
+    const audio = new Audio('/ringtone.mp3');
+    audio.preload = 'auto';
+    audio.loop = true;
+
+    // If mp3 fails to load/play, fallback to the data URL.
+    audio.addEventListener('error', () => {
+      try {
+        const fallback = new Audio(RINGTONE_DATA_URL);
+        fallback.preload = 'auto';
+        fallback.loop = true;
+        ringtoneRef.current = fallback;
+      } catch {
+        // Ignore
+      }
+    });
+
+    ringtoneRef.current = audio;
   }, []);
 
   // Unlock audio on first user interaction (required for reliable ringtone playback)
