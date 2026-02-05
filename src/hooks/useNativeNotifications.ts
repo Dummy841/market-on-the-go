@@ -1,6 +1,49 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications, ScheduleResult, ActionPerformed } from '@capacitor/local-notifications';
+ import { registerPlugin } from '@capacitor/core';
+ 
+ // Define the LockScreen plugin interface
+ interface LockScreenPluginInterface {
+   wakeScreen(): Promise<void>;
+   releaseWakeLock(): Promise<void>;
+ }
+ 
+ // Register the native LockScreen plugin
+ const LockScreenNative = registerPlugin<LockScreenPluginInterface>('LockScreen');
+ 
+ // Wrapper with fallbacks for web
+ const LockScreenPlugin = {
+   async wakeScreen(): Promise<void> {
+     if (!Capacitor.isNativePlatform()) {
+       // Web fallback: Request a wake lock if available
+       if ('wakeLock' in navigator) {
+         try {
+           await (navigator as any).wakeLock.request('screen');
+         } catch {
+           // Wake lock request may fail if not visible
+         }
+       }
+       return;
+     }
+     
+     try {
+       await LockScreenNative.wakeScreen();
+     } catch (e) {
+       console.log('[LockScreen] Native wake failed:', e);
+     }
+   },
+ 
+   async releaseWakeLock(): Promise<void> {
+     if (!Capacitor.isNativePlatform()) return;
+     
+     try {
+       await LockScreenNative.releaseWakeLock();
+     } catch {
+       // Ignore
+     }
+   }
+ };
 
 interface NotificationOptions {
   title: string;
@@ -55,7 +98,7 @@ export const useNativeNotifications = () => {
             importance: 5, // MAX importance - shows on lock screen
             visibility: 1, // PUBLIC - shows full content on lock screen
             vibration: true,
-            sound: 'ringtone.mp3', // Must have ringtone.mp3 in android/app/src/main/res/raw/
+             sound: 'ringtone', // Uses ringtone.mp3 from android/app/src/main/res/raw/
             lights: true,
             lightColor: '#FF6B00',
           });
@@ -286,6 +329,9 @@ export const useNativeNotifications = () => {
     }
     
     try {
+       // Wake the screen immediately
+       await LockScreenPlugin.wakeScreen();
+ 
       // Vibrate device immediately
       if ('vibrate' in navigator) {
         navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
@@ -298,7 +344,7 @@ export const useNativeNotifications = () => {
             title: '📞 Incoming Call',
             body: `${callerName} is calling...`,
             channelId: 'zippy_calls',
-            sound: 'ringtone.mp3',
+             sound: 'ringtone', // Uses ringtone from raw folder (without extension)
             extra: { type: 'incoming_call', callId },
             smallIcon: 'ic_notification',
             iconColor: '#FF6B00',
@@ -319,6 +365,12 @@ export const useNativeNotifications = () => {
 
   const dismissIncomingCallNotification = useCallback(async (notificationId: number) => {
     await cancelNotification(notificationId);
+     // Release wake lock when call is dismissed
+     await LockScreenPlugin.releaseWakeLock();
+     // Stop vibration
+     if ('vibrate' in navigator) {
+       navigator.vibrate(0);
+     }
   }, [cancelNotification]);
 
   return {

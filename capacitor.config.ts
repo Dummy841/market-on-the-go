@@ -12,11 +12,17 @@
      LocalNotifications: {
        smallIcon: 'ic_notification',
        iconColor: '#FF6B00',
-       sound: 'ringtone.mp3',
+       sound: 'ringtone',
+     },
+     // Push notifications for background call signaling
+     PushNotifications: {
+       presentationOptions: ['badge', 'sound', 'alert'],
      },
    },
    android: {
      allowMixedContent: true,
+     // Enable background fetch for notifications
+     backgroundColor: '#1e293b',
    },
  };
  
