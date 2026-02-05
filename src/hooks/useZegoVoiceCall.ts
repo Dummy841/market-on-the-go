@@ -61,6 +61,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const callRowChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingCallRef = useRef<PendingCall | null>(null);
   const endingRef = useRef(false);
+   const zegoInstanceReadyRef = useRef(false);
 
   useEffect(() => {
     latestStateRef.current = state;
@@ -244,6 +245,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     clearMissedCallTimeout();
     stopVibration();
     joinedRoomRef.current = false;
+     zegoInstanceReadyRef.current = false;
 
     if (zegoRef.current) {
       try {
@@ -347,6 +349,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     if (joinedRoomRef.current) return;
     if (!zegoRef.current) return;
     if (!containerRef.current) return;
+     if (!zegoInstanceReadyRef.current) return;
 
     joinedRoomRef.current = true;
 
@@ -362,10 +365,14 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         turnOnCameraWhenJoining: false,
         turnOnMicrophoneWhenJoining: true,
         onLeaveRoom: () => {
-          endCallInternal({ notifyRemote: true });
+           if (!endingRef.current) {
+             endCallInternal({ notifyRemote: true });
+           }
         },
         onUserLeave: () => {
-          endCallInternal({ notifyRemote: true });
+           if (!endingRef.current) {
+             endCallInternal({ notifyRemote: true });
+           }
         },
       });
       console.log(`[ZEGO] joinRoom executed (${source})`);
@@ -606,6 +613,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         throw new Error('Voice call service unavailable. Please try again.');
       }
       zegoRef.current = zp;
+       zegoInstanceReadyRef.current = true;
 
       // Notify receiver via Supabase Realtime
       const receiverChannel = supabase.channel(`incoming-call-${receiverId}`);
@@ -804,6 +812,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         throw new Error('Voice call service unavailable. Please try again.');
       }
       zegoRef.current = zp;
+       zegoInstanceReadyRef.current = true;
 
       // Join once the modal container is ready.
       tryJoinRoom('callee');
@@ -900,17 +909,44 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     declineCallRef.current = declineCall;
   }, [declineCall]);
 
-  const toggleMute = useCallback(() => {
-    setState(prev => {
-      const newMuted = !prev.isMuted;
-      // Note: ZegoUIKitPrebuilt handles mute internally via its UI
-      return { ...prev, isMuted: newMuted };
-    });
+   // Toggle mute - control ZEGO audio
+   const toggleMute = useCallback(async () => {
+     const zego = zegoRef.current;
+     const newMuted = !latestStateRef.current.isMuted;
+     
+     if (zego) {
+       try {
+         const engine = (zego as any).zegoExpressEngine;
+         if (engine && typeof engine.muteMicrophone === 'function') {
+           await engine.muteMicrophone(newMuted);
+         } else if (engine && typeof engine.enableMic === 'function') {
+           await engine.enableMic(!newMuted);
+         }
+       } catch (e) {
+         console.warn('Failed to toggle mute:', e);
+       }
+     }
+     
+     setState(prev => ({ ...prev, isMuted: newMuted }));
   }, []);
 
-  // Toggle speaker
-  const toggleSpeaker = useCallback(() => {
-    setState(prev => ({ ...prev, isSpeaker: !prev.isSpeaker }));
+   // Toggle speaker - control audio output
+   const toggleSpeaker = useCallback(async () => {
+     const zego = zegoRef.current;
+     const newSpeaker = !latestStateRef.current.isSpeaker;
+     
+     if (zego) {
+       try {
+         const engine = (zego as any).zegoExpressEngine;
+         if (engine && typeof engine.setAudioRouteToSpeaker === 'function') {
+           await engine.setAudioRouteToSpeaker(newSpeaker);
+         }
+       } catch (e) {
+         console.warn('Failed to toggle speaker:', e);
+       }
+     }
+     
+     setState(prev => ({ ...prev, isSpeaker: newSpeaker }));
   }, []);
 
   // Listen for incoming calls
@@ -942,7 +978,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const setCallContainer = useCallback((element: HTMLDivElement | null) => {
     containerRef.current = element;
     if (element) {
-      tryJoinRoom('container-ready');
+       // Small delay to ensure ZEGO instance is fully ready
+       setTimeout(() => {
+         tryJoinRoom('container-ready');
+       }, 100);
     }
   }, [tryJoinRoom]);
 

@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode } from 'react';
 import { useZegoVoiceCall, CallStatus } from '@/hooks/useZegoVoiceCall';
  import IncomingCallOverlay from '@/components/voice-call/IncomingCallOverlay';
  import VoiceCallModal from '@/components/voice-call/VoiceCallModal';
+  import { useCallback, useRef } from 'react';
 
 interface DeliveryPartnerZegoVoiceCallContextType {
   startCall: (options: {
@@ -53,11 +54,35 @@ export const DeliveryPartnerZegoVoiceCallProvider = ({
     myName: partnerName,
   });
 
+    // Track if we've answered to prevent double-answer
+    const answeredRef = useRef(false);
+ 
+    // Handle answering with delay for container to be ready
+    const handleAnswer = useCallback(async () => {
+      if (answeredRef.current) return;
+      answeredRef.current = true;
+      
+      // Small delay to ensure modal renders and container is set
+      await new Promise(resolve => setTimeout(resolve, 150));
+      await voiceCall.answerCall();
+    }, [voiceCall]);
+ 
+    // Reset answered ref when call ends
+    const isCallEnded = voiceCall.state.status === 'ended' || 
+      voiceCall.state.status === 'declined' || 
+      voiceCall.state.status === 'missed' ||
+      voiceCall.state.status === 'idle';
+    
+    if (isCallEnded && answeredRef.current) {
+      answeredRef.current = false;
+    }
+ 
    const isIncomingCall = voiceCall.state.status === 'ringing' && 
      voiceCall.state.callerType === 'user';
  
    const isActiveCall = voiceCall.state.status === 'calling' || 
-     voiceCall.state.status === 'ongoing';
+      voiceCall.state.status === 'ongoing' ||
+      (voiceCall.state.status === 'ringing' && answeredRef.current);
  
   return (
     <DeliveryPartnerZegoVoiceCallContext.Provider value={{
@@ -73,10 +98,10 @@ export const DeliveryPartnerZegoVoiceCallProvider = ({
       {children}
       
        {/* Incoming Call Overlay - shows when receiving a call */}
-       {isIncomingCall && (
+        {isIncomingCall && !answeredRef.current && (
          <IncomingCallOverlay
            callerName={voiceCall.state.callerName || 'Customer'}
-           onAnswer={voiceCall.answerCall}
+            onAnswer={handleAnswer}
            onDecline={voiceCall.declineCall}
          />
        )}
