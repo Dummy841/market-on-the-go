@@ -1,313 +1,245 @@
 
-# Implementation Plan: Fix Critical Android Issues
+# Professional 1-on-1 Voice Calling Feature - Implementation Plan
 
-This plan addresses 6 critical issues identified from your screenshots and testing on Android Capacitor app.
+## Overview
+
+This plan redesigns the existing voice calling system to provide a professional WhatsApp/Instagram-style experience using the ZEGOCLOUD UIKit. The current implementation already uses `@zegocloud/zego-uikit-prebuilt`, but the UI/UX needs a complete overhaul for a polished, production-ready appearance.
+
+## Current State Analysis
+
+The project already has:
+- ZEGOCLOUD integration via `@zegocloud/zego-uikit-prebuilt` (v2.17.2)
+- Edge function `get-zego-token` returning credentials
+- Secrets configured: `ZEGO_APP_ID`, `ZEGO_SERVER_SECRET`
+- Voice call hook: `src/hooks/useZegoVoiceCall.ts` (944 lines)
+- Basic call modal: `src/components/ZegoVoiceCallModal.tsx`
+- Global context: `src/contexts/GlobalZegoVoiceCallContext.tsx`
+- Database table: `voice_calls` with proper schema
+
+## Architecture Decision
+
+**Approach: Dedicated Voice Call Page (Not Modal)**
+
+Instead of an overlay modal, we'll create a dedicated `/voice-call/:callId` page. This approach:
+- Provides cleaner state management via URL
+- Handles browser back button naturally
+- Works better on mobile (full-screen experience)
+- Allows graceful navigation after call ends
 
 ---
 
-## Summary of Issues
+## Implementation Steps
 
-| # | Issue | Root Cause | Priority |
-|---|-------|------------|----------|
-| 1 | Order tracking button not showing for "out_for_delivery" orders | OrderTrackingContext checks for `going_for_delivery` but DB uses `out_for_delivery` | Critical |
-| 2 | Voice call failing with "createSpan undefined" error | ZEGOCloud SDK not initializing properly - token/SDK issue in Capacitor WebView | Critical |
-| 3 | Location picker not responding to touch (drag, zoom, buttons) | Controlled map center conflicts with touch gestures in Capacitor | Critical |
-| 4 | Header profile showing rectangle box instead of circle | Button wrapper around Avatar creating rectangular appearance | Medium |
-| 5 | Delivery PIN not showing in order tracking modal | PIN display missing from tracking modal when out for delivery | Medium |
-| 6 | Tracking button status text not matching exact flow | Status text mapping doesn't match `out_for_delivery` status | Low |
+### Phase 1: Configuration & Security
 
----
+**1.1 Create ZEGO Config File**
 
-## Issue 1: Order Tracking Not Showing for Out for Delivery Orders
+Create `src/config/zego.ts` to centralize ZEGOCLOUD configuration:
 
-**Root Cause:**
-In `OrderTrackingContext.tsx` (line 85), the active statuses include `going_for_delivery` but the actual status saved to DB is `out_for_delivery`.
-
-**Solution:**
-Add `out_for_delivery` to the active statuses list.
-
-**File: `src/contexts/OrderTrackingContext.tsx`**
-```typescript
-// Line 85: Add out_for_delivery to active statuses
-const activeStatuses = ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'out_for_delivery'];
+```text
+src/config/zego.ts
 ```
 
-Also update line 116:
-```typescript
-.in('status', ['pending', 'accepted', 'preparing', 'packed', 'assigned', 'going_for_pickup', 'picked_up', 'going_for_delivery', 'out_for_delivery'])
+This file will export:
+- Call scenario modes (OneOnOne Voice)
+- Default call timeout (30 seconds)
+- Audio-only configuration flags
+- Room ID generation utility
+
+### Phase 2: Redesigned Voice Call UI
+
+**2.1 New Professional Voice Call Page**
+
+Create `src/pages/VoiceCall.tsx` - A dedicated full-screen page with:
+
+**Visual Design (WhatsApp/Instagram Style):**
+- Glassmorphism blurred background with gradient overlay
+- Large centered avatar with subtle pulsing animation during ringing
+- Caller name prominently displayed
+- Call duration timer at the top (during ongoing calls)
+- Status text (Calling... / Ringing... / Connected)
+
+**Control Bar (Bottom Floating):**
+```text
++--------------------------------------------------+
+|                                                  |
+|              [Avatar with pulse]                 |
+|                                                  |
+|              "Delivery Partner"                  |
+|                  00:45                           |
+|                                                  |
+|     +------+    +------+    +------+             |
+|     | Mute |    | End  |    |Speaker|            |
+|     +------+    +------+    +------+             |
++--------------------------------------------------+
 ```
+
+**States to Handle:**
+- `calling` - Outgoing call, show ringback animation
+- `ringing` - Incoming call, show Answer/Decline buttons
+- `ongoing` - Connected, show timer and controls
+- `ended`/`declined`/`missed` - Auto-navigate back after 2s
+
+**2.2 Call Control Components**
+
+Create `src/components/voice-call/CallAvatar.tsx`:
+- Animated rings during calling/ringing
+- Profile image or initial fallback
+- Pulse effect with CSS animations
+
+Create `src/components/voice-call/CallControls.tsx`:
+- Floating bottom bar with blur backdrop
+- Mute toggle (mic icon with visual state)
+- End call button (prominent red)
+- Speaker toggle (speaker icon with state)
+- Answer/Decline buttons for incoming calls
+
+Create `src/components/voice-call/CallTimer.tsx`:
+- Displays elapsed time in MM:SS format
+- Only visible during ongoing calls
+
+### Phase 3: Refactored Voice Call Hook
+
+**3.1 Enhanced `useZegoVoiceCall.ts`**
+
+Refactor the existing hook to:
+
+1. **Improve Call ID Generation:**
+   - Generate unique callID: `call_${Date.now()}_${randomString(6)}`
+   - Ensure alphanumeric, max 32 chars (ZEGO requirement)
+
+2. **Proper Navigation Integration:**
+   - On call initiation: `navigate('/voice-call/' + callId)`
+   - On call end: `navigate(-1)` or to previous page
+
+3. **Better Audio Control:**
+   - Actual mute/unmute via ZEGO SDK methods
+   - Speaker toggle for native platforms
+
+4. **Ringback Tone for Caller:**
+   - Play subtle "calling" sound while waiting for answer
+
+### Phase 4: Call Initiation Flow
+
+**4.1 Update Chat Components**
+
+Modify `UserDeliveryChat.tsx` and `DeliveryCustomerChat.tsx`:
+
+When call button clicked:
+1. Generate unique callId
+2. Store call intent in state/context
+3. Navigate to `/voice-call/:callId`
+4. The VoiceCall page handles ZEGO connection
+
+**4.2 Incoming Call Handling**
+
+The global context already listens for incoming calls. Modify to:
+1. On incoming call → Store pending call data
+2. Show incoming call UI (can be overlay initially)
+3. If answered → Navigate to `/voice-call/:callId`
+4. If declined → Clear state, stay on current page
+
+### Phase 5: Route Configuration
+
+**5.1 Add Voice Call Route**
+
+Update `src/App.tsx`:
+
+```typescript
+<Route path="/voice-call/:callId" element={<VoiceCall />} />
+```
+
+### Phase 6: Responsive Design
+
+**6.1 Mobile Optimization**
+- Full viewport height (`100dvh` for mobile browsers)
+- Safe area insets for notched devices
+- Touch-friendly button sizes (min 48x48px)
+- Prevent scroll bounce
+
+**6.2 Desktop Optimization**
+- Centered card layout with max-width
+- Keyboard shortcuts (M for mute, S for speaker)
+- Hover states on controls
 
 ---
 
-## Issue 2: Voice Call Failing with "createSpan undefined" Error
+## File Changes Summary
 
-**Root Cause:**
-The `ZegoUIKitPrebuilt.create(token)` call is failing because in Capacitor WebView on Android, the SDK has initialization issues. The error "Cannot read properties of undefined (reading 'createSpan')" indicates `ZegoUIKitPrebuilt.create()` returns undefined or fails silently.
+| Action | File Path | Description |
+|--------|-----------|-------------|
+| Create | `src/config/zego.ts` | ZEGO configuration constants |
+| Create | `src/pages/VoiceCall.tsx` | Main voice call page |
+| Create | `src/components/voice-call/CallAvatar.tsx` | Animated avatar component |
+| Create | `src/components/voice-call/CallControls.tsx` | Bottom control bar |
+| Create | `src/components/voice-call/CallTimer.tsx` | Duration display |
+| Create | `src/components/voice-call/IncomingCallOverlay.tsx` | Overlay for incoming calls |
+| Modify | `src/hooks/useZegoVoiceCall.ts` | Add navigation, improve audio controls |
+| Modify | `src/contexts/GlobalZegoVoiceCallContext.tsx` | Handle navigation + incoming overlay |
+| Modify | `src/contexts/DeliveryPartnerZegoVoiceCallContext.tsx` | Same updates for delivery partner |
+| Modify | `src/components/UserDeliveryChat.tsx` | Update call initiation flow |
+| Modify | `src/components/DeliveryCustomerChat.tsx` | Update call initiation flow |
+| Modify | `src/App.tsx` | Add voice call route |
+| Delete | `src/components/ZegoVoiceCallModal.tsx` | Replace with page-based approach |
 
-**Solution:**
-1. Add defensive checks before calling SDK methods
-2. Use dynamic import to ensure SDK is loaded
-3. Add better error handling with specific messages
-4. Ensure the SDK container element exists before joining room
+---
 
-**File: `src/hooks/useZegoVoiceCall.ts`**
+## Technical Details
 
-Key changes:
-- Add null check after `ZegoUIKitPrebuilt.create(token)` 
-- Wrap SDK initialization in try-catch with specific error messages
-- Delay room join to ensure SDK is ready
-- Use dynamic import pattern for Capacitor compatibility
+### CSS Animation for Avatar Pulse
 
-```typescript
-// In getToken callback, add validation
-const getToken = useCallback(async (roomId: string): Promise<{ token: string; appId: number }> => {
-  const zegoUserId = (myId || 'guest')
-    .toString()
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .slice(0, 32);
+```css
+.call-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
 
-  if (!zegoUserId || zegoUserId.length < 2) {
-    throw new Error('Invalid user ID for voice call');
-  }
-
-  const { data, error } = await supabase.functions.invoke('get-zego-token', {
-    body: { userId: zegoUserId, roomId, userName: myName }
-  });
-
-  if (error) throw new Error(error.message || 'Failed to get call token');
-  if (!data?.token) throw new Error('No token received from server');
-  
-  return data;
-}, [myId, myName]);
-
-// In startCall, add defensive checks
-try {
-  const tokenData = await getToken(roomId);
-  
-  // Defensive check - create ZEGO instance with validation
-  let zp;
-  try {
-    zp = ZegoUIKitPrebuilt.create(tokenData.token);
-    if (!zp) {
-      throw new Error('Voice call service failed to initialize');
-    }
-  } catch (sdkError: any) {
-    console.error('ZEGO SDK create error:', sdkError);
-    throw new Error('Voice call service unavailable. Please try again.');
-  }
-  
-  zegoRef.current = zp;
-  // ... rest of logic
-} catch (error) {
-  // Handle with specific message
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 0.3; }
+  100% { transform: scale(0.9); opacity: 0.7; }
 }
 ```
 
----
+### Glassmorphism Background
 
-## Issue 3: Location Picker Not Responding to Touch on Android
-
-**Root Cause:**
-Even with `touchAction: 'auto'` and `gestureHandling: 'greedy'`, the controlled `center` prop on GoogleMap fights with user touch gestures in Capacitor WebViews. The map needs to be fully uncontrolled after initial render.
-
-**Solution:**
-1. Never pass `center` prop after initial load - use `ref.panTo()` for programmatic moves
-2. Remove `mapContainerStyle` touchAction - let CSS handle it
-3. Use `onCenterChanged` or `onDragEnd` to track position instead
-4. Add explicit touch handlers on the map container div
-5. Ensure `gestureHandling: 'cooperative'` for mobile
-
-**File: `src/components/FullScreenLocationPicker.tsx`**
-
-Major changes:
-- Remove controlled `center={...}` prop entirely after initial position
-- Use `defaultCenter` instead of `center`
-- Add `onCenterChanged` callback to track map movement
-- Set map container with `touch-action: none` to let Google Maps handle all touch
-- Use `requestAnimationFrame` for smoother updates
-
-```tsx
-// Remove center prop - use only for initial render once
-// After first render, let the map be fully uncontrolled
-
-<GoogleMap
-  mapContainerClassName="w-full h-full absolute inset-0"
-  mapContainerStyle={{ 
-    width: '100%',
-    height: '100%',
-  }}
-  // Don't use center after map loads - this causes touch conflicts
-  defaultCenter={initialCenter}
-  zoom={17}
-  onLoad={handleMapLoad}
-  onUnmount={handleMapUnmount}
-  onIdle={handleMapIdle}
-  onCenterChanged={handleCenterChanged}
-  options={{
-    disableDefaultUI: false,
-    zoomControl: true,
-    streetViewControl: false,
-    mapTypeControl: false,
-    fullscreenControl: false,
-    clickableIcons: false,
-    gestureHandling: 'greedy',
-    draggable: true,
-    scrollwheel: true,
-    disableDoubleClickZoom: false,
-  }}
-/>
+```css
+.call-backdrop {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  backdrop-filter: blur(20px);
+}
 ```
 
-Also wrap the entire map container in a div that prevents parent touch interference:
-```tsx
-<div 
-  className="flex-1 relative"
-  style={{ 
-    overflow: 'hidden',
-    WebkitOverflowScrolling: 'touch',
-  }}
->
-```
-
----
-
-## Issue 4: Header Profile Showing Rectangle Instead of Circle
-
-**Root Cause:**
-Looking at the Header component around line 389-397, the Avatar is wrapped in a Button with `px-3` padding that creates the rectangular appearance. The dropdown trigger button has visible borders.
-
-**Solution:**
-Adjust the DropdownMenuTrigger button styling to be circular when showing just the avatar on mobile.
-
-**File: `src/components/Header.tsx`**
-
-```tsx
-// Around line 388-403
-<DropdownMenuTrigger asChild>
-  <Button 
-    variant="ghost" 
-    className="flex items-center space-x-2 h-10 px-2 md:px-3 rounded-full"
-  >
-    <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
-      <Avatar className={`h-8 w-8 ${hasActivePass ? 'border-2 border-background' : ''}`}>
-        <AvatarImage src={user?.profile_photo_url || ''} alt={user?.name} />
-        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-          {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-        </AvatarFallback>
-      </Avatar>
-    </div>
-    {/* Only show on desktop */}
-    <div className="hidden md:flex flex-col items-start">
-      <span className="text-sm font-medium">{user?.name}</span>
-      <span className="text-xs text-muted-foreground">{user?.mobile}</span>
-    </div>
-    <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
-  </Button>
-</DropdownMenuTrigger>
-```
-
-Key change: Add `rounded-full` and hide the ChevronDown on mobile with `hidden md:block`.
-
----
-
-## Issue 5: Show Delivery PIN in Order Tracking Modal
-
-**Root Cause:**
-The Order Tracking Modal doesn't display the delivery PIN when the order is out for delivery.
-
-**Solution:**
-Add a delivery PIN display section in the tracking modal, similar to how it's shown in MyOrders page.
-
-**File: `src/components/OrderTrackingModal.tsx`**
-
-Add after the status card section (around line 435):
-```tsx
-{/* Delivery PIN - Show when out for delivery */}
-{(activeOrder.status === 'out_for_delivery' || 
-  activeOrder.pickup_status === 'going_for_delivery' ||
-  activeOrder.pickup_status === 'picked_up') && 
-  activeOrder.delivery_pin && (
-  <Card className="p-4 bg-green-50 border-green-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-green-700 font-medium">Delivery PIN</p>
-        <p className="text-xs text-green-600">Share this PIN with delivery partner</p>
-      </div>
-      <div className="text-2xl font-bold text-green-700">
-        {activeOrder.delivery_pin}
-      </div>
-    </div>
-  </Card>
-)}
-```
-
----
-
-## Issue 6: Tracking Button Status Text Mapping
-
-**Root Cause:**
-The `getStatusText()` function in OrderTrackingButton checks for `going_for_delivery` but the actual status is `out_for_delivery`.
-
-**Solution:**
-Update the status mapping to include `out_for_delivery`.
-
-**File: `src/components/OrderTrackingButton.tsx`**
+### ZEGO Audio-Only Configuration
 
 ```typescript
-const getStatusText = () => {
-  const status = activeOrder.status;
-  const sellerStatus = (activeOrder as any).seller_status;
-  const pickupStatus = (activeOrder as any).pickup_status;
-
-  if (status === 'delivered') return 'Delivered';
-  // Add out_for_delivery to the check
-  if (pickupStatus === 'picked_up' || 
-      pickupStatus === 'going_for_delivery' || 
-      status === 'going_for_delivery' ||
-      status === 'out_for_delivery') {
-    return 'Out for Delivery';
-  }
-  if (sellerStatus === 'packed') return 'Packed';
-  if (sellerStatus === 'accepted' || sellerStatus === 'preparing') return 'Accepted';
-  return 'Placed';
-};
+zegoInstance.joinRoom({
+  container: hiddenDiv, // 1x1px hidden element
+  scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
+  turnOnCameraWhenJoining: false,
+  turnOnMicrophoneWhenJoining: true,
+  showMyCameraToggleButton: false,
+  showScreenSharingButton: false,
+});
 ```
 
 ---
 
-## Files to Modify
+## Edge Cases Handled
 
-| File | Changes |
-|------|---------|
-| `src/contexts/OrderTrackingContext.tsx` | Add `out_for_delivery` to active statuses |
-| `src/hooks/useZegoVoiceCall.ts` | Add defensive SDK checks and better error handling |
-| `src/components/FullScreenLocationPicker.tsx` | Remove controlled center, use defaultCenter |
-| `src/components/Header.tsx` | Add `rounded-full`, hide chevron on mobile |
-| `src/components/OrderTrackingModal.tsx` | Add delivery PIN display section |
-| `src/components/OrderTrackingButton.tsx` | Add `out_for_delivery` to status mapping |
+1. **Browser Back Button**: Uses `navigate(-1)` properly
+2. **Call Timeout**: 30-second missed call handling
+3. **Permission Denied**: Clear error messaging
+4. **Network Loss**: ZEGO SDK handles reconnection
+5. **Both Parties Hang Up Simultaneously**: Uses `endingRef` to prevent loops
+6. **Audio Autoplay Blocked**: Shows toast + uses vibration/notification fallback
 
 ---
 
-## Technical Notes
+## Estimated Complexity
 
-**Voice Call SDK Issue:**
-The ZEGOCloud SDK can fail in Capacitor WebViews due to:
-- Missing WebRTC permissions in the native layer
-- Token validation issues
-- SDK not fully loaded before use
+- **New Files**: 6 components/pages
+- **Modified Files**: 6 existing files
+- **Lines of Code**: ~800-1000 new/modified lines
+- **Testing Focus**: Both user and delivery partner call flows, mobile and desktop
 
-The defensive checks and error handling will provide better user feedback when the SDK fails.
-
-**Location Picker Touch Issue:**
-Google Maps in React requires careful handling of the `center` prop. When `center` is controlled (passed on every render), it can conflict with touch gestures because React keeps trying to reset the position. Using `defaultCenter` instead of `center` after initial load allows the map to be fully controlled by touch.
-
----
-
-## Implementation Order
-
-1. Fix order tracking status check (quick fix)
-2. Fix tracking button status text (quick fix)
-3. Add delivery PIN to tracking modal
-4. Fix header profile styling
-5. Improve voice call error handling
-6. Fix location picker touch handling
+This implementation will deliver a polished, WhatsApp-quality voice calling experience while maintaining all existing functionality including native notifications, ringtones, and fallbacks.
