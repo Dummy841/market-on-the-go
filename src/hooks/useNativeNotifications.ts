@@ -55,7 +55,7 @@ export const useNativeNotifications = () => {
             importance: 5, // MAX importance - shows on lock screen
             visibility: 1, // PUBLIC - shows full content on lock screen
             vibration: true,
-            sound: 'ringtone', // Must have ringtone.mp3 in android/app/src/main/res/raw/
+            sound: 'ringtone.mp3', // Must have ringtone.mp3 in android/app/src/main/res/raw/
             lights: true,
             lightColor: '#FF6B00',
           });
@@ -276,12 +276,21 @@ export const useNativeNotifications = () => {
     if (!Capacitor.isNativePlatform()) {
       // For web, use browser notification
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`📞 Incoming Call`, { body: `${callerName} is calling...` });
+        new Notification(`📞 Incoming Call`, { 
+          body: `${callerName} is calling...`,
+          requireInteraction: true,
+          tag: 'incoming-call',
+        });
       }
       return notificationId;
     }
     
     try {
+      // Vibrate device immediately
+      if ('vibrate' in navigator) {
+        navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
+      }
+
       await LocalNotifications.schedule({
         notifications: [
           {
@@ -289,7 +298,7 @@ export const useNativeNotifications = () => {
             title: '📞 Incoming Call',
             body: `${callerName} is calling...`,
             channelId: 'zippy_calls',
-            sound: 'ringtone',
+            sound: 'ringtone.mp3',
             extra: { type: 'incoming_call', callId },
             smallIcon: 'ic_notification',
             iconColor: '#FF6B00',
