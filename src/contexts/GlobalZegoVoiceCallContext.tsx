@@ -61,6 +61,8 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
 
    // Track when we've already navigated to avoid double navigation
    const navigatedToCallRef = useRef<string | null>(null);
+    // Track if we initiated the call (to know when to navigate)
+    const isInitiatorRef = useRef(false);
  
    // Navigate to voice call page when a call becomes active
    useEffect(() => {
@@ -68,8 +70,10 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
      const currentPath = location?.pathname || '';
      const isOnVoiceCallPage = currentPath.startsWith('/voice-call/');
      
-     // Navigate to voice call page when we start calling or when call becomes ongoing
-     if ((status === 'calling' || status === 'ongoing') && callId && navigate && !isOnVoiceCallPage) {
+      // Only navigate when WE initiated the call (status = 'calling')
+      // For incoming calls, we navigate in handleAnswer after user taps Answer
+      if (status === 'calling' && callId && navigate && !isOnVoiceCallPage) {
+        isInitiatorRef.current = true;
        if (navigatedToCallRef.current !== callId) {
          navigatedToCallRef.current = callId;
          navigate(`/voice-call/${callId}`);
@@ -79,6 +83,7 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
      // Reset navigation tracking when call ends
      if (status === 'idle' || status === 'ended' || status === 'declined' || status === 'missed') {
        navigatedToCallRef.current = null;
+        isInitiatorRef.current = false;
      }
    }, [voiceCall.state.status, voiceCall.state.callId, navigate, location?.pathname]);
  
@@ -88,12 +93,15 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
     const handleAnswer = useCallback(async () => {
       const callId = voiceCall.state.callId;
       if (callId && navigate) {
+        navigatedToCallRef.current = callId;
         try {
           navigate(`/voice-call/${callId}`);
         } catch {
           // ignore
         }
       }
+      // Small delay to ensure page is mounted and container is set
+      await new Promise(resolve => setTimeout(resolve, 150));
       await voiceCall.answerCall();
     }, [voiceCall, navigate]);
  
