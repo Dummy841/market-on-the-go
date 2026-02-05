@@ -569,9 +569,13 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       callChannelRef.current = signalChannel;
 
       // IMPORTANT: attach listeners BEFORE subscribe to avoid missing fast events.
+      // IMPORTANT:
+      // `call-ringing` is sent by the callee to indicate they received the incoming call event.
+      // The CALLER should stay in `calling` state (showing End/Mute/Speaker) and *must not*
+      // transition to `ringing`, otherwise our UI will incorrectly show the incoming-call screen.
       signalChannel.on('broadcast', { event: 'call-ringing' }, ({ payload }) => {
         if (payload?.callId !== callId) return;
-        setState(prev => (prev.status === 'calling' ? { ...prev, status: 'ringing' } : prev));
+        // no-op (kept for potential future UI text changes)
       });
 
       signalChannel.on('broadcast', { event: 'call-ended' }, async ({ payload }) => {
@@ -676,9 +680,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       supabase.removeChannel(receiverChannel);
 
       // Set missed call timeout (30 seconds)
-      missedCallTimeoutRef.current = setTimeout(async () => {
+       missedCallTimeoutRef.current = setTimeout(async () => {
         setState(prev => {
-          if (prev.status === 'calling' || prev.status === 'ringing') {
+           // Caller times out while waiting (caller remains in `calling` state).
+           if (prev.status === 'calling') {
              stopRingback();
             
             supabase
@@ -796,7 +801,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const declineCallRef = useRef<(() => Promise<void>) | null>(null);
 
   // Answer incoming call
-  const answerCall = useCallback(async () => {
+   const answerCall = useCallback(async () => {
     const pending = pendingCallRef.current;
     if (!pending) {
       console.error('No pending call to answer');
@@ -956,6 +961,13 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
      
      if (zego) {
        try {
+          // Prefer UIKit-level API when available.
+          const ui = zego as any;
+          if (typeof ui.setMicrophoneOn === 'function') {
+            // setMicrophoneOn(true) => mic enabled
+            await ui.setMicrophoneOn(!newMuted);
+          }
+
          const engine = (zego as any).zegoExpressEngine;
          if (engine && typeof engine.muteMicrophone === 'function') {
            await engine.muteMicrophone(newMuted);
@@ -977,6 +989,13 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
      
      if (zego) {
        try {
+          // UIKit-level API (if present)
+          const ui = zego as any;
+          if (typeof ui.setAudioOutputDevice === 'function') {
+            // Some web implementations support selecting output devices.
+            // We don't have a device list here; keep as best-effort and fall back to engine.
+          }
+
          const engine = (zego as any).zegoExpressEngine;
          if (engine && typeof engine.setAudioRouteToSpeaker === 'function') {
            await engine.setAudioRouteToSpeaker(newSpeaker);
