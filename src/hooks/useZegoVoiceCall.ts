@@ -51,6 +51,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const containerRef = useRef<HTMLDivElement | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
+   const ringbackRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
   const joinedRoomRef = useRef(false);
   const latestStateRef = useRef<ZegoVoiceCallState>(state);
@@ -88,22 +89,38 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     });
 
     ringtoneRef.current = audio;
+     
+     // Preload ringback tone (played on caller's device while waiting)
+     const ringback = new Audio('/ringback.mp3');
+     ringback.preload = 'auto';
+     ringback.loop = true;
+     ringbackRef.current = ringback;
   }, []);
 
   // Unlock audio on first user interaction (required for reliable ringtone playback)
   useEffect(() => {
     const unlock = async () => {
       if (audioUnlockedRef.current) return;
-      const audio = ringtoneRef.current;
-      if (!audio) return;
 
       try {
-        const prevVolume = audio.volume;
-        audio.volume = 0;
-        await audio.play();
-        audio.pause();
-        audio.currentTime = 0;
-        audio.volume = prevVolume;
+         // Unlock ringtone
+         if (ringtoneRef.current) {
+           const prevVolume = ringtoneRef.current.volume;
+           ringtoneRef.current.volume = 0;
+           await ringtoneRef.current.play();
+           ringtoneRef.current.pause();
+           ringtoneRef.current.currentTime = 0;
+           ringtoneRef.current.volume = prevVolume;
+         }
+         // Unlock ringback
+         if (ringbackRef.current) {
+           const prevVolume = ringbackRef.current.volume;
+           ringbackRef.current.volume = 0;
+           await ringbackRef.current.play();
+           ringbackRef.current.pause();
+           ringbackRef.current.currentTime = 0;
+           ringbackRef.current.volume = prevVolume;
+         }
         audioUnlockedRef.current = true;
       } catch {
         // If this fails, we'll keep trying on subsequent gestures.
@@ -182,6 +199,23 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
   }, []);
 
+   // Play ringback tone (caller hears this while waiting for answer)
+   const playRingback = useCallback(() => {
+     const audio = ringbackRef.current;
+     if (!audio) return;
+ 
+     audio.play().catch((err) => {
+       console.warn('Ringback play blocked/unavailable:', err);
+     });
+   }, []);
+ 
+   const stopRingback = useCallback(() => {
+     if (ringbackRef.current) {
+       ringbackRef.current.pause();
+       ringbackRef.current.currentTime = 0;
+     }
+   }, []);
+ 
   // Play/stop ringtone with vibration + notification fallback
   const playRingtone = useCallback((callerName?: string) => {
     const audio = ringtoneRef.current;
@@ -214,7 +248,9 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
     // Also stop vibration
     stopVibration();
-  }, [stopVibration]);
+     // Also stop ringback if playing
+     stopRingback();
+   }, [stopVibration, stopRingback]);
 
   // Duration timer
   const startDurationTimer = useCallback(() => {
@@ -468,8 +504,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     }
 
     try {
-      // Start ringback immediately inside the user gesture to avoid autoplay blocking.
-      playRingtone();
+       // Start ringback tone (caller hears this while waiting for answer)
+       playRingback();
 
       // Request microphone permission FIRST with better error handling
       try {
@@ -543,7 +579,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       signalChannel.on('broadcast', { event: 'call-answered' }, async ({ payload }) => {
         if (payload?.callId !== callId) return;
         console.log('Call answered, joining room...');
-        stopRingtone();
+         stopRingback();
         clearMissedCallTimeout();
         setState(prev => ({ ...prev, status: 'ongoing' }));
         startDurationTimer();
@@ -561,7 +597,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       signalChannel.on('broadcast', { event: 'call-declined' }, async ({ payload }) => {
         if (payload?.callId !== callId) return;
         console.log('Call declined');
-        stopRingtone();
+         stopRingback();
         clearMissedCallTimeout();
 
         await supabase
@@ -639,7 +675,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       missedCallTimeoutRef.current = setTimeout(async () => {
         setState(prev => {
           if (prev.status === 'calling' || prev.status === 'ringing') {
-            stopRingtone();
+             stopRingback();
             
             supabase
               .from('voice_calls')
