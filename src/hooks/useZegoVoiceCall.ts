@@ -54,6 +54,9 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
    const ringbackRef = useRef<HTMLAudioElement | null>(null);
   const audioUnlockedRef = useRef(false);
   const joinedRoomRef = useRef(false);
+  const joinAttemptRef = useRef(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const roomIdRef = useRef<string | null>(null);
   const latestStateRef = useRef<ZegoVoiceCallState>(state);
   const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const nativeNotificationIdRef = useRef<number | null>(null);
@@ -70,6 +73,16 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
   // Preload ringtone
   useEffect(() => {
+    // Create AudioContext early to bypass autoplay restrictions
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        audioContextRef.current = new AudioContextClass();
+      }
+    } catch (e) {
+      console.warn('AudioContext not supported:', e);
+    }
+
     // Prefer the bundled/public ringtone mp3 (user-provided), with a safe fallback to data-url.
     // (Some WebViews can fail to load certain file types; the data-url beep is our fallback.)
     const audio = new Audio('/ringtone.mp3');
@@ -101,6 +114,12 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
      // Force load both audio files
      audio.load();
      ringback.load();
+
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+      }
+    };
   }, []);
 
   // Unlock audio on first user interaction (required for reliable ringtone playback)
@@ -109,6 +128,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       if (audioUnlockedRef.current) return;
 
       try {
+         // Resume AudioContext first
+         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+           await audioContextRef.current.resume();
+         }
+
          // Unlock ringtone
          if (ringtoneRef.current) {
            const prevVolume = ringtoneRef.current.volume;
@@ -128,6 +152,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
            ringbackRef.current.volume = prevVolume;
          }
         audioUnlockedRef.current = true;
+        console.log('[Audio] Audio unlocked successfully');
       } catch {
         // If this fails, we'll keep trying on subsequent gestures.
       }
@@ -135,9 +160,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
+    window.addEventListener('touchstart', unlock);
     return () => {
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
     };
   }, []);
 
@@ -224,6 +251,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
  
   // Play/stop ringtone with vibration + notification fallback
   const playRingtone = useCallback((callerName?: string) => {
+    // First, try to resume AudioContext
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+
     const audio = ringtoneRef.current;
     if (!audio) {
       console.warn('Ringtone audio element not available');
@@ -237,6 +269,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
     // Reset to beginning
     audio.currentTime = 0;
+    audio.volume = 1.0;
 
     // Try play; if blocked by autoplay policy, it will reject.
     const playPromise = audio.play();
@@ -402,15 +435,44 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   // Join the ZEGO room as soon as BOTH: (zego instance exists) AND (modal container exists).
   // This fixes the common race where the timer starts but audio never connects because joinRoom
   // fired before ZegoVoiceCallModal mounted and called setCallContainer().
-  const tryJoinRoom = useCallback((source: 'caller' | 'callee' | 'container-ready') => {
+  const tryJoinRoom = useCallback((source: 'caller' | 'callee' | 'container-ready', retryCount = 0) => {
     const s = latestStateRef.current;
-    if (s.status !== 'ongoing') return;
-    if (joinedRoomRef.current) return;
-    if (!zegoRef.current) return;
-    if (!containerRef.current) return;
-     if (!zegoInstanceReadyRef.current) return;
+    const currentRoomId = roomIdRef.current;
+    
+    console.log(`[ZEGO] tryJoinRoom called (${source}), attempt ${retryCount}, status: ${s.status}, hasZego: ${!!zegoRef.current}, hasContainer: ${!!containerRef.current}, zegoReady: ${zegoInstanceReadyRef.current}, roomId: ${currentRoomId}`);
+    
+    if (s.status !== 'ongoing') {
+      console.log('[ZEGO] Not joining - status is not ongoing');
+      return;
+    }
+    if (joinedRoomRef.current) {
+      console.log('[ZEGO] Not joining - already joined');
+      return;
+    }
+    if (!zegoRef.current) {
+      console.log('[ZEGO] Not joining - no zego instance');
+      if (retryCount < 5) {
+        setTimeout(() => tryJoinRoom(source, retryCount + 1), 200);
+      }
+      return;
+    }
+    if (!containerRef.current) {
+      console.log('[ZEGO] Not joining - no container');
+      if (retryCount < 5) {
+        setTimeout(() => tryJoinRoom(source, retryCount + 1), 200);
+      }
+      return;
+    }
+    if (!zegoInstanceReadyRef.current) {
+      console.log('[ZEGO] Not joining - zego instance not ready');
+      if (retryCount < 5) {
+        setTimeout(() => tryJoinRoom(source, retryCount + 1), 200);
+      }
+      return;
+    }
 
     joinedRoomRef.current = true;
+    joinAttemptRef.current = retryCount;
 
     try {
       zegoRef.current.joinRoom({
@@ -434,10 +496,13 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
            }
         },
       });
-      console.log(`[ZEGO] joinRoom executed (${source})`);
+      console.log(`[ZEGO] ✓ joinRoom executed successfully (${source}, attempt ${retryCount})`);
     } catch (e) {
       console.error('[ZEGO] joinRoom failed:', e);
       joinedRoomRef.current = false;
+      if (retryCount < 3) {
+        setTimeout(() => tryJoinRoom(source, retryCount + 1), 300);
+      }
     }
   }, [endCallInternal]);
 
@@ -564,6 +629,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
       // Generate room ID from chat ID
       const roomId = `c_${chatId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}_${Date.now().toString(36)}`;
+      roomIdRef.current = roomId;
+      console.log(`[ZEGO] Generated roomId: ${roomId}`);
 
       // Create call record
       const { data: callData, error: callError } = await supabase
@@ -657,7 +724,12 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
 
       // Get ZEGO credentials from server
       const creds = await getCredentials(roomId);
-      console.log('Got ZEGO credentials:', { appId: creds.appId, userId: creds.userId, roomId });
+      console.log('[ZEGO] Got credentials:', { appId: creds.appId, userId: creds.userId, roomId: creds.roomId, expectedRoomId: roomId });
+      
+      // CRITICAL: Verify roomId matches
+      if (creds.roomId !== roomId) {
+        console.error(`[ZEGO] ROOM ID MISMATCH! Expected: ${roomId}, Got: ${creds.roomId}`);
+      }
       
       // Create ZEGO instance using generateKitTokenForTest with server-provided credentials
       let zp: ReturnType<typeof ZegoUIKitPrebuilt.create> | null = null;
@@ -665,7 +737,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           creds.appId,
           creds.serverSecret,
-          creds.roomId,
+          roomId, // Use our generated roomId to ensure consistency
           creds.userId,
           creds.userName
         );
@@ -836,6 +908,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       return;
     }
 
+    // CRITICAL: Store the roomId from the pending call - this MUST match the caller's roomId
+    const roomIdToJoin = pending.roomId;
+    roomIdRef.current = roomIdToJoin;
+    console.log(`[ZEGO] Answering call with roomId: ${roomIdToJoin}`);
+
     try {
       // Dismiss native notification if present
       if (nativeNotificationIdRef.current !== null) {
@@ -855,9 +932,14 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       setState(prev => ({ ...prev, status: 'ongoing' }));
       startDurationTimer();
 
-      // Get credentials from server
-      const creds = await getCredentials(pending.roomId);
-      console.log('Got ZEGO credentials for answer:', { appId: creds.appId, userId: creds.userId });
+      // Get credentials from server - pass the EXACT roomId from caller
+      const creds = await getCredentials(roomIdToJoin);
+      console.log('[ZEGO] Got credentials for answer:', { appId: creds.appId, userId: creds.userId, roomId: creds.roomId, expectedRoomId: roomIdToJoin });
+      
+      // CRITICAL: Verify roomId matches
+      if (creds.roomId !== roomIdToJoin) {
+        console.error(`[ZEGO] ROOM ID MISMATCH ON ANSWER! Expected: ${roomIdToJoin}, Got: ${creds.roomId}`);
+      }
       
       // Create ZEGO instance using generateKitTokenForTest
       let zp: ReturnType<typeof ZegoUIKitPrebuilt.create> | null = null;
@@ -865,11 +947,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           creds.appId,
           creds.serverSecret,
-          creds.roomId,
+          roomIdToJoin, // CRITICAL: Use the EXACT roomId from the caller's broadcast
           creds.userId,
           creds.userName
         );
-        console.log('Generated kitToken for answer, creating ZEGO instance...');
+        console.log(`[ZEGO] Generated kitToken for answer with roomId: ${roomIdToJoin}`);
         zp = ZegoUIKitPrebuilt.create(kitToken);
         if (!zp) {
           throw new Error('Voice call service failed to initialize');
@@ -882,8 +964,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       zegoRef.current = zp;
        zegoInstanceReadyRef.current = true;
 
-      // Join once the modal container is ready.
-      tryJoinRoom('callee');
+      // Join with slight delay to ensure container is ready
+      setTimeout(() => {
+        tryJoinRoom('callee');
+      }, 150);
 
       // Notify caller that call is answered
       const signalChannel = callChannelRef.current;
@@ -977,58 +1061,116 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     declineCallRef.current = declineCall;
   }, [declineCall]);
 
-   // Toggle mute - control ZEGO audio
-   const toggleMute = useCallback(async () => {
-     const zego = zegoRef.current;
-     const newMuted = !latestStateRef.current.isMuted;
-     
-     if (zego) {
-       try {
-          // Prefer UIKit-level API when available.
-          const ui = zego as any;
-          if (typeof ui.setMicrophoneOn === 'function') {
-            // setMicrophoneOn(true) => mic enabled
-            await ui.setMicrophoneOn(!newMuted);
-          }
+  // Toggle mute - control ZEGO audio with multiple fallback methods
+  const toggleMute = useCallback(async () => {
+    const zego = zegoRef.current;
+    const newMuted = !latestStateRef.current.isMuted;
+    
+    console.log(`[ZEGO] Toggling mute to: ${newMuted}`);
+    
+    let success = false;
+    
+    if (zego) {
+      try {
+        // Method 1: UIKit-level API (preferred)
+        const ui = zego as any;
+        if (typeof ui.setMicrophoneOn === 'function') {
+          await ui.setMicrophoneOn(!newMuted);
+          console.log(`[ZEGO] Mute set via UIKit API: ${newMuted}`);
+          success = true;
+        }
 
-         const engine = (zego as any).zegoExpressEngine;
-         if (engine && typeof engine.muteMicrophone === 'function') {
-           await engine.muteMicrophone(newMuted);
-         } else if (engine && typeof engine.enableMic === 'function') {
-           await engine.enableMic(!newMuted);
-         }
-       } catch (e) {
-         console.warn('Failed to toggle mute:', e);
-       }
-     }
-     
-     setState(prev => ({ ...prev, isMuted: newMuted }));
+        // Method 2: Access local stream directly and toggle audio tracks
+        const localStream = ui.localStream || ui._localStream;
+        if (localStream && typeof localStream.getAudioTracks === 'function') {
+          const audioTracks = localStream.getAudioTracks();
+          audioTracks.forEach((track: MediaStreamTrack) => {
+            track.enabled = !newMuted;
+          });
+          console.log(`[ZEGO] Mute set via direct track manipulation: ${newMuted}`);
+          success = true;
+        }
+
+        // Method 3: Express Engine API
+        const engine = ui.zegoExpressEngine || ui._expressEngine;
+        if (engine) {
+          if (typeof engine.muteMicrophone === 'function') {
+            await engine.muteMicrophone(newMuted);
+            console.log(`[ZEGO] Mute set via engine.muteMicrophone: ${newMuted}`);
+            success = true;
+          } else if (typeof engine.enableMic === 'function') {
+            await engine.enableMic(!newMuted);
+            console.log(`[ZEGO] Mute set via engine.enableMic: ${newMuted}`);
+            success = true;
+          }
+        }
+      } catch (e) {
+        console.warn('[ZEGO] Failed to toggle mute:', e);
+      }
+    }
+    
+    if (!success) {
+      console.warn('[ZEGO] Could not find method to toggle mute, updating UI state only');
+    }
+    
+    setState(prev => ({ ...prev, isMuted: newMuted }));
   }, []);
 
-   // Toggle speaker - control audio output
-   const toggleSpeaker = useCallback(async () => {
-     const zego = zegoRef.current;
-     const newSpeaker = !latestStateRef.current.isSpeaker;
-     
-     if (zego) {
-       try {
-          // UIKit-level API (if present)
-          const ui = zego as any;
-          if (typeof ui.setAudioOutputDevice === 'function') {
-            // Some web implementations support selecting output devices.
-            // We don't have a device list here; keep as best-effort and fall back to engine.
-          }
+  // Toggle speaker - control audio output with WebRTC setSinkId API
+  const toggleSpeaker = useCallback(async () => {
+    const zego = zegoRef.current;
+    const newSpeaker = !latestStateRef.current.isSpeaker;
+    
+    console.log(`[ZEGO] Toggling speaker to: ${newSpeaker}`);
+    
+    let success = false;
+    
+    if (zego) {
+      try {
+        // Method 1: Express Engine API for native audio routing
+        const ui = zego as any;
+        const engine = ui.zegoExpressEngine || ui._expressEngine;
+        if (engine && typeof engine.setAudioRouteToSpeaker === 'function') {
+          await engine.setAudioRouteToSpeaker(newSpeaker);
+          console.log(`[ZEGO] Speaker set via engine: ${newSpeaker}`);
+          success = true;
+        }
 
-         const engine = (zego as any).zegoExpressEngine;
-         if (engine && typeof engine.setAudioRouteToSpeaker === 'function') {
-           await engine.setAudioRouteToSpeaker(newSpeaker);
-         }
-       } catch (e) {
-         console.warn('Failed to toggle speaker:', e);
-       }
-     }
-     
-     setState(prev => ({ ...prev, isSpeaker: newSpeaker }));
+        // Method 2: Try setSinkId on audio elements (Chrome/Edge)
+        if (!success && typeof navigator.mediaDevices?.enumerateDevices === 'function') {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+            
+            // Find speaker device
+            const speakerDevice = audioOutputs.find(d => 
+              d.label.toLowerCase().includes('speaker') || d.deviceId === 'default'
+            );
+            
+            if (speakerDevice) {
+              const audioElements = document.querySelectorAll('audio, video');
+              for (const el of audioElements) {
+                if (typeof (el as any).setSinkId === 'function') {
+                  await (el as any).setSinkId(speakerDevice.deviceId);
+                  console.log(`[ZEGO] Speaker set via setSinkId: ${speakerDevice.label}`);
+                  success = true;
+                }
+              }
+            }
+          } catch (deviceErr) {
+            console.warn('[ZEGO] Could not enumerate audio devices:', deviceErr);
+          }
+        }
+      } catch (e) {
+        console.warn('[ZEGO] Failed to toggle speaker:', e);
+      }
+    }
+    
+    if (!success) {
+      console.log('[ZEGO] Speaker toggle: UI state updated (native routing may not be available in web)');
+    }
+    
+    setState(prev => ({ ...prev, isSpeaker: newSpeaker }));
   }, []);
 
   // Listen for incoming calls
@@ -1060,10 +1202,11 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   const setCallContainer = useCallback((element: HTMLDivElement | null) => {
     containerRef.current = element;
     if (element) {
-       // Small delay to ensure ZEGO instance is fully ready
-       setTimeout(() => {
-         tryJoinRoom('container-ready');
-       }, 100);
+      console.log('[ZEGO] Container set, scheduling join attempts');
+      // Multiple delayed attempts to catch race conditions
+      setTimeout(() => tryJoinRoom('container-ready'), 100);
+      setTimeout(() => tryJoinRoom('container-ready'), 300);
+      setTimeout(() => tryJoinRoom('container-ready'), 600);
     }
   }, [tryJoinRoom]);
 

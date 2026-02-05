@@ -62,8 +62,12 @@ export const DeliveryPartnerZegoVoiceCallProvider = ({
       if (answeredRef.current) return;
       answeredRef.current = true;
       
-      // Small delay to ensure modal renders and container is set
-      await new Promise(resolve => setTimeout(resolve, 150));
+      console.log('[DeliveryPartnerZego] handleAnswer called');
+      
+      // Extended delay to ensure modal renders and container is set
+      // Critical for two-way audio connection
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('[DeliveryPartnerZego] Delay complete, calling answerCall');
       await voiceCall.answerCall();
     }, [voiceCall]);
  

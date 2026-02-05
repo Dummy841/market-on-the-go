@@ -1,9 +1,9 @@
-import React, { createContext, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserAuth } from './UserAuthContext';
 import { useZegoVoiceCall, CallStatus } from '@/hooks/useZegoVoiceCall';
  import IncomingCallOverlay from '@/components/voice-call/IncomingCallOverlay';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 interface GlobalZegoVoiceCallContextType {
   startCall: (options: {
@@ -88,20 +88,24 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
    }, [voiceCall.state.status, voiceCall.state.callId, navigate, location?.pathname]);
  
     // Handle answering incoming call
-    // IMPORTANT: navigate immediately so the /voice-call page mounts and provides the ZEGO container.
-    // Without the container, joinRoom may never execute -> one-way/no audio.
     const handleAnswer = useCallback(async () => {
       const callId = voiceCall.state.callId;
+      console.log('[GlobalZego] handleAnswer called, callId:', callId);
+      
       if (callId && navigate) {
         navigatedToCallRef.current = callId;
         try {
           navigate(`/voice-call/${callId}`);
+          console.log('[GlobalZego] Navigated to voice call page');
         } catch {
           // ignore
         }
       }
-      // Small delay to ensure page is mounted and container is set
-      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      // Extended delay to ensure page is fully mounted and container is set
+      // This is critical for two-way audio connection
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('[GlobalZego] Delay complete, calling answerCall');
       await voiceCall.answerCall();
     }, [voiceCall, navigate]);
  
