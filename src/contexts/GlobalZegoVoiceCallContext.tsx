@@ -93,8 +93,12 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
     return <>{children}</>;
   }
 
-   const isIncomingCall = voiceCall.state.status === 'ringing' && 
-     voiceCall.state.callerType === 'delivery_partner';
+    const isIncomingCall = voiceCall.state.status === 'ringing' && 
+      voiceCall.state.callerType === 'delivery_partner';
+
+    const incomingCallerName = isIncomingCall
+      ? 'Zippy Delivery Partner'
+      : (voiceCall.state.callerName || 'Delivery Partner');
  
   return (
     <GlobalZegoVoiceCallContext.Provider value={{
@@ -112,7 +116,7 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
        {/* Incoming Call Overlay - shows when receiving a call */}
        {isIncomingCall && (
          <IncomingCallOverlay
-           callerName={voiceCall.state.callerName || 'Delivery Partner'}
+            callerName={incomingCallerName}
            onAnswer={handleAnswer}
            onDecline={voiceCall.declineCall}
          />

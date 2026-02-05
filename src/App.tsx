@@ -111,26 +111,27 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GoogleMapsProvider>
-        <UserAuthProvider>
-          <SellerAuthProvider>
-            <CartProvider>
-              <OrderTrackingProvider>
-                <GlobalZegoVoiceCallProvider>
-                  <TooltipProvider>
-                    {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-                    <Toaster />
-                    <Sonner />
-                    <BrowserRouter>
+      {/* BrowserRouter must wrap providers that use react-router hooks (e.g., voice-call navigation) */}
+      <BrowserRouter>
+        <GoogleMapsProvider>
+          <UserAuthProvider>
+            <SellerAuthProvider>
+              <CartProvider>
+                <OrderTrackingProvider>
+                  <GlobalZegoVoiceCallProvider>
+                    <TooltipProvider>
+                      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                      <Toaster />
+                      <Sonner />
                       <AppContent />
-                    </BrowserRouter>
-                  </TooltipProvider>
-                </GlobalZegoVoiceCallProvider>
-              </OrderTrackingProvider>
-            </CartProvider>
-          </SellerAuthProvider>
-        </UserAuthProvider>
-      </GoogleMapsProvider>
+                    </TooltipProvider>
+                  </GlobalZegoVoiceCallProvider>
+                </OrderTrackingProvider>
+              </CartProvider>
+            </SellerAuthProvider>
+          </UserAuthProvider>
+        </GoogleMapsProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };
