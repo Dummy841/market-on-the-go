@@ -12,10 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
 import DeliveryCustomerChat from "./DeliveryCustomerChat";
-import { useZegoVoiceCall } from "@/hooks/useZegoVoiceCall";
-// useIncomingCall is handled globally by DeliveryPartnerZegoVoiceCallContext
- import VoiceCallModal from "./voice-call/VoiceCallModal";
- import IncomingCallOverlay from "./voice-call/IncomingCallOverlay";
+import { useDeliveryPartnerZegoVoiceCall } from "@/contexts/DeliveryPartnerZegoVoiceCallContext";
 import { cn } from "@/lib/utils";
 
 interface Order {
@@ -66,20 +63,12 @@ const DeliveryPartnerOrders = ({
   const [chatModalOpen, setChatModalOpen] = useState(false);
   const [chatOrderId, setChatOrderId] = useState("");
   const [chatUserId, setChatUserId] = useState("");
-  const [voiceCallChatId, setVoiceCallChatId] = useState<string | null>(null);
-  const [voiceCallCustomerName, setVoiceCallCustomerName] = useState("Customer");
-  const [voiceCallUserId, setVoiceCallUserId] = useState("");
   const { toast } = useToast();
 
-  // Voice call hook - using ZEGOCloud
-  const voiceCall = useZegoVoiceCall({
-    myId: partnerId,
-    myType: 'delivery_partner',
-    myName: partnerName,
-  });
-
-  // NOTE: Incoming calls are handled by DeliveryPartnerZegoVoiceCallContext globally
-  // DO NOT add useIncomingCall here - it causes duplicate listeners
+  // Voice calling MUST be handled by the DeliveryPartnerZegoVoiceCallContext.
+  // Using useZegoVoiceCall() here creates a second listener on `incoming-call-${partnerId}`
+  // which can cause one-way audio / missed joinRoom due to duplicated state.
+  const voiceCall = useDeliveryPartnerZegoVoiceCall();
 
   // Get or create chat and start voice call
   const handleVoiceCall = useCallback(async (order: Order) => {
@@ -92,8 +81,6 @@ const DeliveryPartnerOrders = ({
         .single();
 
       const customerName = user?.name || 'Customer';
-      setVoiceCallCustomerName(customerName);
-      setVoiceCallUserId(order.user_id);
 
       // Get or create chat
       const { data: existingChat } = await supabase
@@ -123,9 +110,7 @@ const DeliveryPartnerOrders = ({
         }
         chatId = newChat.id;
       }
-
-      setVoiceCallChatId(chatId);
-      voiceCall.startCall({ 
+      await voiceCall.startCall({ 
         receiverId: order.user_id,
         receiverName: customerName,
         chatId,
@@ -607,30 +592,6 @@ const DeliveryPartnerOrders = ({
         userId={chatUserId}
         deliveryPartnerName={partnerName}
       />
-
-       {/* Incoming Call Overlay */}
-       {voiceCall.state.status === 'ringing' && voiceCall.state.callerType === 'user' && (
-         <IncomingCallOverlay
-           callerName={voiceCallCustomerName}
-           onAnswer={voiceCall.answerCall}
-           onDecline={voiceCall.declineCall}
-         />
-       )}
- 
-       {/* Active Call Modal */}
-       {(voiceCall.state.status === 'calling' || voiceCall.state.status === 'ongoing') && (
-         <VoiceCallModal
-           partnerName={voiceCallCustomerName}
-           status={voiceCall.state.status}
-           duration={voiceCall.state.duration}
-           isMuted={voiceCall.state.isMuted}
-           isSpeaker={voiceCall.state.isSpeaker}
-           onEnd={voiceCall.endCall}
-           onToggleMute={voiceCall.toggleMute}
-           onToggleSpeaker={voiceCall.toggleSpeaker}
-           setCallContainer={voiceCall.setCallContainer}
-         />
-       )}
     </div>
   );
 };
