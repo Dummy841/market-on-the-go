@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RINGTONE_DATA_URL } from "@/lib/ringtoneDataUrl";
 import { useNativeNotifications, registerCallActionCallback, unregisterCallActionCallback } from "@/hooks/useNativeNotifications";
+ import { zegoSignalingService } from "@/services/zegoSignalingService";
 
 export type CallStatus = 'idle' | 'calling' | 'ringing' | 'ongoing' | 'ended' | 'declined' | 'missed';
 
@@ -754,7 +755,25 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
       zegoRef.current = zp;
        zegoInstanceReadyRef.current = true;
 
-      // Notify receiver via Supabase Realtime
+       // Notify receiver via ZIM signaling (for background push) and Supabase Realtime (fallback)
+       // Try ZIM first for offline push notification capability
+       let zimSent = false;
+       try {
+         if (zegoSignalingService.isConnected()) {
+           zimSent = await zegoSignalingService.sendCallInvitation(
+             receiverId,
+             callId,
+             roomId,
+             myName,
+             myType
+           );
+           console.log('[ZEGO] ZIM call invitation sent:', zimSent);
+         }
+       } catch (zimError) {
+         console.warn('[ZEGO] ZIM signaling failed, using Supabase fallback:', zimError);
+       }
+ 
+       // Always send via Supabase Realtime as fallback (for when app is in foreground)
       const receiverChannel = supabase.channel(`incoming-call-${receiverId}`);
       await receiverChannel.subscribe();
 
