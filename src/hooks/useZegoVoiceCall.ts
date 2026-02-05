@@ -524,6 +524,10 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         return;
       }
 
+      // NOTE: In UI, `callerName/callerType` represent the *other party* (the person you are calling / who is calling you).
+      // This keeps Incoming/Calling screens consistent for both directions.
+      const remoteType: 'user' | 'delivery_partner' = myType === 'user' ? 'delivery_partner' : 'user';
+
       setState({
         status: 'calling',
         callId: null,
@@ -531,8 +535,8 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
         duration: 0,
         isMuted: false,
         isSpeaker: false,
-        callerType: myType,
-        callerName: myName,
+        callerType: remoteType,
+        callerName: receiverName,
       });
 
       // Generate room ID from chat ID
