@@ -75,6 +75,7 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
     const audio = new Audio('/ringtone.mp3');
     audio.preload = 'auto';
     audio.loop = true;
+    audio.volume = 1.0;
 
     // If mp3 fails to load/play, fallback to the data URL.
     audio.addEventListener('error', () => {
@@ -94,7 +95,12 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
      const ringback = new Audio('/ringback.mp3');
      ringback.preload = 'auto';
      ringback.loop = true;
+     ringback.volume = 1.0;
      ringbackRef.current = ringback;
+
+     // Force load both audio files
+     audio.load();
+     ringback.load();
   }, []);
 
   // Unlock audio on first user interaction (required for reliable ringtone playback)
@@ -219,26 +225,43 @@ export const useZegoVoiceCall = ({ myId, myType, myName }: UseZegoVoiceCallProps
   // Play/stop ringtone with vibration + notification fallback
   const playRingtone = useCallback((callerName?: string) => {
     const audio = ringtoneRef.current;
-    if (!audio) return;
-
-    // Try play; if blocked by autoplay policy, it will reject.
-    audio.play().catch((err) => {
-      console.warn('Ringtone play blocked/unavailable:', err);
-      
-      // Fallback 1: Start vibration pattern
+    if (!audio) {
+      console.warn('Ringtone audio element not available');
+      // Still try vibration/notification fallback
       startVibration();
-      
-      // Fallback 2: Show browser notification (web only fallback)
       if (callerName) {
         showBrowserNotification(callerName);
       }
+      return;
+    }
 
-      // Guide the user
-      toast({
-        title: 'Sound blocked',
-        description: 'Tap the screen once to enable ringtone/voice audio.',
+    // Reset to beginning
+    audio.currentTime = 0;
+
+    // Try play; if blocked by autoplay policy, it will reject.
+    const playPromise = audio.play();
+    
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        console.log('Ringtone playing successfully');
+      }).catch((err) => {
+        console.warn('Ringtone play blocked/unavailable:', err);
+        
+        // Fallback 1: Start vibration pattern
+        startVibration();
+        
+        // Fallback 2: Show browser notification (web only fallback)
+        if (callerName) {
+          showBrowserNotification(callerName);
+        }
+
+        // Guide the user
+        toast({
+          title: 'Sound blocked',
+          description: 'Tap the screen once to enable ringtone/voice audio.',
+        });
       });
-    });
+    }
   }, [toast, startVibration, showBrowserNotification]);
 
   const stopRingtone = useCallback(() => {

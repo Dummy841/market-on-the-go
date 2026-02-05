@@ -1,4 +1,4 @@
- import React, { useEffect, useRef } from 'react';
+  import React, { useEffect, useRef, useMemo } from 'react';
  import { useParams, useNavigate } from 'react-router-dom';
  import CallAvatar from '@/components/voice-call/CallAvatar';
  import CallControls from '@/components/voice-call/CallControls';
@@ -21,6 +21,17 @@ import { useGlobalZegoVoiceCall } from '@/contexts/GlobalZegoVoiceCallContext';
     const callerType = state.callerType;
     const rawCallerName = state.callerName || 'Unknown';
     const callerName = callerType === 'delivery_partner' ? 'Zippy Delivary Partner' : rawCallerName;
+
+    // Determine if this is an incoming call that WE received (vs. a call WE initiated)
+    // If we are ringing AND the callerType is opposite of what we are, it's incoming.
+    // However, callerType in state represents the REMOTE party, so:
+    // - For user: if callerType === 'delivery_partner', the partner is calling us
+    // - For partner: if callerType === 'user', the user is calling us
+    // Since VoiceCall page is used by the USER (GlobalZegoVoiceCallContext), we check:
+    // The caller initiated the call and navigated here. So 'ringing' + 'calling' both mean
+    // we are the caller. 'ringing' only appears on the callee side via IncomingCallOverlay.
+    // Thus on VoiceCall page: status will be 'calling' (we started) or 'ongoing' (connected).
+    // We should NEVER see 'ringing' here because incoming calls show IncomingCallOverlay first.
  
    // Set container ref when mounted
    useEffect(() => {
@@ -68,11 +79,15 @@ import { useGlobalZegoVoiceCall } from '@/contexts/GlobalZegoVoiceCallContext';
      }
    };
  
-   const isIncoming = status === 'ringing' && callerType !== state?.callerType;
+    // On the VoiceCall page, the user is always the CALLER (we navigate here after startCall).
+    // Incoming calls are handled by IncomingCallOverlay first, then navigate here after answering.
+    // So we should never show incoming UI on this page.
+    const isIncoming = false;
    const isAnimating = status === 'calling' || status === 'ringing';
    const showTimer = status === 'ongoing';
    const showControls = status === 'calling' || status === 'ongoing';
-   const showAnswerDecline = status === 'ringing';
+    // Since isIncoming is always false here, we never show answer/decline on this page
+    const showAnswerDecline = false;
    const isCallEnded = status === 'ended' || status === 'declined' || status === 'missed';
  
    return (
