@@ -2,7 +2,7 @@ import React, { createContext, useContext, ReactNode } from 'react';
 import { useZegoVoiceCall, CallStatus } from '@/hooks/useZegoVoiceCall';
  import IncomingCallOverlay from '@/components/voice-call/IncomingCallOverlay';
  import VoiceCallModal from '@/components/voice-call/VoiceCallModal';
-  import { useCallback, useRef } from 'react';
+  import { useCallback, useRef, useEffect } from 'react';
 
 interface DeliveryPartnerZegoVoiceCallContextType {
   startCall: (options: {
@@ -73,9 +73,11 @@ export const DeliveryPartnerZegoVoiceCallProvider = ({
       voiceCall.state.status === 'missed' ||
       voiceCall.state.status === 'idle';
     
-    if (isCallEnded && answeredRef.current) {
-      answeredRef.current = false;
-    }
+    useEffect(() => {
+      if (isCallEnded && answeredRef.current) {
+        answeredRef.current = false;
+      }
+    }, [isCallEnded]);
  
    const isIncomingCall = voiceCall.state.status === 'ringing' && 
      voiceCall.state.callerType === 'user';
