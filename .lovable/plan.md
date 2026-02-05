@@ -1,273 +1,363 @@
 
-# Professional 1-on-1 Voice Calling Feature - Implementation Plan
 
- **STATUS: ✅ COMPLETED**
- 
+# Voice Call System - Complete Fix Plan
+
 ## Overview
 
-This plan redesigns the existing voice calling system to provide a professional WhatsApp/Instagram-style experience using the ZEGOCLOUD UIKit. The current implementation already uses `@zegocloud/zego-uikit-prebuilt`, but the UI/UX needs a complete overhaul for a polished, production-ready appearance.
+This plan addresses all the voice call issues between users and delivery partners:
 
-## Current State Analysis
+1. **Ringtone not playing for users** when delivery partner calls
+2. **One-way/no audio connection** between caller and receiver
+3. **Mute and Speaker buttons not working** properly
+4. **Android background call handling** with lock screen wake-up
 
-The project already has:
-- ZEGOCLOUD integration via `@zegocloud/zego-uikit-prebuilt` (v2.17.2)
-- Edge function `get-zego-token` returning credentials
-- Secrets configured: `ZEGO_APP_ID`, `ZEGO_SERVER_SECRET`
-- Voice call hook: `src/hooks/useZegoVoiceCall.ts` (944 lines)
-- Basic call modal: `src/components/ZegoVoiceCallModal.tsx`
-- Global context: `src/contexts/GlobalZegoVoiceCallContext.tsx`
-- Database table: `voice_calls` with proper schema
+## Root Cause Analysis
 
-## Architecture Decision
+After reviewing the code, I identified these core issues:
 
-**Approach: Dedicated Voice Call Page (Not Modal)**
+1. **Room ID Mismatch**: Caller and callee may join different rooms because the callee uses `pending.roomId` from the broadcast, but the caller generates a new `kitToken` with `creds.roomId`. If these don't match exactly, both parties are in separate rooms with no audio bridge.
 
-Instead of an overlay modal, we'll create a dedicated `/voice-call/:callId` page. This approach:
-- Provides cleaner state management via URL
-- Handles browser back button naturally
-- Works better on mobile (full-screen experience)
-- Allows graceful navigation after call ends
+2. **Race Condition in joinRoom**: The `tryJoinRoom` function has multiple guards (`zegoInstanceReadyRef`, `containerRef`, etc.) that can cause the join to silently fail or happen too late.
 
----
+3. **Ringtone Playback Timing**: The `playRingtone` function is called, but browser autoplay policies may block it. The current fallback (vibration + toast) doesn't reliably trigger on all Android WebViews.
 
-## Implementation Steps
+4. **Mute/Speaker Functions**: These attempt to use internal ZEGO Express Engine methods that may not be exposed on the UIKit wrapper. The current approach is best-effort but unreliable.
 
-### Phase 1: Configuration & Security
+5. **Missing Android Foreground Service**: For true background call handling with screen wake-up, Android requires a foreground service with proper notification channels and wake locks.
 
-**1.1 Create ZEGO Config File**
+## Technical Solution
 
-Create `src/config/zego.ts` to centralize ZEGOCLOUD configuration:
+### 1. Fix Room Join Logic (Critical for Two-Way Audio)
+
+**File: `src/hooks/useZegoVoiceCall.ts`**
+
+The core fix ensures both caller and callee use the **exact same roomId** and join the room at the right time:
 
 ```text
-src/config/zego.ts
+Current Flow (Broken):
+  Caller: generates roomId -> creates ZEGO -> broadcasts incoming-call with roomId
+  Callee: receives roomId -> stores in pendingCallRef -> on answer, uses pending.roomId
+  
+  Problem: Callee may generate a NEW roomId via getCredentials(pending.roomId)
+           if the server echoes a different format or the client re-encodes it
 ```
 
-This file will export:
-- Call scenario modes (OneOnOne Voice)
-- Default call timeout (30 seconds)
-- Audio-only configuration flags
-- Room ID generation utility
+**Fix:**
+- Ensure `getCredentials` returns the **exact** roomId passed to it (already does, but we need to verify the callee path)
+- Add logging to verify both sides join the same room
+- Add a `joinRoom` retry mechanism with exponential backoff
 
-### Phase 2: Redesigned Voice Call UI
+### 2. Fix Ringtone Playback
 
-**2.1 New Professional Voice Call Page**
+**File: `src/hooks/useZegoVoiceCall.ts`**
 
-Create `src/pages/VoiceCall.tsx` - A dedicated full-screen page with:
+Add a more aggressive audio unlock strategy and ensure ringtone plays on incoming call:
 
-**Visual Design (WhatsApp/Instagram Style):**
-- Glassmorphism blurred background with gradient overlay
-- Large centered avatar with subtle pulsing animation during ringing
-- Caller name prominently displayed
-- Call duration timer at the top (during ongoing calls)
-- Status text (Calling... / Ringing... / Connected)
+- Pre-unlock audio on app load (not just on user gesture)
+- Use AudioContext for reliable playback in WebViews
+- Add a user-initiated audio unlock if autoplay fails (full-screen tap target)
 
-**Control Bar (Bottom Floating):**
-```text
-+--------------------------------------------------+
-|                                                  |
-|              [Avatar with pulse]                 |
-|                                                  |
-|              "Delivery Partner"                  |
-|                  00:45                           |
-|                                                  |
-|     +------+    +------+    +------+             |
-|     | Mute |    | End  |    |Speaker|            |
-|     +------+    +------+    +------+             |
-+--------------------------------------------------+
-```
+### 3. Fix Mute/Speaker Controls
 
-**States to Handle:**
-- `calling` - Outgoing call, show ringback animation
-- `ringing` - Incoming call, show Answer/Decline buttons
-- `ongoing` - Connected, show timer and controls
-- `ended`/`declined`/`missed` - Auto-navigate back after 2s
+**File: `src/hooks/useZegoVoiceCall.ts`**
 
-**2.2 Call Control Components**
+Replace the current approach with ZegoUIKitPrebuilt's documented API:
 
-Create `src/components/voice-call/CallAvatar.tsx`:
-- Animated rings during calling/ringing
-- Profile image or initial fallback
-- Pulse effect with CSS animations
+- Use `zego.setMicrophoneOn(boolean)` for mute
+- Use `zego.setAudioOutputDevice(deviceId)` or toggle between speaker/earpiece modes
+- Add fallback to direct WebRTC track manipulation if UIKit methods fail
 
-Create `src/components/voice-call/CallControls.tsx`:
-- Floating bottom bar with blur backdrop
-- Mute toggle (mic icon with visual state)
-- End call button (prominent red)
-- Speaker toggle (speaker icon with state)
-- Answer/Decline buttons for incoming calls
+### 4. Add Android Background Call Support
 
-Create `src/components/voice-call/CallTimer.tsx`:
-- Displays elapsed time in MM:SS format
-- Only visible during ongoing calls
+**Files:**
+- `src/hooks/useNativeNotifications.ts` - Enhanced with wake lock and full-screen intent
+- `android/app/src/main/res/raw/ringtone.mp3` - Place the ringtone file
+- `capacitor.config.ts` - Configure plugins
 
-### Phase 3: Refactored Voice Call Hook
+For Android, we need:
+- **Foreground Service**: Keep the app running during calls
+- **Wake Lock**: Wake the screen on incoming calls
+- **Full-Screen Intent**: Show incoming call UI over lock screen
+- **VIBRATE permission**: For vibration fallback
 
-**3.1 Enhanced `useZegoVoiceCall.ts`**
+---
 
-Refactor the existing hook to:
+## Implementation Details
 
-1. **Improve Call ID Generation:**
-   - Generate unique callID: `call_${Date.now()}_${randomString(6)}`
-   - Ensure alphanumeric, max 32 chars (ZEGO requirement)
-
-2. **Proper Navigation Integration:**
-   - On call initiation: `navigate('/voice-call/' + callId)`
-   - On call end: `navigate(-1)` or to previous page
-
-3. **Better Audio Control:**
-   - Actual mute/unmute via ZEGO SDK methods
-   - Speaker toggle for native platforms
-
-4. **Ringback Tone for Caller:**
-   - Play subtle "calling" sound while waiting for answer
-
-### Phase 4: Call Initiation Flow
-
-**4.1 Update Chat Components**
-
-Modify `UserDeliveryChat.tsx` and `DeliveryCustomerChat.tsx`:
-
-When call button clicked:
-1. Generate unique callId
-2. Store call intent in state/context
-3. Navigate to `/voice-call/:callId`
-4. The VoiceCall page handles ZEGO connection
-
-**4.2 Incoming Call Handling**
-
-The global context already listens for incoming calls. Modify to:
-1. On incoming call → Store pending call data
-2. Show incoming call UI (can be overlay initially)
-3. If answered → Navigate to `/voice-call/:callId`
-4. If declined → Clear state, stay on current page
-
-### Phase 5: Route Configuration
-
-**5.1 Add Voice Call Route**
-
-Update `src/App.tsx`:
+### Step 1: Hardened Room Join Logic
 
 ```typescript
-<Route path="/voice-call/:callId" element={<VoiceCall />} />
+// In useZegoVoiceCall.ts - answerCall function
+
+const answerCall = useCallback(async () => {
+  const pending = pendingCallRef.current;
+  if (!pending) return;
+
+  // CRITICAL: Use the EXACT roomId from the caller's broadcast
+  const roomIdToJoin = pending.roomId;
+  
+  // Get credentials but force the same roomId
+  const creds = await getCredentials(roomIdToJoin);
+  
+  // Verify roomId matches
+  console.log(`[ZEGO] Joining room: ${creds.roomId} (expected: ${roomIdToJoin})`);
+  if (creds.roomId !== roomIdToJoin) {
+    console.error('[ZEGO] Room ID mismatch! This will cause one-way audio.');
+  }
+  
+  // Create ZEGO instance and join
+  // ... rest of logic
+}, [...]);
 ```
 
-### Phase 6: Responsive Design
-
-**6.1 Mobile Optimization**
-- Full viewport height (`100dvh` for mobile browsers)
-- Safe area insets for notched devices
-- Touch-friendly button sizes (min 48x48px)
-- Prevent scroll bounce
-
-**6.2 Desktop Optimization**
-- Centered card layout with max-width
-- Keyboard shortcuts (M for mute, S for speaker)
-- Hover states on controls
-
----
-
-## File Changes Summary
-
-| Action | File Path | Description |
-|--------|-----------|-------------|
-| Create | `src/config/zego.ts` | ZEGO configuration constants |
-| Create | `src/pages/VoiceCall.tsx` | Main voice call page |
-| Create | `src/components/voice-call/CallAvatar.tsx` | Animated avatar component |
-| Create | `src/components/voice-call/CallControls.tsx` | Bottom control bar |
-| Create | `src/components/voice-call/CallTimer.tsx` | Duration display |
-| Create | `src/components/voice-call/IncomingCallOverlay.tsx` | Overlay for incoming calls |
-| Modify | `src/hooks/useZegoVoiceCall.ts` | Add navigation, improve audio controls |
-| Modify | `src/contexts/GlobalZegoVoiceCallContext.tsx` | Handle navigation + incoming overlay |
-| Modify | `src/contexts/DeliveryPartnerZegoVoiceCallContext.tsx` | Same updates for delivery partner |
-| Modify | `src/components/UserDeliveryChat.tsx` | Update call initiation flow |
-| Modify | `src/components/DeliveryCustomerChat.tsx` | Update call initiation flow |
-| Modify | `src/App.tsx` | Add voice call route |
-| Delete | `src/components/ZegoVoiceCallModal.tsx` | Replace with page-based approach |
-
----
-
-## Technical Details
-
-### CSS Animation for Avatar Pulse
-
-```css
-.call-pulse-ring {
-  animation: pulse-ring 1.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
-}
-
-@keyframes pulse-ring {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.1); opacity: 0.3; }
-  100% { transform: scale(0.9); opacity: 0.7; }
-}
-```
-
-### Glassmorphism Background
-
-```css
-.call-backdrop {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
-  backdrop-filter: blur(20px);
-}
-```
-
-### ZEGO Audio-Only Configuration
+### Step 2: Reliable Audio Controls
 
 ```typescript
-zegoInstance.joinRoom({
-  container: hiddenDiv, // 1x1px hidden element
-  scenario: { mode: ZegoUIKitPrebuilt.OneONoneCall },
-  turnOnCameraWhenJoining: false,
-  turnOnMicrophoneWhenJoining: true,
-  showMyCameraToggleButton: false,
-  showScreenSharingButton: false,
-});
+// In useZegoVoiceCall.ts - toggleMute function
+
+const toggleMute = useCallback(async () => {
+  const zego = zegoRef.current;
+  if (!zego) return;
+  
+  const newMuted = !latestStateRef.current.isMuted;
+  
+  try {
+    // Method 1: UIKit API (preferred)
+    if (typeof (zego as any).setMicrophoneOn === 'function') {
+      await (zego as any).setMicrophoneOn(!newMuted);
+      console.log(`[ZEGO] Mute set via UIKit: ${newMuted}`);
+    }
+    
+    // Method 2: Get local audio track and disable
+    const localStream = (zego as any).localStream;
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !newMuted;
+        console.log(`[ZEGO] Mute set via track: ${newMuted}`);
+      }
+    }
+  } catch (e) {
+    console.warn('[ZEGO] Mute toggle failed:', e);
+  }
+  
+  setState(prev => ({ ...prev, isMuted: newMuted }));
+}, []);
+
+const toggleSpeaker = useCallback(async () => {
+  const newSpeaker = !latestStateRef.current.isSpeaker;
+  
+  try {
+    // For web: Can't truly switch output device without setSinkId
+    // For mobile: We'll rely on native audio routing
+    
+    // Try to get all audio elements and toggle their output
+    const audioElements = document.querySelectorAll('audio, video');
+    audioElements.forEach((el: any) => {
+      if (typeof el.setSinkId === 'function') {
+        // Modern browsers support this
+        // We'd need to enumerate devices to find speaker vs earpiece
+        // For now, just log
+        console.log('[ZEGO] setSinkId available but device list needed');
+      }
+    });
+    
+    // For Capacitor/native: We need a native plugin to route audio
+    // This is a limitation of web-based audio
+    console.log(`[ZEGO] Speaker toggled (UI only): ${newSpeaker}`);
+  } catch (e) {
+    console.warn('[ZEGO] Speaker toggle failed:', e);
+  }
+  
+  setState(prev => ({ ...prev, isSpeaker: newSpeaker }));
+}, []);
 ```
 
+### Step 3: Reliable Ringtone with AudioContext
+
+```typescript
+// In useZegoVoiceCall.ts - enhanced playRingtone
+
+const playRingtone = useCallback(async (callerName?: string) => {
+  // Create AudioContext to bypass autoplay restrictions
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Resume context (required after user interaction)
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+  } catch (e) {
+    console.warn('AudioContext not available:', e);
+  }
+  
+  // Try playing the ringtone
+  const audio = ringtoneRef.current;
+  if (!audio) {
+    startVibration();
+    showBrowserNotification(callerName || 'Incoming Call');
+    return;
+  }
+  
+  audio.currentTime = 0;
+  audio.volume = 1.0;
+  
+  try {
+    await audio.play();
+    console.log('[Ringtone] Playing successfully');
+  } catch (err) {
+    console.warn('[Ringtone] Autoplay blocked, using fallbacks');
+    
+    // Fallback 1: Vibration
+    startVibration();
+    
+    // Fallback 2: Browser/Native notification
+    showBrowserNotification(callerName || 'Incoming Call');
+    
+    // Fallback 3: Show tap-to-play overlay
+    toast({
+      title: 'Incoming Call',
+      description: 'Tap to enable sound',
+      duration: 30000,
+    });
+  }
+}, [startVibration, showBrowserNotification, toast]);
+```
+
+### Step 4: Android Background Call Handling
+
+**Update `src/hooks/useNativeNotifications.ts`:**
+
+```typescript
+// Enhanced incoming call notification for Android
+const showIncomingCallNotification = useCallback(async (
+  callerName: string,
+  callId: string
+): Promise<number> => {
+  const notificationId = Math.floor(Math.random() * 100000);
+  
+  if (!Capacitor.isNativePlatform()) {
+    // Web fallback
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('📞 Incoming Call', { 
+        body: `${callerName} is calling...`,
+        requireInteraction: true,
+        tag: 'incoming-call',
+      });
+    }
+    return notificationId;
+  }
+  
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: notificationId,
+          title: '📞 Incoming Call',
+          body: `${callerName} is calling...`,
+          channelId: 'zippy_calls',
+          sound: 'ringtone', // Uses android/app/src/main/res/raw/ringtone.mp3
+          extra: { type: 'incoming_call', callId },
+          smallIcon: 'ic_notification',
+          iconColor: '#FF6B00',
+          ongoing: true,        // Persistent notification
+          autoCancel: false,    // Don't dismiss on tap
+          actionTypeId: 'INCOMING_CALL',
+          // Android-specific for lock screen
+          importance: 5,        // MAX importance
+          visibility: 1,        // PUBLIC - show on lock screen
+        },
+      ],
+    });
+    
+    // Vibrate device
+    if ('vibrate' in navigator) {
+      navigator.vibrate([500, 200, 500, 200, 500]);
+    }
+    
+    console.log('[Native] Incoming call notification scheduled:', notificationId);
+  } catch (error) {
+    console.error('[Native] Error showing call notification:', error);
+  }
+
+  return notificationId;
+}, []);
+```
+
+### Step 5: Android Capacitor Configuration
+
+**Update `capacitor.config.ts`:**
+
+```typescript
+const config: CapacitorConfig = {
+  appId: 'app.lovable.272be06f1428431096298c2f21b87333',
+  appName: 'zippydelivary',
+  webDir: 'dist',
+  server: {
+    url: 'https://272be06f-1428-4310-9629-8c2f21b87333.lovableproject.com?forceHideBadge=true',
+    cleartext: true
+  },
+  plugins: {
+    LocalNotifications: {
+      smallIcon: 'ic_notification',
+      iconColor: '#FF6B00',
+      sound: 'ringtone.mp3',
+    },
+  },
+};
+```
+
+**Required Android Setup (User Must Do Manually):**
+
+1. Add `ringtone.mp3` to `android/app/src/main/res/raw/`
+2. Add permissions to `AndroidManifest.xml`:
+   - `VIBRATE`
+   - `WAKE_LOCK`
+   - `USE_FULL_SCREEN_INTENT`
+   - `FOREGROUND_SERVICE`
+
 ---
 
-## Edge Cases Handled
+## Files to Modify
 
-1. **Browser Back Button**: Uses `navigate(-1)` properly
-2. **Call Timeout**: 30-second missed call handling
-3. **Permission Denied**: Clear error messaging
-4. **Network Loss**: ZEGO SDK handles reconnection
-5. **Both Parties Hang Up Simultaneously**: Uses `endingRef` to prevent loops
-6. **Audio Autoplay Blocked**: Shows toast + uses vibration/notification fallback
+| File | Changes |
+|------|---------|
+| `src/hooks/useZegoVoiceCall.ts` | Fix room join logic, audio controls, ringtone |
+| `src/hooks/useNativeNotifications.ts` | Enhanced Android notification with wake lock |
+| `src/contexts/GlobalZegoVoiceCallContext.tsx` | Add delay handling for UI mount |
+| `src/contexts/DeliveryPartnerZegoVoiceCallContext.tsx` | Same timing fixes |
+| `src/components/voice-call/VoiceCallModal.tsx` | Ensure container is set before join |
+| `capacitor.config.ts` | Add notification plugin config |
 
 ---
 
-## Estimated Complexity
+## Testing Checklist
 
-- **New Files**: 6 components/pages
-- **Modified Files**: 6 existing files
-- **Lines of Code**: ~800-1000 new/modified lines
-- **Testing Focus**: Both user and delivery partner call flows, mobile and desktop
+After implementation, test these scenarios:
 
-This implementation will deliver a polished, WhatsApp-quality voice calling experience while maintaining all existing functionality including native notifications, ringtones, and fallbacks.
- 
- ## Implementation Complete
- 
- The following files were created/modified:
- 
- **Created:**
- - `src/config/zego.ts` - ZEGO configuration constants
- - `src/pages/VoiceCall.tsx` - Dedicated voice call page
- - `src/components/voice-call/CallAvatar.tsx` - Animated avatar with pulse effect
- - `src/components/voice-call/CallControls.tsx` - Bottom control bar
- - `src/components/voice-call/CallTimer.tsx` - Duration display
- - `src/components/voice-call/IncomingCallOverlay.tsx` - Full-screen incoming call UI
- - `src/components/voice-call/VoiceCallModal.tsx` - Modal for delivery partners
- 
- **Modified:**
- - `src/App.tsx` - Added `/voice-call/:callId` route
- - `src/index.css` - Added pulse-ring animation keyframes and call color tokens
- - `src/contexts/GlobalZegoVoiceCallContext.tsx` - Exposed all call methods, added IncomingCallOverlay
- - `src/contexts/DeliveryPartnerZegoVoiceCallContext.tsx` - Exposed all call methods, added overlays
- - `src/components/UserDeliveryChat.tsx` - Updated to use global context
- - `src/components/DeliveryCustomerChat.tsx` - Updated to use context
- - `src/components/OrderTrackingModal.tsx` - Updated to use global context
- - `src/components/DeliveryPartnerOrders.tsx` - Updated to use new components
- 
- **Deleted:**
- - `src/components/ZegoVoiceCallModal.tsx` - Replaced with modular components
+1. **User calls Delivery Partner**
+   - User sees "Calling..." with End/Mute/Speaker buttons
+   - Partner hears ringtone and sees incoming call overlay
+   - Partner answers, both hear each other
+   - Mute button stops sending audio
+   - End from either side disconnects both
+
+2. **Delivery Partner calls User**
+   - Partner sees "Calling..." with controls
+   - User hears ringtone and sees incoming call overlay
+   - User answers, both hear each other
+   - End from either side disconnects both
+
+3. **Android Background Call**
+   - When app is backgrounded, incoming call shows lock screen notification
+   - Tapping notification opens app to call screen
+   - Answer/Decline buttons work from notification
+
+---
+
+## Limitations
+
+- **True speaker/earpiece toggle** requires native audio routing plugins (beyond Capacitor LocalNotifications)
+- **Full lock-screen call UI** (like WhatsApp) requires a native Android foreground service and ConnectionService
+- **iOS background calls** need CallKit integration for proper behavior
+
