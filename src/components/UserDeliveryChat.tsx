@@ -220,15 +220,14 @@ const UserDeliveryChat = ({
    // Handle call button - navigate to voice call page
   const handleCall = async () => {
      if (chatId && deliveryPartner && voiceCall) {
-       await voiceCall.startCall({
+       // Start the call - navigation will be handled by the context
+       voiceCall.startCall({
         receiverId: deliveryPartner.id,
         receiverName: deliveryPartner.name,
         chatId,
       });
-       // Navigate to voice call page
-       if (voiceCall.state.callId) {
-         navigate(`/voice-call/${voiceCall.state.callId}`);
-       }
+       // Close the chat dialog so the call UI is visible
+       onOpenChange(false);
     }
   };
 

@@ -234,11 +234,14 @@ const DeliveryCustomerChat = ({
        return;
      }
  
-     await voiceCall.startCall({
+     // Start the call - navigation/modal will be handled by the context
+     voiceCall.startCall({
       receiverId: userId,
       receiverName: customerName,
       chatId,
     });
+     // Close the chat dialog so the call UI is visible
+     onOpenChange(false);
   };
 
   // Scroll to bottom on new messages
