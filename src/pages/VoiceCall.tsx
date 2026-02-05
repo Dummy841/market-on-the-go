@@ -3,24 +3,17 @@
  import CallAvatar from '@/components/voice-call/CallAvatar';
  import CallControls from '@/components/voice-call/CallControls';
  import CallTimer, { formatDuration } from '@/components/voice-call/CallTimer';
- import { CallStatus } from '@/hooks/useZegoVoiceCall';
- import { useUserAuth } from '@/contexts/UserAuthContext';
- import { useZegoVoiceCall } from '@/hooks/useZegoVoiceCall';
+import { useGlobalZegoVoiceCall } from '@/contexts/GlobalZegoVoiceCallContext';
  
  const VoiceCall = () => {
    const { callId } = useParams<{ callId: string }>();
    const navigate = useNavigate();
    const containerRef = useRef<HTMLDivElement>(null);
-   const { user, isAuthenticated } = useUserAuth();
-   
-   // Create local voice call hook for this page
-   const voiceCall = useZegoVoiceCall({
-     myId: user?.id || '',
-     myType: 'user',
-     myName: user?.name || 'Customer',
-   });
  
-   const state = voiceCall.state;
+  // Use global voice call context - the call is already active
+  const voiceCall = useGlobalZegoVoiceCall();
+
+  const state = voiceCall.state;
    const status = state.status;
    const duration = state.duration;
    const isMuted = state.isMuted;
@@ -36,7 +29,7 @@
      return () => {
        voiceCall.setCallContainer(null);
      };
-   }, []);
+  }, [voiceCall]);
  
    // Navigate back when call ends
    useEffect(() => {
@@ -80,14 +73,6 @@
    const showControls = status === 'calling' || status === 'ongoing';
    const showAnswerDecline = status === 'ringing';
    const isCallEnded = status === 'ended' || status === 'declined' || status === 'missed';
- 
-   if (!isAuthenticated || !user) {
-     return (
-       <div className="fixed inset-0 flex items-center justify-center bg-background">
-         <p className="text-foreground">Loading call...</p>
-       </div>
-     );
-   }
  
    return (
      <div 

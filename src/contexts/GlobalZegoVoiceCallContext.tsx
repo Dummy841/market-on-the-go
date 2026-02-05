@@ -1,8 +1,9 @@
 import React, { createContext, useContext, ReactNode } from 'react';
- import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserAuth } from './UserAuthContext';
 import { useZegoVoiceCall, CallStatus } from '@/hooks/useZegoVoiceCall';
  import IncomingCallOverlay from '@/components/voice-call/IncomingCallOverlay';
+import { useEffect, useRef } from 'react';
 
 interface GlobalZegoVoiceCallContextType {
   startCall: (options: {
@@ -44,8 +45,10 @@ interface GlobalZegoVoiceCallProviderProps {
 export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallProviderProps) => {
   const { user, isAuthenticated } = useUserAuth();
    let navigate: ReturnType<typeof useNavigate> | null = null;
+   let location: ReturnType<typeof useLocation> | null = null;
    try {
      navigate = useNavigate();
+     location = useLocation();
    } catch {
      // Not in router context
    }
@@ -56,12 +59,33 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
     myName: user?.name || 'Customer',
   });
 
+   // Track when we've already navigated to avoid double navigation
+   const navigatedToCallRef = useRef<string | null>(null);
+ 
+   // Navigate to voice call page when a call becomes active
+   useEffect(() => {
+     const { status, callId } = voiceCall.state;
+     const currentPath = location?.pathname || '';
+     const isOnVoiceCallPage = currentPath.startsWith('/voice-call/');
+     
+     // Navigate to voice call page when we start calling or when call becomes ongoing
+     if ((status === 'calling' || status === 'ongoing') && callId && navigate && !isOnVoiceCallPage) {
+       if (navigatedToCallRef.current !== callId) {
+         navigatedToCallRef.current = callId;
+         navigate(`/voice-call/${callId}`);
+       }
+     }
+     
+     // Reset navigation tracking when call ends
+     if (status === 'idle' || status === 'ended' || status === 'declined' || status === 'missed') {
+       navigatedToCallRef.current = null;
+     }
+   }, [voiceCall.state.status, voiceCall.state.callId, navigate, location?.pathname]);
+ 
    // Handle answering incoming call - navigate to voice call page
    const handleAnswer = async () => {
      await voiceCall.answerCall();
-     if (voiceCall.state.callId && navigate) {
-       navigate(`/voice-call/${voiceCall.state.callId}`);
-     }
+     // Navigation will be handled by the useEffect above when status becomes 'ongoing'
    };
  
   // Don't render if not authenticated
