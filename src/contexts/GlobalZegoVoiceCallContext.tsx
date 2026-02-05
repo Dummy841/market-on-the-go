@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserAuth } from './UserAuthContext';
 import { useZegoVoiceCall, CallStatus } from '@/hooks/useZegoVoiceCall';
@@ -82,11 +82,20 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
      }
    }, [voiceCall.state.status, voiceCall.state.callId, navigate, location?.pathname]);
  
-   // Handle answering incoming call - navigate to voice call page
-   const handleAnswer = async () => {
-     await voiceCall.answerCall();
-     // Navigation will be handled by the useEffect above when status becomes 'ongoing'
-   };
+    // Handle answering incoming call
+    // IMPORTANT: navigate immediately so the /voice-call page mounts and provides the ZEGO container.
+    // Without the container, joinRoom may never execute -> one-way/no audio.
+    const handleAnswer = useCallback(async () => {
+      const callId = voiceCall.state.callId;
+      if (callId && navigate) {
+        try {
+          navigate(`/voice-call/${callId}`);
+        } catch {
+          // ignore
+        }
+      }
+      await voiceCall.answerCall();
+    }, [voiceCall, navigate]);
  
   // Don't render if not authenticated
   if (!isAuthenticated || !user) {
@@ -97,7 +106,7 @@ export const GlobalZegoVoiceCallProvider = ({ children }: GlobalZegoVoiceCallPro
       voiceCall.state.callerType === 'delivery_partner';
 
     const incomingCallerName = isIncomingCall
-      ? 'Zippy Delivery Partner'
+      ? 'Zippy Delivary Partner'
       : (voiceCall.state.callerName || 'Delivery Partner');
  
   return (

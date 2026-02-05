@@ -18,8 +18,9 @@ import { useGlobalZegoVoiceCall } from '@/contexts/GlobalZegoVoiceCallContext';
    const duration = state.duration;
    const isMuted = state.isMuted;
    const isSpeaker = state.isSpeaker;
-   const callerName = state.callerName || 'Unknown';
-   const callerType = state.callerType;
+    const callerType = state.callerType;
+    const rawCallerName = state.callerName || 'Unknown';
+    const callerName = callerType === 'delivery_partner' ? 'Zippy Delivary Partner' : rawCallerName;
  
    // Set container ref when mounted
    useEffect(() => {
