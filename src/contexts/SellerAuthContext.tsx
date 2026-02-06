@@ -28,6 +28,7 @@ interface SellerAuthContextType {
   seller: Seller | null;
   loading: boolean;
   login: (mobile: string, password: string) => Promise<{ error?: string }>;
+  directLogin: (sellerData: any) => void;
   logout: () => Promise<void>;
 }
 
@@ -115,13 +116,18 @@ export const SellerAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const directLogin = (sellerData: any) => {
+    setSeller(sellerData as Seller);
+    localStorage.setItem('seller_id', sellerData.id);
+  };
+
   const logout = async () => {
     setSeller(null);
     localStorage.removeItem('seller_id');
   };
 
   return (
-    <SellerAuthContext.Provider value={{ seller, loading, login, logout }}>
+    <SellerAuthContext.Provider value={{ seller, loading, login, directLogin, logout }}>
       {children}
     </SellerAuthContext.Provider>
   );
