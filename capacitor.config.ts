@@ -5,7 +5,7 @@
    appName: 'Zippy',
    webDir: 'dist',
    server: {
-     url: 'https://272be06f-1428-4310-9629-8c2f21b87333.lovableproject.com?forceHideBadge=true',
+     //url: 'https://272be06f-1428-4310-9629-8c2f21b87333.lovableproject.com?forceHideBadge=true',
      cleartext: true,
    },
    plugins: {
