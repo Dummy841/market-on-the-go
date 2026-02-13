@@ -163,7 +163,7 @@ const Index = () => {
       
       {/* Floating View Cart Button */}
       {getTotalItems() > 0 && (
-        <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 p-4 pointer-events-none">
+        <div className="fixed bottom-4 left-0 right-0 z-50 p-4 pointer-events-none">
           <Button
             onClick={() => navigate('/cart')}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 shadow-lg flex items-center justify-between pointer-events-auto rounded-full"
