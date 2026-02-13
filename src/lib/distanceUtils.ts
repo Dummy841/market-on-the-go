@@ -49,6 +49,18 @@ export const getDeliveryTime = (distanceKm: number): string => {
 };
 
 /**
+ * Get expected delivery time for checkout display
+ * @param distanceKm Distance in kilometers
+ * @returns Expected delivery time string
+ */
+export const getExpectedDeliveryTime = (distanceKm: number): string => {
+  if (distanceKm <= 5) return "30 min";
+  if (distanceKm <= 10) return "60 min";
+  if (distanceKm <= 20) return "1-2 days";
+  return "2-5 days";
+};
+
+/**
  * Format distance for display
  * @param distanceKm Distance in kilometers
  * @returns Formatted distance string

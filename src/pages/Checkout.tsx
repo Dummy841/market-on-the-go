@@ -21,7 +21,7 @@ import { ZippyPassModal } from "@/components/ZippyPassModal";
 import { AddMoreItemsModal } from "@/components/AddMoreItemsModal";
 import { DeliveryNotAvailableModal } from "@/components/DeliveryNotAvailableModal";
 
-import { calculateDistance } from "@/lib/distanceUtils";
+import { calculateDistance, getExpectedDeliveryTime } from "@/lib/distanceUtils";
 
 declare global {
   interface Window {
@@ -80,6 +80,8 @@ export const Checkout = () => {
     mobile?: string;
   } | null>(null);
   const [isAddressValid, setIsAddressValid] = useState(true);
+  const [isDeliveryStateValid, setIsDeliveryStateValid] = useState(true);
+  const [deliveryTimeEstimate, setDeliveryTimeEstimate] = useState<string | null>(null);
   const [sellerCoordinates, setSellerCoordinates] = useState<{
     latitude: number;
     longitude: number;
@@ -173,11 +175,18 @@ export const Checkout = () => {
     return { isValid: true, distance: 0 };
   };
 
+  const ALLOWED_STATES = ['andhra pradesh', 'telangana', 'karnataka', 'tamil nadu'];
+
   // Validate selected address whenever it changes or seller coordinates change
   useEffect(() => {
     if (selectedAddress?.latitude && selectedAddress?.longitude && sellerCoordinates) {
       const { isValid, distance } = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
       setIsAddressValid(isValid);
+      
+      // Set delivery time estimate
+      if (distance > 0) {
+        setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
+      }
       
       if (!isValid) {
         console.log("Address is beyond 10km limit:", distance, "km");
@@ -189,6 +198,17 @@ export const Checkout = () => {
         });
         setShowDeliveryNotAvailableModal(true);
       }
+    } else {
+      setDeliveryTimeEstimate(null);
+    }
+
+    // State-based validation
+    if (selectedAddress?.address) {
+      const addressLower = selectedAddress.address.toLowerCase();
+      const stateValid = ALLOWED_STATES.some(state => addressLower.includes(state));
+      setIsDeliveryStateValid(stateValid);
+    } else {
+      setIsDeliveryStateValid(true);
     }
   }, [selectedAddress, sellerCoordinates]);
 
@@ -680,6 +700,22 @@ export const Checkout = () => {
             </div>
             
             <Textarea placeholder="Any instructions for the restaurant or delivery partner?" value={instructions} onChange={e => setInstructions(e.target.value)} className="mt-3" />
+            
+            {/* Expected Delivery Time */}
+            {deliveryTimeEstimate && isDeliveryStateValid && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-700">Expected Delivery:</span>
+                <span className="text-sm text-blue-600">{deliveryTimeEstimate}</span>
+              </div>
+            )}
+
+            {/* State restriction warning */}
+            {!isDeliveryStateValid && selectedAddress && (
+              <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                <p className="text-sm font-medium text-red-700">We can't deliver to your location</p>
+                <p className="text-xs text-red-500 mt-1">Delivery is available only in Andhra Pradesh, Telangana, Karnataka, and Tamil Nadu.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -760,7 +796,7 @@ export const Checkout = () => {
             </div>
             
             {/* Pay Button */}
-            <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0}>
+            <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0 || !isDeliveryStateValid}>
               {isPlacingOrder ? "Processing..." : (totalAmount === 0 ? "Place Order" : `Pay ₹${totalAmount}`)}
             </Button>
           </CardContent>

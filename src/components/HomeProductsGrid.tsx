@@ -155,7 +155,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           };
         });
 
-      // Filter by distance if user location available
+      // Calculate distance and sort if user location available (no filtering)
       if (userLocation) {
         formattedItems = formattedItems
           .map(item => {
@@ -170,7 +170,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             }
             return { ...item, distance: Infinity };
           })
-          .filter(item => item.distance !== undefined && item.distance <= 10)
           .sort((a, b) => {
             // Sort by online status first, then by distance
             if (a.seller_is_online !== b.seller_is_online) {
@@ -303,7 +302,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   }
 
   const SubcategoryBar = () => {
-    if (subcategories.length === 0) return null;
+    if (subcategories.length === 0 || items.length === 0) return null;
     return (
       <div className="px-4 pt-3 pb-1">
         <ScrollArea className="w-full whitespace-nowrap">
@@ -332,7 +331,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
               </button>
             ))}
           </div>
-          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </div>
     );
