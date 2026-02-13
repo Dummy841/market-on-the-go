@@ -273,7 +273,7 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
                 <SelectTrigger>
                   <SelectValue placeholder="Select subcategory" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[9999]">
                   {subcategories.map((subcat) => (
                     <SelectItem key={subcat.id} value={subcat.id}>
                       {subcat.name}
