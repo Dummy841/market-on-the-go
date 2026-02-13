@@ -19,9 +19,8 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { ZippyPassModal } from "@/components/ZippyPassModal";
 import { AddMoreItemsModal } from "@/components/AddMoreItemsModal";
-import { DeliveryNotAvailableModal } from "@/components/DeliveryNotAvailableModal";
 
-import { calculateDistance, getExpectedDeliveryTime } from "@/lib/distanceUtils";
+import { calculateDistance, getExpectedDeliveryTime, getDeliveryFee } from "@/lib/distanceUtils";
 
 declare global {
   interface Window {
@@ -63,14 +62,7 @@ export const Checkout = () => {
   const [registerInitialMobile, setRegisterInitialMobile] = useState<string | undefined>(undefined);
   const [showZippyPassModal, setShowZippyPassModal] = useState(false);
   const [showAddMoreItemsModal, setShowAddMoreItemsModal] = useState(false);
-  const [showDeliveryNotAvailableModal, setShowDeliveryNotAvailableModal] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
-  const [attemptedAddress, setAttemptedAddress] = useState<{
-    label: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-  } | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<{
     id: string;
     label: string;
@@ -79,8 +71,8 @@ export const Checkout = () => {
     longitude?: number;
     mobile?: string;
   } | null>(null);
-  const [isAddressValid, setIsAddressValid] = useState(true);
   const [isDeliveryStateValid, setIsDeliveryStateValid] = useState(true);
+  const [deliveryDistance, setDeliveryDistance] = useState<number>(0);
   const [deliveryTimeEstimate, setDeliveryTimeEstimate] = useState<string | null>(null);
   const [sellerCoordinates, setSellerCoordinates] = useState<{
     latitude: number;
@@ -138,58 +130,21 @@ export const Checkout = () => {
     fetchSellerCoordinates();
   }, [cartItems, cartRestaurantLatitude, cartRestaurantLongitude]);
 
-  // Helper function to validate address distance from restaurant
-  const validateAddressDistance = (
-    addressLat: number | undefined,
-    addressLng: number | undefined
-  ): { isValid: boolean; distance: number } => {
-    // Get seller coordinates from state (fetched from DB if needed)
-    const restaurantLat = sellerCoordinates?.latitude;
-    const restaurantLng = sellerCoordinates?.longitude;
-
-    const addrLat = addressLat == null ? NaN : Number(addressLat);
-    const addrLng = addressLng == null ? NaN : Number(addressLng);
-
-    console.log("Validating address distance:", {
-      sellerCoords: { lat: restaurantLat, lng: restaurantLng },
-      addressCoords: { lat: addrLat, lng: addrLng }
-    });
-
-    if (
-      restaurantLat != null &&
-      restaurantLng != null &&
-      Number.isFinite(restaurantLat) &&
-      Number.isFinite(restaurantLng) &&
-      restaurantLat !== 0 &&
-      restaurantLng !== 0 &&
-      Number.isFinite(addrLat) &&
-      Number.isFinite(addrLng)
-    ) {
-      const distance = calculateDistance(addrLat, addrLng, restaurantLat, restaurantLng);
-      console.log("Address validation - Distance:", distance, "km");
-      return { isValid: distance <= 10, distance };
-    }
-
-    // If coordinates are missing, consider valid (will be caught later or coordinates not set)
-    console.log("Coordinates missing - skipping validation");
-    return { isValid: true, distance: 0 };
-  };
-
   const ALLOWED_STATES = ['andhra pradesh', 'telangana', 'karnataka', 'tamil nadu'];
 
   // Validate selected address whenever it changes or seller coordinates change
   useEffect(() => {
     if (selectedAddress?.latitude && selectedAddress?.longitude && sellerCoordinates) {
-      const { isValid, distance } = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
-      setIsAddressValid(isValid);
-      
-      // Set delivery time estimate
-      if (distance > 0) {
-        setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
-      }
-      
-      // No longer showing delivery not available modal - just track validity
+      const distance = calculateDistance(
+        selectedAddress.latitude,
+        selectedAddress.longitude,
+        sellerCoordinates.latitude,
+        sellerCoordinates.longitude
+      );
+      setDeliveryDistance(distance);
+      setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
     } else {
+      setDeliveryDistance(0);
       setDeliveryTimeEstimate(null);
     }
 
@@ -284,9 +239,10 @@ export const Checkout = () => {
 
   const itemTotal = getTotalPrice();
   
-  // Calculate fees - Zippy Pass only waives delivery fee, small order fee is separate
-  const smallOrderFee = itemTotal < 100 ? 10 : 0;
-  const deliveryFee = hasActivePass ? 0 : (itemTotal >= 499 ? 0 : 19);
+  // Calculate fees using distance-based tiers
+  const deliveryFeeBase = getDeliveryFee(deliveryDistance, itemTotal);
+  const deliveryFee = hasActivePass && deliveryDistance <= 10 ? 0 : deliveryFeeBase;
+  const smallOrderFee = deliveryFeeBase > 0 ? Math.round(deliveryFeeBase * 0.5) : 0;
   const platformFee = Math.round(itemTotal * 0.05);
   const grossTotal = itemTotal + deliveryFee + platformFee + smallOrderFee;
   
@@ -329,21 +285,6 @@ export const Checkout = () => {
       });
       setShowAddressSelector(true);
       return;
-    }
-
-    // Validate address distance before payment
-    if (selectedAddress.latitude && selectedAddress.longitude && sellerCoordinates) {
-      const { isValid } = validateAddressDistance(selectedAddress.latitude, selectedAddress.longitude);
-      if (!isValid) {
-        setAttemptedAddress({
-          label: selectedAddress.label,
-          address: selectedAddress.address,
-          latitude: selectedAddress.latitude,
-          longitude: selectedAddress.longitude,
-        });
-        setShowDeliveryNotAvailableModal(true);
-        return;
-      }
     }
 
     // Only check Razorpay if we need to pay via Razorpay (totalAmount > 0)
@@ -749,6 +690,9 @@ export const Checkout = () => {
                   {deliveryFee === 0 ? 'Free' : `₹${deliveryFee}`}
                 </span>
               </div>
+              {hasActivePass && (
+                <p className="text-xs text-muted-foreground ml-1">Free delivery up to 10km only</p>
+              )}
               <div className="flex justify-between text-sm">
                 <span>Platform Fee</span>
                 <span>₹{platformFee}</span>
@@ -806,39 +750,6 @@ export const Checkout = () => {
 
           console.log("Seller coordinates:", sellerCoordinates);
           console.log("Address coordinates:", { lat: addrLat, lng: addrLng });
-
-          // Check if address is within 10km of restaurant using seller coordinates from state
-          if (
-            sellerCoordinates &&
-            Number.isFinite(sellerCoordinates.latitude) &&
-            Number.isFinite(sellerCoordinates.longitude) &&
-            sellerCoordinates.latitude !== 0 &&
-            sellerCoordinates.longitude !== 0 &&
-            Number.isFinite(addrLat) &&
-            Number.isFinite(addrLng)
-          ) {
-            const distance = calculateDistance(
-              addrLat, 
-              addrLng, 
-              sellerCoordinates.latitude, 
-              sellerCoordinates.longitude
-            );
-            console.log("Calculated distance:", distance, "km");
-
-            if (distance > 10) {
-              setAttemptedAddress({
-                label: address.label,
-                address: address.address,
-                latitude: addrLat,
-                longitude: addrLng,
-              });
-              setShowDeliveryNotAvailableModal(true);
-              setShowAddressSelector(false);
-              return;
-            }
-          } else {
-            console.log("Missing/invalid seller coordinates - skipping distance validation");
-          }
 
           // Address is valid, update it
           setSelectedAddress({

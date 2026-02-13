@@ -68,3 +68,17 @@ export const getExpectedDeliveryTime = (distanceKm: number): string => {
 export const formatDistance = (distanceKm: number): string => {
   return `${distanceKm.toFixed(1)} km`;
 };
+
+/**
+ * Get delivery fee based on distance and order amount
+ * @param distanceKm Distance in kilometers
+ * @param orderAmount Order total in rupees
+ * @returns Delivery fee amount
+ */
+export const getDeliveryFee = (distanceKm: number, orderAmount: number): number => {
+  if (orderAmount >= 5000) return 0;
+  if (distanceKm <= 5) return orderAmount >= 499 ? 0 : 19;
+  if (distanceKm <= 10) return orderAmount >= 799 ? 0 : 29;
+  if (distanceKm <= 20) return orderAmount >= 2000 ? 0 : 59;
+  return 99;
+};
