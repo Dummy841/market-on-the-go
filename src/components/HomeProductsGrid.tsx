@@ -42,6 +42,7 @@ interface HomeProductsGridProps {
 
 export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProductsGridProps) => {
   const [items, setItems] = useState<Item[]>([]);
+  const [allItems, setAllItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>({});
   const [searchSellers, setSearchSellers] = useState<Seller[]>([]);
@@ -179,6 +180,9 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           });
       }
 
+      // Save all items before subcategory filtering
+      setAllItems(formattedItems);
+
       // Filter by selected subcategory if any
       if (selectedSubcategory) {
         formattedItems = formattedItems.filter(item => item.subcategory_id === selectedSubcategory);
@@ -301,9 +305,9 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
-  // Filter subcategories to only those that have products
+  // Filter subcategories to only those that have products (use allItems to persist when filtered)
   const subcategoriesWithProducts = subcategories.filter(sub =>
-    items.some(item => item.subcategory_id === sub.id)
+    allItems.some(item => item.subcategory_id === sub.id)
   );
 
   const SubcategoryBar = () => {
