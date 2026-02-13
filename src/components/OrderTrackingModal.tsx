@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CheckCircle2, Package, Truck, Phone, Star, MessageCircle } from 'lucide-react';
 import { GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import { calculateDistance } from '@/lib/distanceUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
@@ -254,12 +255,35 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     });
   };
 
+  const getDeliveryDistance = () => {
+    if (activeOrder.sellers?.seller_latitude && activeOrder.sellers?.seller_longitude &&
+        activeOrder.delivery_latitude && activeOrder.delivery_longitude) {
+      return calculateDistance(
+        Number(activeOrder.sellers.seller_latitude),
+        Number(activeOrder.sellers.seller_longitude),
+        Number(activeOrder.delivery_latitude),
+        Number(activeOrder.delivery_longitude)
+      );
+    }
+    return 0;
+  };
+
   const getDeliveryTime = () => {
     if (activeOrder.status === 'delivered' && activeOrder.delivered_at) {
       const deliveredAt = new Date(activeOrder.delivered_at);
       const now = new Date();
       const diffInMinutes = Math.ceil((now.getTime() - deliveredAt.getTime()) / 60000);
       return `${diffInMinutes} min ago`;
+    }
+
+    const distance = getDeliveryDistance();
+
+    // For orders beyond 10km, show days-based estimates
+    if (distance > 20) {
+      return '2-5 days';
+    }
+    if (distance > 10) {
+      return '1-2 days';
     }
     
     const createdAt = new Date(activeOrder.created_at);
@@ -427,7 +451,9 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                   <p className="text-sm text-green-700">
                     {activeOrder.status === 'picked_up' || activeOrder.status === 'going_for_delivery'
                       ? `Arriving in ${getDeliveryTime()}`
-                      : `Delivery on or before ${getDeliveryTime()}`}
+                      : getDeliveryDistance() > 10
+                        ? `Expected delivery in ${getDeliveryTime()}`
+                        : `Delivery on or before ${getDeliveryTime()}`}
                   </p>
                 </div>
               </div>
