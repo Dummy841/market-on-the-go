@@ -61,13 +61,14 @@ export const useUserNotifications = (userId: string | undefined) => {
           const newNotification = payload.new as Notification;
           fetchUnreadCount();
           
-          // Show native notification for chat messages
-          if (isNative && newNotification.type === 'chat') {
-            showChatNotification(
-              'Delivery Partner',
-              newNotification.message,
-              newNotification.reference_id || undefined
-            );
+          // Show native notification based on type
+          if (isNative && (newNotification.type === 'delivery_update' || newNotification.type === 'chat')) {
+            // High-priority delivery updates with sound notification
+            showNativeNotification({
+              title: newNotification.title,
+              body: newNotification.message,
+              data: { type: newNotification.type, reference_id: newNotification.reference_id },
+            });
           } else if (isNative && newNotification.type === 'order_status') {
             // Order status notifications are already handled in OrderTrackingContext
           } else if (isNative) {
