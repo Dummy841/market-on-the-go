@@ -1,51 +1,87 @@
 
 
-# Home Screen and Checkout Improvements
+# Fix Subcategory Filter Bar and Delivery Fee Overhaul
 
-## Changes Summary
+## Issue 1: Subcategory Filter Buttons Disappearing
 
-### 1. Home Screen - Remove Location-Based Filtering
-Currently, products on the home screen are filtered to only show items within 10km. This will be removed so **all products from all sellers** are shown regardless of user location. Products will still be sorted by distance when location is available, but nothing will be filtered out.
+**Root Cause:** When a subcategory is selected, the `fetchProducts` function filters the `items` array (line 183-184). The subcategory bar checks which subcategories have products using the filtered `items` list, so unselected subcategories appear empty and get hidden.
 
-### 2. Home Screen - Hide Subcategory Bar When No Products
-If there are no products at all, the subcategory filter bar and the "No products available" message will be hidden entirely -- a clean empty state.
+**Fix:** Store all unfiltered items in a separate `allItems` state variable. Use `allItems` (not `items`) to determine which subcategories have products. Only use the filtered `items` for rendering the product grid.
 
-### 3. Home Screen - Remove ScrollBar Indicator Line
-The horizontal scroll indicator line under the subcategory bar will be removed by hiding the `ScrollBar` component.
+### File: `src/components/HomeProductsGrid.tsx`
+- Add new state: `allItems` to hold the full unfiltered product list
+- After fetching and sorting, save to `allItems` before applying subcategory filter
+- Change `subcategoriesWithProducts` to filter against `allItems` instead of `items`
 
-### 4. Home Screen - Fix Cart Button Position
-The green "View Cart" floating button will be positioned at the bottom of the screen with a small gap, not offset by the old bottom nav height.
+---
 
-### 5. Checkout - Expected Delivery Time Display
-Below the delivery address section, show an expected delivery time based on distance from the seller:
-- Within 5km: **30 min**
-- Within 10km: **60 min**  
-- Within 20km: **1-2 days**
-- Above 20km: **2-5 days**
+## Issue 2: New Delivery Fee Structure
 
-### 6. Checkout - State-Based Delivery Restriction
-Delivery is restricted to addresses within **Andhra Pradesh, Telangana, Karnataka, and Tamil Nadu**. If the address is outside these states, show a message "We can't deliver to your location" and **disable the Pay button**.
+Replace the current simple fee logic with a distance-based tiered system.
 
-The state detection will use reverse geocoding from the address string (checking if the address text contains one of the allowed state names).
+### Delivery Fee Rules (based on distance from seller to delivery address):
+
+| Distance | Free Delivery If Order Above | Fee If Below |
+|----------|------------------------------|--------------|
+| Within 5km | 499 | 19 |
+| Within 10km | 799 | 29 |
+| Within 20km | 2000 | 59 |
+| Above 20km | 5000 | 99 |
+| Any distance | 5000+ order | Free (always) |
+
+### Small Order Fee
+- 50% of the delivery fee (only if delivery fee applies)
+- Example: if delivery fee is 29, small order fee is 14.50 (rounded to 15)
+
+### Zippy Pass Rules
+- Zippy Pass only waives delivery fee (not small order fee)
+- Zippy Pass free delivery works only up to 10km
+- Beyond 10km, Zippy Pass holders pay normal delivery fee
+- Mention "Free delivery up to 10km" for Zippy Pass
+
+### File: `src/pages/Checkout.tsx`
+- Calculate distance between seller and delivery address
+- Use distance to determine delivery fee tier
+- Replace current fee calculation (lines 288-291) with new logic
+- Small order fee = `Math.round(deliveryFee * 0.5)` (only when delivery fee > 0)
+- Update Zippy Pass logic: only waive delivery fee if distance is within 10km
+- Remove the 10km distance validation block that shows `DeliveryNotAvailableModal` (lines 810-841) since we now allow all distances
+- Remove `validateAddressDistance` function and `isAddressValid` state (no longer needed since we removed 10km restriction)
+- Remove `DeliveryNotAvailableModal` import and usage entirely
+- Add note in Zippy Pass section: "Free delivery up to 10km only"
+
+### File: `src/lib/distanceUtils.ts`
+- Add new helper function `getDeliveryFee(distanceKm, orderAmount)` returning the fee amount
+- This keeps the fee logic centralized and testable
 
 ---
 
 ## Technical Details
 
-### File: `src/components/HomeProductsGrid.tsx`
-- **Remove distance filter**: Remove the `.filter(item => item.distance <= 10)` block. Keep the distance calculation and sorting, but do not exclude any items.
-- **Hide subcategory bar when empty**: Only render `SubcategoryBar` when `items.length > 0`.
-- **Remove ScrollBar**: Remove `<ScrollBar orientation="horizontal" />` from the SubcategoryBar.
+### New fee calculation function in `distanceUtils.ts`:
 
-### File: `src/pages/Index.tsx`
-- **Fix cart button position**: Change `bottom-[calc(4rem+env(safe-area-inset-bottom))]` to `bottom-4` so it sits at the bottom with a small gap.
+```text
+getDeliveryFee(distanceKm, orderAmount):
+  if orderAmount >= 5000 -> return 0
+  if distanceKm <= 5 -> return orderAmount >= 499 ? 0 : 19
+  if distanceKm <= 10 -> return orderAmount >= 799 ? 0 : 29
+  if distanceKm <= 20 -> return orderAmount >= 2000 ? 0 : 59
+  return orderAmount >= 5000 ? 0 : 99  (above 20km)
+```
 
-### File: `src/pages/Checkout.tsx`
-- **Add delivery time estimation**: After the delivery address card, compute distance from seller to selected address and display the expected delivery time.
-- **Add state validation**: Parse the selected address string for state names. If the address doesn't contain any of the allowed states (Andhra Pradesh, Telangana, Karnataka, Tamil Nadu), show an error message and disable the Pay button.
-- **Add new state variables**: `deliveryTimeEstimate` (string) and `isDeliveryStateValid` (boolean).
-- **Disable Pay button**: Add `!isDeliveryStateValid` to the disabled condition of the Pay button.
+### Updated Checkout.tsx fee section:
 
-### File: `src/lib/distanceUtils.ts`
-- **Add delivery estimate function**: New helper `getExpectedDeliveryTime(distanceKm)` returning the appropriate time string based on the distance ranges specified.
+```text
+distance = calculated from seller coords to delivery address coords
+deliveryFeeBase = getDeliveryFee(distance, itemTotal)
+deliveryFee = hasActivePass && distance <= 10 ? 0 : deliveryFeeBase
+smallOrderFee = deliveryFeeBase > 0 ? Math.round(deliveryFeeBase * 0.5) : 0
+  (Note: small order fee based on base fee, not after Zippy Pass discount)
+platformFee = Math.round(itemTotal * 0.05)
+```
+
+### Files to modify:
+1. **`src/components/HomeProductsGrid.tsx`** -- Fix subcategory bar using `allItems` state
+2. **`src/lib/distanceUtils.ts`** -- Add `getDeliveryFee()` function
+3. **`src/pages/Checkout.tsx`** -- Replace fee logic, update Zippy Pass behavior, remove 10km modal/validation
 
