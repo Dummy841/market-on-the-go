@@ -301,37 +301,40 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
+  // Filter subcategories to only those that have products
+  const subcategoriesWithProducts = subcategories.filter(sub =>
+    items.some(item => item.subcategory_id === sub.id)
+  );
+
   const SubcategoryBar = () => {
-    if (subcategories.length === 0 || items.length === 0) return null;
+    if (subcategoriesWithProducts.length === 0 || items.length === 0) return null;
     return (
       <div className="px-4 pt-3 pb-1">
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setSelectedSubcategory(null)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
+              selectedSubcategory === null
+                ? 'bg-orange-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            }`}
+          >
+            All
+          </button>
+          {subcategoriesWithProducts.map(sub => (
             <button
-              onClick={() => setSelectedSubcategory(null)}
+              key={sub.id}
+              onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
-                selectedSubcategory === null
+                selectedSubcategory === sub.id
                   ? 'bg-orange-500 text-white'
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
-              All
+              {sub.name}
             </button>
-            {subcategories.map(sub => (
-              <button
-                key={sub.id}
-                onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
-                  selectedSubcategory === sub.id
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-accent'
-                }`}
-              >
-                {sub.name}
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
+          ))}
+        </div>
       </div>
     );
   };

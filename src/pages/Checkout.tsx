@@ -188,16 +188,7 @@ export const Checkout = () => {
         setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
       }
       
-      if (!isValid) {
-        console.log("Address is beyond 10km limit:", distance, "km");
-        setAttemptedAddress({
-          label: selectedAddress.label,
-          address: selectedAddress.address,
-          latitude: selectedAddress.latitude,
-          longitude: selectedAddress.longitude,
-        });
-        setShowDeliveryNotAvailableModal(true);
-      }
+      // No longer showing delivery not available modal - just track validity
     } else {
       setDeliveryTimeEstimate(null);
     }
@@ -920,40 +911,6 @@ export const Checkout = () => {
         currentTotal={itemTotal}
       />
 
-      {/* Delivery Not Available Modal */}
-      <DeliveryNotAvailableModal
-        isOpen={showDeliveryNotAvailableModal}
-        onClose={() => setShowDeliveryNotAvailableModal(false)}
-        restaurantName={cartRestaurantName || undefined}
-        onViewRestaurants={() => {
-          // Update location to the attempted address before navigating
-          if (attemptedAddress) {
-            // Update localStorage with new address location
-            localStorage.setItem('currentLat', attemptedAddress.latitude.toString());
-            localStorage.setItem('currentLng', attemptedAddress.longitude.toString());
-            localStorage.setItem('currentLocationName', attemptedAddress.label);
-            localStorage.setItem('currentFullLocation', attemptedAddress.address);
-            localStorage.setItem('selectedAddress', JSON.stringify({
-              label: attemptedAddress.label,
-              address: attemptedAddress.address,
-              latitude: attemptedAddress.latitude,
-              longitude: attemptedAddress.longitude
-            }));
-            
-            // Dispatch addressChanged event so FeaturedRestaurants refetches with new location
-            window.dispatchEvent(new CustomEvent('addressChanged', {
-              detail: {
-                latitude: attemptedAddress.latitude,
-                longitude: attemptedAddress.longitude
-              }
-            }));
-          }
-          
-          setShowDeliveryNotAvailableModal(false);
-          // Navigate to restaurants page - FeaturedRestaurants will filter by the new location
-          navigate('/restaurants');
-        }}
-      />
     </div>
   );
 };
