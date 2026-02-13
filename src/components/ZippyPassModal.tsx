@@ -320,9 +320,7 @@ export const ZippyPassModal = ({
           {/* Login Form - Show if not logged in */}
           {!user ? <div className="space-y-4">
               <div className="bg-orange-500 rounded-xl p-4 text-white">
-                <p className="font-bold">for 30 days 
-OR 
-Order above 499 to get Free Delivary</p>
+                <p className="font-bold">Free delivery on all orders within 10km for 30 days</p>
                 <p className="text-sm text-orange-100">Please login to purchase Zippy Pass</p>
               </div>
               
@@ -361,9 +359,7 @@ Order above 499 to get Free Delivary</p>
                   <Zap className="h-8 w-8" />
                   <span className="text-3xl font-bold">₹199</span>
                 </div>
-                <p className="text-orange-100">for 30 days
-OR
-Order above 499 to get Free Delivary</p>
+                <p className="text-orange-100">for 30 days — Free delivery on all orders within 10km</p>
               </div>
 
               {/* Benefits */}
@@ -376,7 +372,7 @@ Order above 499 to get Free Delivary</p>
                     </div>
                     <div>
                       <p className="font-medium text-green-800">Free Delivery</p>
-                      <p className="text-sm text-green-600">₹0 delivery fee on all orders</p>
+                      <p className="text-sm text-green-600">₹0 delivery fee on all orders within 10km</p>
                     </div>
                   </div>
                   
