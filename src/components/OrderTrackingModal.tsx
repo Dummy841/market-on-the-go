@@ -446,13 +446,15 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
                   <p className="font-semibold text-green-900">
                     {activeOrder.status === 'picked_up' || activeOrder.status === 'going_for_delivery' 
                       ? 'Arriving Soon' 
-                      : 'On-Time Guarantee'}
+                      : getDeliveryDistance() > 10
+                        ? 'Expected Delivery'
+                        : 'On-Time Guarantee'}
                   </p>
                   <p className="text-sm text-green-700">
                     {activeOrder.status === 'picked_up' || activeOrder.status === 'going_for_delivery'
                       ? `Arriving in ${getDeliveryTime()}`
                       : getDeliveryDistance() > 10
-                        ? `Expected delivery in ${getDeliveryTime()}`
+                        ? `Expected delivery within ${getDeliveryTime()}`
                         : `Delivery on or before ${getDeliveryTime()}`}
                   </p>
                 </div>
