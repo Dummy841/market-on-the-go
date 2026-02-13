@@ -145,7 +145,7 @@ const Index = () => {
   };
   
   return (
-    <div className="min-h-screen bg-background pb-[calc(4rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-background pb-4">
       <NotificationPermissionBanner />
       <Header />
       <main>
@@ -159,7 +159,7 @@ const Index = () => {
         <HomeProductsGrid userLocation={userLocation} searchQuery={searchQuery} />
       </main>
       <Footer />
-      <BottomNav />
+      {/* Bottom nav modules hidden per request */}
       
       {/* Floating View Cart Button */}
       {getTotalItems() > 0 && (

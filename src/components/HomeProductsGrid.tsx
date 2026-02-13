@@ -302,17 +302,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
-  // No products available
-  if (items.length === 0) {
-    return (
-      <div className="px-4 py-8 text-center">
-        <p className="text-muted-foreground">
-          No products available in your area
-        </p>
-      </div>
-    );
-  }
-
   const SubcategoryBar = () => {
     if (subcategories.length === 0) return null;
     return (
@@ -323,7 +312,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
               onClick={() => setSelectedSubcategory(null)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
                 selectedSubcategory === null
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-orange-500 text-white'
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
@@ -335,7 +324,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
                 onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
                   selectedSubcategory === sub.id
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
                 }`}
               >
@@ -349,16 +338,26 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   };
 
+  // No products available
+  if (items.length === 0) {
+    return (
+      <div>
+        <SubcategoryBar />
+        <div className="px-4 py-8 text-center">
+          <p className="text-muted-foreground">
+            No products available in your area
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Default: grouped by subcategory
   return (
     <div className="space-y-2">
       <SubcategoryBar />
       <div className="px-4 py-2 space-y-6">
-        {items.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-muted-foreground">No products found in this category</p>
-          </div>
-        ) : selectedSubcategory ? (
+        {selectedSubcategory ? (
           <div className="grid grid-cols-2 gap-3">
             {items.map(item => (
               <HomeProductCard key={item.id} item={item} />
