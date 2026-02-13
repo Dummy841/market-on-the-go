@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { HomeProductCard } from './HomeProductCard';
 import { HomeSellerCard } from './HomeSellerCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { calculateDistance } from '@/lib/distanceUtils';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface Item {
   id: string;
@@ -45,10 +46,12 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>({});
   const [searchSellers, setSearchSellers] = useState<Seller[]>([]);
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
+  const [subcategories, setSubcategories] = useState<{ id: string; name: string }[]>([]);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
-  }, [userLocation, searchQuery]);
+  }, [userLocation, searchQuery, selectedSubcategory]);
 
   const fetchProducts = async () => {
     try {
@@ -80,9 +83,12 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
         .eq('is_active', true);
 
       const subcategoryMap = new Map<string, { name: string; category: string }>();
+      const subcatList: { id: string; name: string }[] = [];
       subcategoriesData?.forEach(sub => {
         subcategoryMap.set(sub.id, { name: sub.name, category: sub.category });
+        subcatList.push({ id: sub.id, name: sub.name });
       });
+      setSubcategories(subcatList);
 
       // Build query for items
       let itemsQuery = supabase
@@ -174,7 +180,12 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           });
       }
 
-      // If searching, also fetch matching sellers (only from active categories)
+      // Filter by selected subcategory if any
+      if (selectedSubcategory) {
+        formattedItems = formattedItems.filter(item => item.subcategory_id === selectedSubcategory);
+      }
+
+
       if (searchQuery) {
         const { data: sellersData } = await supabase
           .from('sellers')
@@ -302,21 +313,70 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
+  const SubcategoryBar = () => {
+    if (subcategories.length === 0) return null;
+    return (
+      <div className="px-4 pt-3 pb-1">
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedSubcategory(null)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
+                selectedSubcategory === null
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              All
+            </button>
+            {subcategories.map(sub => (
+              <button
+                key={sub.id}
+                onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
+                  selectedSubcategory === sub.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {sub.name}
+              </button>
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      </div>
+    );
+  };
+
   // Default: grouped by subcategory
   return (
-    <div className="px-4 py-4 space-y-6">
-      {Object.entries(groupedItems).map(([subcategoryName, subcategoryItems]) => (
-        <div key={subcategoryName}>
-          <h2 className="text-lg font-semibold mb-3">
-            {subcategoryName}
-          </h2>
+    <div className="space-y-2">
+      <SubcategoryBar />
+      <div className="px-4 py-2 space-y-6">
+        {items.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-muted-foreground">No products found in this category</p>
+          </div>
+        ) : selectedSubcategory ? (
           <div className="grid grid-cols-2 gap-3">
-            {subcategoryItems.map(item => (
+            {items.map(item => (
               <HomeProductCard key={item.id} item={item} />
             ))}
           </div>
-        </div>
-      ))}
+        ) : (
+          Object.entries(groupedItems).map(([subcategoryName, subcategoryItems]) => (
+            <div key={subcategoryName}>
+              <h2 className="text-lg font-semibold mb-3">{subcategoryName}</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {subcategoryItems.map(item => (
+                  <HomeProductCard key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };

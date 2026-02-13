@@ -149,8 +149,8 @@ const Index = () => {
       <NotificationPermissionBanner />
       <Header />
       <main>
-        {/* Banner scrolls with content */}
-        <HomeBanner />
+        {/* Banner hidden per request */}
+        {/* <HomeBanner /> */}
         
         {/* Sticky search bar */}
         <HomeSearchBar onSearch={handleSearch} />
