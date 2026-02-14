@@ -36,8 +36,8 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
     // Check if adding item from different seller
     if (cartRestaurant && cartRestaurant !== item.seller_id) {
       toast({
-        title: "Different seller",
-        description: "Clear your cart first to add items from a different seller.",
+        title: "Different Seller",
+        description: "You can order from a single seller at a time. You are trying to add items from a different seller.",
         variant: "destructive",
       });
       return;
