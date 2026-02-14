@@ -46,14 +46,16 @@ import { GlobalZegoVoiceCallProvider } from "./contexts/GlobalZegoVoiceCallConte
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { useLocationPermission } from "./hooks/useLocationPermission";
 import { useStatusBar } from "./hooks/useStatusBar";
+import { useInternetConnection } from "./hooks/useInternetConnection";
 
 const queryClient = new QueryClient();
 
 // Wrapper component to use the back button hook inside BrowserRouter
 const AppContent = () => {
   useAndroidBackButton();
-  useLocationPermission(); // Request location permission on app load
-  useStatusBar(); // Configure status bar for Android
+  useLocationPermission();
+  useStatusBar();
+  useInternetConnection();
   
   return (
     <Routes>
