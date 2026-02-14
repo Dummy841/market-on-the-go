@@ -27,17 +27,29 @@ const FullScreenLocationPicker = ({
   const [isLocating, setIsLocating] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
   
-  // Track if map has been initialized (to stop controlling center after first render)
-  const [mapInitialized, setMapInitialized] = useState(false);
   const initialCenterRef = useRef<{ lat: number; lng: number }>({ 
     lat: initialLat ?? 17.385044, 
     lng: initialLng ?? 78.486671 
   });
   
   // Set initial center when picker opens
+  // Set global flag for Android back button handler
+  useEffect(() => {
+    if (open) {
+      (window as any).__locationPickerOpen = true;
+      (window as any).__locationPickerClose = onClose;
+    } else {
+      (window as any).__locationPickerOpen = false;
+      (window as any).__locationPickerClose = null;
+    }
+    return () => {
+      (window as any).__locationPickerOpen = false;
+      (window as any).__locationPickerClose = null;
+    };
+  }, [open, onClose]);
+
   useEffect(() => {
     if (!open) {
-      setMapInitialized(false);
       return;
     }
 
@@ -153,12 +165,14 @@ const FullScreenLocationPicker = ({
     }
   };
 
+  const mapReadyRef = useRef(false);
+
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-    // Mark map as initialized after a short delay to ensure it's fully ready
-    setTimeout(() => {
-      setMapInitialized(true);
-    }, 100);
+    // Set center via API call, not via React prop — avoids re-render fighting with touch
+    map.setCenter(initialCenterRef.current);
+    map.setZoom(17);
+    mapReadyRef.current = true;
   }, []);
 
   const handleMapUnmount = useCallback(() => {
@@ -167,7 +181,7 @@ const FullScreenLocationPicker = ({
 
   // When map stops moving, get center and reverse geocode
   const handleMapIdle = useCallback(() => {
-    if (!mapRef.current || !mapInitialized) return;
+    if (!mapRef.current || !mapReadyRef.current) return;
     
     const center = mapRef.current.getCenter();
     if (center) {
@@ -177,7 +191,7 @@ const FullScreenLocationPicker = ({
       setSelectedLng(lng);
       reverseGeocode(lat, lng);
     }
-  }, [isLoaded, mapInitialized]);
+  }, [isLoaded]);
 
   const handleConfirm = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -284,8 +298,7 @@ const FullScreenLocationPicker = ({
                 width: '100%',
                 height: '100%',
               }}
-              // CRITICAL: Only use center for initial render, then let map be uncontrolled
-              center={mapInitialized ? undefined : initialCenterRef.current}
+              // No center prop — set via onLoad to avoid React re-renders fighting touch
               zoom={17}
               onLoad={handleMapLoad}
               onUnmount={handleMapUnmount}
