@@ -249,8 +249,7 @@ const FullScreenLocationPicker = ({
       <div 
         className="flex-1 relative overflow-hidden"
         style={{ 
-          touchAction: 'none', // Let Google Maps handle all touch
-          WebkitOverflowScrolling: 'touch',
+          touchAction: 'auto',
         }}
       >
         {loadError ? (
