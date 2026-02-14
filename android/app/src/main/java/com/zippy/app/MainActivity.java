@@ -77,7 +77,7 @@
      }
  
      @Override
-     protected void onDestroy() {
+     public void onDestroy() {
          releaseWakeLock();
          super.onDestroy();
      }
