@@ -13,6 +13,12 @@ export const useAndroidBackButton = () => {
 
     const backButtonListener = App.addListener('backButton', () => {
       console.log('Back button pressed on:', location.pathname);
+
+      // If a full-screen overlay (e.g. location picker) is open, close it first
+      if ((window as any).__locationPickerOpen && (window as any).__locationPickerClose) {
+        (window as any).__locationPickerClose();
+        return;
+      }
       
       // If we're on the home page, exit the app
       if (location.pathname === '/') {
