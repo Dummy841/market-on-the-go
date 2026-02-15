@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
-  Search, 
   MapPin, 
   Plus, 
-  MessageSquare,
   Home,
   Building2,
   Briefcase,
@@ -15,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -87,7 +85,6 @@ const AddressSelector = ({
   selectedAddress 
 }: AddressSelectorProps) => {
   const { user } = useUserAuth();
-  const [searchQuery, setSearchQuery] = useState('');
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -269,22 +266,9 @@ const AddressSelector = ({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
-            {/* Search Bar */}
-            <div className="p-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search an area or address"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-12 rounded-xl bg-muted/50"
-                />
-              </div>
-            </div>
-
             {/* Action Buttons */}
-            <div className="px-4 pb-4">
-              <div className="grid grid-cols-3 gap-3">
+            <div className="px-4 py-4">
+              <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
                   className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
@@ -304,23 +288,11 @@ const AddressSelector = ({
                   className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
                   onClick={handleAddNewAddress}
                 >
-                  <div className="p-2 bg-gray-100 rounded-full">
-                    <Plus className="h-5 w-5 text-gray-600" />
+                  <div className="p-2 bg-muted rounded-full">
+                    <Plus className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <span className="text-xs font-medium text-center">
                     Add New Address
-                  </span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="h-auto p-4 flex flex-col items-center gap-2 rounded-xl"
-                >
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <MessageSquare className="h-5 w-5 text-green-600" />
-                  </div>
-                  <span className="text-xs font-medium text-center">
-                    Request Address
                   </span>
                 </Button>
               </div>
