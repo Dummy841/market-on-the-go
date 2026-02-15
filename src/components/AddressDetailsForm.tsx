@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Mic, Home, Briefcase, Users, MapPin } from 'lucide-react';
+import { registerOverlayForBackButton } from '@/hooks/useAndroidBackButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,7 +85,12 @@ const AddressDetailsForm = ({
     labelTouchedRef.current = labelTouched;
   }, [labelTouched]);
 
-  // Load user's mobile number on component mount
+  // Register with Android back button handler
+  useEffect(() => {
+    if (!open) return;
+    const unregister = registerOverlayForBackButton(() => onOpenChange(false));
+    return unregister;
+  }, [open, onOpenChange]);
   useEffect(() => {
     if (user?.mobile && !mobileNumber) {
       setMobileNumber(user.mobile);

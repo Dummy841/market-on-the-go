@@ -19,10 +19,12 @@ const FullScreenLocationPicker = ({
   initialLat,
   initialLng 
 }: FullScreenLocationPickerProps) => {
-  const [selectedLat, setSelectedLat] = useState(initialLat ?? 17.385044);
-  const [selectedLng, setSelectedLng] = useState(initialLng ?? 78.486671);
+  // Use refs for coordinates to avoid re-renders that fight with map touch
+  const selectedLatRef = useRef(initialLat ?? 17.385044);
+  const selectedLngRef = useRef(initialLng ?? 78.486671);
   const [locationName, setLocationName] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
+  const locationAddressRef = useRef('');
   const mapRef = useRef<google.maps.Map | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const { isLoaded, loadError } = useGoogleMaps();
@@ -69,8 +71,8 @@ const FullScreenLocationPicker = ({
     }
     
     initialCenterRef.current = { lat: startLat, lng: startLng };
-    setSelectedLat(startLat);
-    setSelectedLng(startLng);
+    selectedLatRef.current = startLat;
+    selectedLngRef.current = startLng;
     reverseGeocode(startLat, startLng);
 
     // Try to get fresh device location (don't block UI)
@@ -82,8 +84,8 @@ const FullScreenLocationPicker = ({
             console.warn('Location accuracy too low:', accuracy, 'm');
             return;
           }
-          setSelectedLat(latitude);
-          setSelectedLng(longitude);
+          selectedLatRef.current = latitude;
+          selectedLngRef.current = longitude;
           reverseGeocode(latitude, longitude);
           if (mapRef.current) {
             mapRef.current.panTo({ lat: latitude, lng: longitude });
@@ -124,9 +126,9 @@ const FullScreenLocationPicker = ({
           const country = pick(["country"]);
 
           setLocationName(areaName);
-          setLocationAddress(
-            [areaName, state, postal, country].filter(Boolean).join(", ")
-          );
+          const addr = [areaName, state, postal, country].filter(Boolean).join(", ");
+          setLocationAddress(addr);
+          locationAddressRef.current = addr;
           return;
         }
       }
@@ -152,16 +154,18 @@ const FullScreenLocationPicker = ({
           "Selected Location";
 
         setLocationName(areaName);
-        setLocationAddress(
-          [areaName, address?.state, address?.postcode, address?.country]
+        const addr = [areaName, address?.state, address?.postcode, address?.country]
             .filter(Boolean)
-            .join(", ")
-        );
+            .join(", ");
+        setLocationAddress(addr);
+        locationAddressRef.current = addr;
       }
     } catch (error) {
       console.error("Reverse geocoding error:", error);
       setLocationName("Selected Location");
-      setLocationAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      const addr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      setLocationAddress(addr);
+      locationAddressRef.current = addr;
     }
   };
 
@@ -196,8 +200,8 @@ const FullScreenLocationPicker = ({
       if (center) {
         const lat = center.lat();
         const lng = center.lng();
-        setSelectedLat(lat);
-        setSelectedLng(lng);
+        selectedLatRef.current = lat;
+        selectedLngRef.current = lng;
         reverseGeocode(lat, lng);
       }
     }, 300);
@@ -206,13 +210,16 @@ const FullScreenLocationPicker = ({
   const handleConfirm = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const lat = selectedLatRef.current;
+    const lng = selectedLngRef.current;
+    const addr = locationAddressRef.current;
     onLocationSelect(
-      selectedLat,
-      selectedLng,
-      locationAddress || `${selectedLat.toFixed(6)}, ${selectedLng.toFixed(6)}`
+      lat,
+      lng,
+      addr || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
     );
     onClose();
-  }, [selectedLat, selectedLng, locationAddress, onLocationSelect, onClose]);
+  }, [onLocationSelect, onClose]);
 
   const handleBack = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -230,8 +237,8 @@ const FullScreenLocationPicker = ({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        setSelectedLat(latitude);
-        setSelectedLng(longitude);
+        selectedLatRef.current = latitude;
+        selectedLngRef.current = longitude;
         reverseGeocode(latitude, longitude);
         if (mapRef.current) {
           mapRef.current.panTo({ lat: latitude, lng: longitude });
@@ -303,7 +310,7 @@ const FullScreenLocationPicker = ({
                 type="button"
                 variant="outline"
                 className="mt-4"
-                onClick={() => reverseGeocode(selectedLat, selectedLng)}
+                onClick={() => reverseGeocode(selectedLatRef.current, selectedLngRef.current)}
               >
                 Refresh address
               </Button>
