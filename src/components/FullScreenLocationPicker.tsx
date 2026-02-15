@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { GoogleMap } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MapPin, Locate } from 'lucide-react';
@@ -166,31 +166,41 @@ const FullScreenLocationPicker = ({
   };
 
   const mapReadyRef = useRef(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
     // Set center via API call, not via React prop — avoids re-render fighting with touch
     map.setCenter(initialCenterRef.current);
     map.setZoom(17);
-    mapReadyRef.current = true;
+    // Small delay before enabling idle processing to let map fully initialize
+    setTimeout(() => {
+      mapReadyRef.current = true;
+    }, 500);
   }, []);
 
   const handleMapUnmount = useCallback(() => {
     mapRef.current = null;
+    mapReadyRef.current = false;
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
   }, []);
 
-  // When map stops moving, get center and reverse geocode
+  // Debounced idle handler — prevents rapid state updates during touch interaction
   const handleMapIdle = useCallback(() => {
     if (!mapRef.current || !mapReadyRef.current) return;
     
-    const center = mapRef.current.getCenter();
-    if (center) {
-      const lat = center.lat();
-      const lng = center.lng();
-      setSelectedLat(lat);
-      setSelectedLng(lng);
-      reverseGeocode(lat, lng);
-    }
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      if (!mapRef.current) return;
+      const center = mapRef.current.getCenter();
+      if (center) {
+        const lat = center.lat();
+        const lng = center.lng();
+        setSelectedLat(lat);
+        setSelectedLng(lng);
+        reverseGeocode(lat, lng);
+      }
+    }, 300);
   }, [isLoaded]);
 
   const handleConfirm = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -237,6 +247,24 @@ const FullScreenLocationPicker = ({
     );
   }, []);
 
+  // Memoize map options to prevent re-renders
+  const mapOptions = useMemo(() => ({
+    disableDefaultUI: false,
+    zoomControl: true,
+    zoomControlOptions: {
+      position: typeof google !== 'undefined' ? google.maps.ControlPosition.RIGHT_CENTER : undefined
+    },
+    streetViewControl: false,
+    mapTypeControl: false,
+    fullscreenControl: false,
+    clickableIcons: false,
+    gestureHandling: 'greedy' as const,
+    draggable: true,
+    scrollwheel: true,
+    disableDoubleClickZoom: false,
+    keyboardShortcuts: true,
+  }), []);
+
   if (!open) return null;
 
   return (
@@ -259,12 +287,10 @@ const FullScreenLocationPicker = ({
         <h1 className="text-lg font-semibold">Select Delivery Location</h1>
       </div>
       
-      {/* Map Container - Let Google Maps handle ALL touch events */}
+      {/* Map Container - no touch-action restrictions, let Google Maps own all gestures */}
       <div 
         className="flex-1 relative overflow-hidden"
-        style={{ 
-          touchAction: 'auto',
-        }}
+        style={{ touchAction: 'none' }}
       >
         {loadError ? (
           <div className="h-full flex items-center justify-center bg-muted p-6">
@@ -297,29 +323,13 @@ const FullScreenLocationPicker = ({
               mapContainerStyle={{ 
                 width: '100%',
                 height: '100%',
+                touchAction: 'none',
               }}
-              // No center prop — set via onLoad to avoid React re-renders fighting touch
               zoom={17}
               onLoad={handleMapLoad}
               onUnmount={handleMapUnmount}
               onIdle={handleMapIdle}
-              options={{
-                disableDefaultUI: false,
-                zoomControl: true,
-                zoomControlOptions: {
-                  position: google.maps.ControlPosition.RIGHT_CENTER
-                },
-                streetViewControl: false,
-                mapTypeControl: false,
-                fullscreenControl: false,
-                clickableIcons: false,
-                // CRITICAL: greedy ensures single finger can drag (no two-finger required)
-                gestureHandling: 'greedy',
-                draggable: true,
-                scrollwheel: true,
-                disableDoubleClickZoom: false,
-                keyboardShortcuts: true,
-              }}
+              options={mapOptions}
             />
             
             {/* Fixed Center Pin Overlay - Default Google red color */}
