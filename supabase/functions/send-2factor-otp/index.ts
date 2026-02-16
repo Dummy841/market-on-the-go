@@ -103,12 +103,10 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP via 2Factor SMS Template API - this sends TEXT SMS not voice call
-    // Using the OTP template format that 2Factor expects
-    const response = await fetch(
-      `https://2factor.in/API/V1/${apiKey}/SMS/+91${mobile}/${otpCode}`,
-      { method: 'GET' }
-    );
+    // Send OTP via 2Factor SMS API - use 10-digit number without country code
+    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/${otpCode}`;
+    console.log('Sending SMS OTP via URL:', smsUrl.replace(apiKey, '***'));
+    const response = await fetch(smsUrl, { method: 'GET' });
 
     const result = await response.json();
     console.log('2Factor SMS Response:', result);
