@@ -18,6 +18,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
@@ -130,6 +131,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       if (error) throw error;
 
       if (data.success) {
+        setSessionId(data.sessionId);
         toast({
           title: "OTP Sent",
           description: "Please enter the 4-digit OTP sent to your mobile",
@@ -167,9 +169,8 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
     setIsLoading(true);
 
     try {
-      // Verify OTP via database (using mobile as sessionId)
       const { data, error } = await supabase.functions.invoke('verify-2factor-otp', {
-        body: { sessionId: mobile, otp }
+        body: { sessionId, otp }
       });
 
       if (error) throw error;
@@ -222,6 +223,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       if (error) throw error;
 
       if (data.success) {
+        setSessionId(data.sessionId);
         toast({
           title: "OTP Sent",
           description: "New OTP sent to your mobile",
@@ -243,6 +245,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
     setStep('register');
     setName("");
     setMobile("");
+    setSessionId("");
     setOtp("");
     setResendTimer(0);
     setError("");
