@@ -48,10 +48,10 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP via 2Factor SMS API using AUTOGEN - 2Factor generates and sends OTP via SMS
-    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/AUTOGEN`;
+    // Send OTP via 2Factor SMS API using AUTOGEN with template name "zippy" and 4-digit OTP
+    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/AUTOGEN/zippy`;
     console.log('Sending SMS OTP via AUTOGEN URL:', smsUrl.replace(apiKey, '***'));
-    const response = await fetch(smsUrl, { method: 'POST' });
+    const response = await fetch(smsUrl, { method: 'GET' });
 
     const result = await response.json();
     console.log('2Factor SMS Response:', result);
