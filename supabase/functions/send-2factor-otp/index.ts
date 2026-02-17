@@ -28,33 +28,12 @@ serve(async (req) => {
     if (mobile === TEST_MOBILE) {
       console.log('Test account detected, using default OTP');
       
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      
-      // Delete existing unused OTPs
-      await supabase
-        .from('user_otp')
-        .delete()
-        .eq('mobile', mobile)
-        .eq('is_used', false);
-      
-      // Store test OTP
-      await supabase
-        .from('user_otp')
-        .insert({
-          mobile: mobile,
-          otp_code: TEST_OTP,
-          expires_at: expiresAt.toISOString()
-        });
-      
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'Test OTP ready (use 0000)',
-          sessionId: mobile
+          sessionId: 'TEST_SESSION',
+          isTestAccount: true
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -69,44 +48,10 @@ serve(async (req) => {
       );
     }
 
-    // Generate 4-digit OTP
-    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
-    console.log('Generated 4-digit OTP for mobile:', mobile);
-
-    // Store OTP in database
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-    
-    // Delete any existing unused OTPs for this mobile
-    await supabase
-      .from('user_otp')
-      .delete()
-      .eq('mobile', mobile)
-      .eq('is_used', false);
-
-    const { error: dbError } = await supabase
-      .from('user_otp')
-      .insert({
-        mobile: mobile,
-        otp_code: otpCode,
-        expires_at: expiresAt.toISOString()
-      });
-
-    if (dbError) {
-      console.error('Error storing OTP:', dbError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to generate OTP' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Send OTP via 2Factor SMS API - use 10-digit number without country code
-    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/${otpCode}`;
-    console.log('Sending SMS OTP via URL:', smsUrl.replace(apiKey, '***'));
-    const response = await fetch(smsUrl, { method: 'GET' });
+    // Send OTP via 2Factor SMS API using AUTOGEN - 2Factor generates and sends OTP via SMS
+    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/AUTOGEN`;
+    console.log('Sending SMS OTP via AUTOGEN URL:', smsUrl.replace(apiKey, '***'));
+    const response = await fetch(smsUrl, { method: 'POST' });
 
     const result = await response.json();
     console.log('2Factor SMS Response:', result);
@@ -116,7 +61,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'OTP sent via SMS successfully',
-          sessionId: mobile // Use mobile as session identifier for DB lookup
+          sessionId: result.Details // 2Factor session ID for verification
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
