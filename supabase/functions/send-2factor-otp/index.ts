@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function generate4DigitOtp(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -21,13 +25,10 @@ serve(async (req) => {
       );
     }
 
-    // Test account bypass - skip real SMS for test number
+    // Test account bypass
     const TEST_MOBILE = '9502395261';
-    const TEST_OTP = '0000';
-    
     if (mobile === TEST_MOBILE) {
-      console.log('Test account detected, using default OTP');
-      
+      console.log('Test account detected, using default OTP 0000');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -40,7 +41,6 @@ serve(async (req) => {
     }
 
     const apiKey = Deno.env.get('TWOFACTOR_API_KEY');
-    
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: '2Factor API key not configured' }),
@@ -48,9 +48,39 @@ serve(async (req) => {
       );
     }
 
-    // Send OTP via 2Factor SMS API using AUTOGEN with template name "zippy" and 4-digit OTP
-    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/AUTOGEN/zippy`;
-    console.log('Sending SMS OTP via AUTOGEN URL:', smsUrl.replace(apiKey, '***'));
+    // Generate custom 4-digit OTP
+    const otp = generate4DigitOtp();
+    console.log('Generated 4-digit OTP for', mobile);
+
+    // Store OTP in user_otp table
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Mark old OTPs as used
+    await supabase
+      .from('user_otp')
+      .update({ is_used: true })
+      .eq('mobile', mobile)
+      .eq('is_used', false);
+
+    // Insert new OTP
+    const { error: insertError } = await supabase
+      .from('user_otp')
+      .insert({
+        mobile,
+        otp_code: otp,
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      });
+
+    if (insertError) {
+      console.error('Error storing OTP:', insertError);
+      throw new Error('Failed to store OTP');
+    }
+
+    // Send OTP via 2Factor SMS API with template "zippy"
+    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/${otp}/zippy`;
+    console.log('Sending custom OTP via 2Factor SMS:', smsUrl.replace(apiKey, '***'));
     const response = await fetch(smsUrl, { method: 'GET' });
 
     const result = await response.json();
@@ -61,7 +91,7 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'OTP sent via SMS successfully',
-          sessionId: result.Details // 2Factor session ID for verification
+          sessionId: mobile // Use mobile as session identifier
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
