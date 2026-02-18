@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,32 +29,45 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('TWOFACTOR_API_KEY');
-    
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: '2Factor API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // sessionId is the mobile number for custom OTP flow
+    const mobile = sessionId;
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Find valid OTP
+    const { data: otpRecord, error: fetchError } = await supabase
+      .from('user_otp')
+      .select('*')
+      .eq('mobile', mobile)
+      .eq('otp_code', otp)
+      .eq('is_used', false)
+      .gte('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Error fetching OTP:', fetchError);
+      throw new Error('Failed to verify OTP');
     }
 
-    // Verify OTP via 2Factor API
-    const verifyUrl = `https://2factor.in/API/V1/${apiKey}/SMS/VERIFY/${sessionId}/${otp}`;
-    console.log('Verifying OTP via 2Factor:', verifyUrl.replace(apiKey, '***'));
-    const response = await fetch(verifyUrl, { method: 'GET' });
-
-    const result = await response.json();
-    console.log('2Factor Verify Response:', result);
-
-    if (result.Status === 'Success' && result.Details === 'OTP Matched') {
+    if (!otpRecord) {
       return new Response(
-        JSON.stringify({ success: true, message: 'OTP verified successfully' }),
+        JSON.stringify({ success: false, error: 'Invalid or expired OTP. Please try again.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Mark OTP as used
+    await supabase
+      .from('user_otp')
+      .update({ is_used: true })
+      .eq('id', otpRecord.id);
+
     return new Response(
-      JSON.stringify({ success: false, error: result.Details || 'Invalid OTP. Please check and try again.' }),
+      JSON.stringify({ success: true, message: 'OTP verified successfully' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
