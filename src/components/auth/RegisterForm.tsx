@@ -124,7 +124,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       }
 
       // Send OTP via 2Factor
-      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
+      const { data, error } = await supabase.functions.invoke('send-reinflair-otp', {
         body: { mobile, action: 'register' }
       });
 
@@ -169,7 +169,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('verify-2factor-otp', {
+      const { data, error } = await supabase.functions.invoke('verify-reinflair-otp', {
         body: { sessionId, otp }
       });
 
