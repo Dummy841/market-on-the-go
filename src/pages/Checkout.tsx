@@ -429,7 +429,7 @@ export const Checkout = () => {
         key: razorpayOrder.key_id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
-        name: 'Food Delivery',
+        name: 'Zippy Delivery',
         description: `Order from ${cartRestaurantName}`,
         order_id: razorpayOrder.order_id,
         handler: async function (response: any) {
