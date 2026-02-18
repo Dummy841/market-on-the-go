@@ -119,7 +119,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       }
 
       // Send OTP via 2Factor
-      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
+      const { data, error } = await supabase.functions.invoke('send-reinflair-otp', {
         body: { mobile, action: 'login' }
       });
 
@@ -165,7 +165,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
 
     try {
       // Verify OTP via database (using mobile as sessionId)
-      const { data, error } = await supabase.functions.invoke('verify-2factor-otp', {
+      const { data, error } = await supabase.functions.invoke('verify-reinflair-otp', {
         body: { sessionId, otp }
       });
 
@@ -208,7 +208,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     setError("");
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
+      const { data, error } = await supabase.functions.invoke('send-reinflair-otp', {
         body: { mobile, action: 'login' }
       });
 
