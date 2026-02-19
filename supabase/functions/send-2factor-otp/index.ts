@@ -40,10 +40,10 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('TWOFACTOR_API_KEY');
+    const apiKey = Deno.env.get('RENFLAIR_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ success: false, error: '2Factor API key not configured' }),
+        JSON.stringify({ success: false, error: 'Renflair API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -78,30 +78,31 @@ serve(async (req) => {
       throw new Error('Failed to store OTP');
     }
 
-    // Send OTP via 2Factor SMS API with template "zippy"
-    const smsUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${mobile}/${otp}/zippy`;
-    console.log('Sending custom OTP via 2Factor SMS:', smsUrl.replace(apiKey, '***'));
+    // Send OTP via Renflair SMS API
+    const smsUrl = `https://sms.renflair.in/V1.php?API=${apiKey}&PHONE=${mobile}&OTP=${otp}`;
+    console.log('Sending OTP via Renflair SMS');
     const response = await fetch(smsUrl, { method: 'GET' });
 
-    const result = await response.json();
-    console.log('2Factor SMS Response:', result);
+    const resultText = await response.text();
+    console.log('Renflair SMS Response:', resultText);
 
-    if (result.Status === 'Success') {
+    // Renflair returns success response
+    if (response.ok) {
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'OTP sent via SMS successfully',
-          sessionId: mobile // Use mobile as session identifier
+          sessionId: mobile
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.error('2Factor Error:', result);
+    console.error('Renflair Error:', resultText);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: result.Details || 'Failed to send OTP' 
+        error: 'Failed to send OTP via SMS' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
