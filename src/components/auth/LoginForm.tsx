@@ -119,7 +119,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       }
 
       // Send OTP via 2Factor
-      const { data, error } = await supabase.functions.invoke('send-renflair-otp', {
+      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
         body: { mobile, action: 'login' }
       });
 
@@ -165,7 +165,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
 
     try {
       // Verify OTP via database (using mobile as sessionId)
-      const { data, error } = await supabase.functions.invoke('verify-renflair-otp', {
+      const { data, error } = await supabase.functions.invoke('verify-2factor-otp', {
         body: { sessionId, otp }
       });
 
@@ -208,7 +208,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     setError("");
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-reinflair-otp', {
+      const { data, error } = await supabase.functions.invoke('send-2factor-otp', {
         body: { mobile, action: 'login' }
       });
 
@@ -371,7 +371,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
                   className="text-sm"
                 >
                   {resendTimer > 0 
-                    ? Resend OTP in ${resendTimer}s 
+                    ? `Resend OTP in ${resendTimer}s` 
                     : "Resend OTP"
                   }
                 </Button>

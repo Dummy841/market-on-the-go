@@ -8,8 +8,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
 import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.Bridge;
 
 public class MainActivity extends BridgeActivity {
     private PowerManager.WakeLock wakeLock;
@@ -20,24 +23,17 @@ public class MainActivity extends BridgeActivity {
 
         // Enable showing over lock screen for incoming calls
         enableLockScreenDisplay();
-    }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        // Setup UPI intent handling after bridge is fully initialized
+        // Override WebViewClient to handle UPI intent URLs for Razorpay
         setupWebViewForUPI();
     }
 
     /**
      * Override WebViewClient to intercept UPI and intent URLs
      * so Razorpay can launch UPI apps (PhonePe, GPay, Paytm, etc.)
-     * Uses Capacitor's bridge client to avoid breaking the bridge.
      */
     private void setupWebViewForUPI() {
-        if (this.bridge == null || this.bridge.getWebView() == null) return;
-
-        this.bridge.getWebView().setWebViewClient(new com.getcapacitor.BridgeWebViewClient(this.bridge) {
+        this.bridge.getWebView().setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
@@ -62,15 +58,18 @@ public class MainActivity extends BridgeActivity {
                     try {
                         Intent intent = Intent.parseUri(urlString, Intent.URI_INTENT_SCHEME);
                         if (intent != null) {
+                            // Check if any app can handle this intent
                             if (intent.resolveActivity(getPackageManager()) != null) {
                                 startActivity(intent);
                                 return true;
                             }
+                            // Try fallback URL if available
                             String fallbackUrl = intent.getStringExtra("browser_fallback_url");
                             if (fallbackUrl != null) {
                                 view.loadUrl(fallbackUrl);
                                 return true;
                             }
+                            // Try opening in Play Store
                             String packageName = intent.getPackage();
                             if (packageName != null) {
                                 Intent marketIntent = new Intent(Intent.ACTION_VIEW,
@@ -85,7 +84,7 @@ public class MainActivity extends BridgeActivity {
                     return true;
                 }
 
-                // Handle tez://, phonepe://, paytm:// etc.
+                // Handle tez:// (Google Pay), phonepe://, paytm:// etc.
                 if (scheme != null && !scheme.equals("http") && !scheme.equals("https")) {
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW, url);
@@ -99,7 +98,7 @@ public class MainActivity extends BridgeActivity {
                     }
                 }
 
-                // Let Capacitor's bridge handle normal URLs
+                // Let the WebView handle normal http/https URLs
                 return super.shouldOverrideUrlLoading(view, request);
             }
         });
