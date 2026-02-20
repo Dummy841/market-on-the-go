@@ -183,6 +183,39 @@ export type Database = {
         }
         Relationships: []
       }
+      exotel_calls: {
+        Row: {
+          callee_mobile: string
+          caller_mobile: string
+          caller_type: string
+          created_at: string
+          exotel_call_sid: string | null
+          id: string
+          order_id: string | null
+          status: string
+        }
+        Insert: {
+          callee_mobile: string
+          caller_mobile: string
+          caller_type: string
+          created_at?: string
+          exotel_call_sid?: string | null
+          id?: string
+          order_id?: string | null
+          status?: string
+        }
+        Update: {
+          callee_mobile?: string
+          caller_mobile?: string
+          caller_type?: string
+          created_at?: string
+          exotel_call_sid?: string | null
+          id?: string
+          order_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       items: {
         Row: {
           created_at: string
