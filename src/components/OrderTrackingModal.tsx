@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RatingModal } from './RatingModal';
 import { useGoogleMaps } from '@/contexts/GoogleMapsContext';
 import UserDeliveryChat from './UserDeliveryChat';
- import { useGlobalZegoVoiceCall } from '@/contexts/GlobalZegoVoiceCallContext';
+ import { useExotelCall } from '@/hooks/useExotelCall';
 
 interface OrderTrackingModalProps {
   isOpen: boolean;
@@ -76,27 +76,41 @@ const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps) => {
     }
   }, [isOpen, activeOrder?.assigned_delivery_partner_id, getOrCreateChat]);
 
-   // Voice call - use global context
-   let voiceCall: ReturnType<typeof useGlobalZegoVoiceCall> | null = null;
-   try {
-     voiceCall = useGlobalZegoVoiceCall();
-   } catch {
-     // Context not available
-   }
+  const { initiateCall, isConnecting } = useExotelCall();
+  const [userMobile, setUserMobile] = useState<string>('');
 
-  // Handle voice call button click
+  // Fetch user mobile for Exotel calls
+  useEffect(() => {
+    if (!activeOrder?.user_id) return;
+    const fetchMobile = async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('mobile')
+        .eq('id', activeOrder.user_id)
+        .single();
+      if (data?.mobile) setUserMobile(data.mobile);
+    };
+    fetchMobile();
+  }, [activeOrder?.user_id]);
+
+  // Handle voice call button click - Exotel click-to-call
   const handleVoiceCall = async () => {
-    let effectiveChatId = chatId;
-    if (!effectiveChatId) {
-      effectiveChatId = await getOrCreateChat();
-    }
+    if (!activeOrder?.assigned_delivery_partner_id || !userMobile) return;
 
-     if (!effectiveChatId || !activeOrder?.assigned_delivery_partner_id || !voiceCall) return;
+    // Fetch delivery partner mobile
+    const { data: partner } = await supabase
+      .from('delivery_partners')
+      .select('mobile')
+      .eq('id', activeOrder.assigned_delivery_partner_id)
+      .single();
 
-    voiceCall.startCall({ 
-      receiverId: activeOrder.assigned_delivery_partner_id,
-      receiverName: activeOrder?.delivery_partners?.name || 'Delivery Partner',
-      chatId: effectiveChatId, 
+    if (!partner?.mobile) return;
+
+    await initiateCall({
+      from: userMobile,
+      to: partner.mobile,
+      orderId: activeOrder.id,
+      callerType: 'user',
     });
   };
 
