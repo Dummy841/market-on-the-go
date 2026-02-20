@@ -7,150 +7,120 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.util.Log;
 import android.view.WindowManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 public class MainActivity extends BridgeActivity {
     private PowerManager.WakeLock wakeLock;
+    private static final String TAG = "ZippyPayment";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Enable showing over lock screen for incoming calls
         enableLockScreenDisplay();
+    }
 
-        // Override WebViewClient to handle UPI intent URLs for Razorpay
+    @Override
+    public void onStart() {
+        super.onStart();
         setupWebViewForUPI();
     }
 
-    /**
-     * Override WebViewClient to intercept UPI and intent URLs
-     * so Razorpay can launch UPI apps (PhonePe, GPay, Paytm, etc.)
-     */
     private void setupWebViewForUPI() {
-        this.bridge.getWebView().setWebViewClient(new WebViewClient() {
+        if (this.bridge == null || this.bridge.getWebView() == null) {
+            Log.e(TAG, "Bridge or WebView not initialized");
+            return;
+        }
+
+        this.bridge.getWebView().setWebViewClient(new BridgeWebViewClient(this.bridge) {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
                 String scheme = url.getScheme();
                 String urlString = url.toString();
 
-                // Handle UPI deep links (upi://pay?...)
+                Log.d(TAG, "Attempting to load URL: " + urlString);
+
+                // 1. Handle UPI deep links
                 if ("upi".equals(scheme)) {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, url);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(intent);
-                        return true;
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return false;
-                    }
+                    Log.d(TAG, "UPI Link Detected! Redirecting...");
+                    return launchExternalApp(urlString);
                 }
 
-                // Handle intent:// URLs (used by Razorpay for app-specific intents)
+                // 2. Handle intent:// URLs (Commonly used by Razorpay/Paytm)
                 if ("intent".equals(scheme)) {
                     try {
                         Intent intent = Intent.parseUri(urlString, Intent.URI_INTENT_SCHEME);
                         if (intent != null) {
-                            // Check if any app can handle this intent
                             if (intent.resolveActivity(getPackageManager()) != null) {
                                 startActivity(intent);
                                 return true;
                             }
-                            // Try fallback URL if available
                             String fallbackUrl = intent.getStringExtra("browser_fallback_url");
                             if (fallbackUrl != null) {
                                 view.loadUrl(fallbackUrl);
                                 return true;
                             }
-                            // Try opening in Play Store
-                            String packageName = intent.getPackage();
-                            if (packageName != null) {
-                                Intent marketIntent = new Intent(Intent.ACTION_VIEW,
-                                    Uri.parse("market://details?id=" + packageName));
-                                startActivity(marketIntent);
-                                return true;
-                            }
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        Log.e(TAG, "Error parsing intent: " + e.getMessage());
                     }
                     return true;
                 }
 
-                // Handle tez:// (Google Pay), phonepe://, paytm:// etc.
-                if (scheme != null && !scheme.equals("http") && !scheme.equals("https")) {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, url);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        if (intent.resolveActivity(getPackageManager()) != null) {
-                            startActivity(intent);
-                            return true;
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                // 3. Handle specific app schemes
+                if (scheme != null && (scheme.equals("tez") || scheme.equals("phonepe") || 
+                    scheme.equals("paytmmp") || scheme.equals("paytm"))) {
+                    return launchExternalApp(urlString);
                 }
 
-                // Let the WebView handle normal http/https URLs
                 return super.shouldOverrideUrlLoading(view, request);
             }
         });
     }
 
-    /**
-     * Configure the activity to show over the lock screen.
-     * This is essential for incoming call notifications.
-     */
+    private boolean launchExternalApp(String url) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Exception in launchExternalApp: " + e.getMessage());
+        }
+        return false;
+    }
+
     private void enableLockScreenDisplay() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
-
-            KeyguardManager keyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-            if (keyguardManager != null) {
-                keyguardManager.requestDismissKeyguard(this, null);
-            }
+            KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+            if (km != null) km.requestDismissKeyguard(this, null);
         } else {
-            getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            );
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
+                                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON |
+                                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
+                                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
     }
 
-    /**
-     * Acquire wake lock to wake up the device for incoming calls.
-     * Call this from JavaScript via a Capacitor plugin when receiving a call.
-     */
     public void acquireWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) {
-            return;
-        }
-
-        PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (powerManager != null) {
-            wakeLock = powerManager.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK |
-                PowerManager.ACQUIRE_CAUSES_WAKEUP |
-                PowerManager.ON_AFTER_RELEASE,
-                "Zippy::IncomingCallWakeLock"
-            );
-            wakeLock.acquire(60 * 1000L); // 60 seconds max
+        if (wakeLock != null && wakeLock.isHeld()) return;
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null) {
+            wakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK |
+                                     PowerManager.ACQUIRE_CAUSES_WAKEUP |
+                                     PowerManager.ON_AFTER_RELEASE, "Zippy::WakeLock");
+            wakeLock.acquire(60 * 1000L);
         }
     }
 
-    /**
-     * Release the wake lock when call ends or is dismissed.
-     */
     public void releaseWakeLock() {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
