@@ -18,9 +18,9 @@ serve(async (req) => {
   try {
     const { mobile, action } = await req.json();
 
-    if (!mobile || mobile.length !== 10) {
+    if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid mobile number' }),
+        JSON.stringify({ success: false, error: 'Invalid mobile number. Must be 10 digits starting with 6, 7, 8, or 9' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

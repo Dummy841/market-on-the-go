@@ -102,8 +102,8 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       return;
     }
 
-    if (mobile.length !== 10) {
-      setError("Please enter a valid 10-digit mobile number");
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setError("Invalid mobile number. Must start with 6, 7, 8, or 9");
       return;
     }
 
