@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { useGlobalZegoVoiceCall } from "@/contexts/GlobalZegoVoiceCallContext";
+import { useExotelCall } from "@/hooks/useExotelCall";
 
 interface Message {
   id: string;
@@ -53,9 +53,23 @@ const UserDeliveryChat = ({
   const navigate = useNavigate();
 
   const { isPartnerTyping, sendTyping } = useTypingIndicator({ chatId, myType: 'user' });
+  const [userMobile, setUserMobile] = useState<string>('');
 
-  let voiceCall: ReturnType<typeof useGlobalZegoVoiceCall> | null = null;
-  try { voiceCall = useGlobalZegoVoiceCall(); } catch { }
+  const { initiateCall, isConnecting } = useExotelCall();
+
+  // Fetch user mobile
+  useEffect(() => {
+    const fetchUserMobile = async () => {
+      if (!userId) return;
+      const { data: user } = await supabase
+        .from('users')
+        .select('mobile')
+        .eq('id', userId)
+        .single();
+      if (user?.mobile) setUserMobile(user.mobile);
+    };
+    fetchUserMobile();
+  }, [userId]);
 
   // Find existing chat for this order
   const findChat = async () => {
@@ -206,18 +220,18 @@ const UserDeliveryChat = ({
     }
   };
 
-   // Handle call button - navigate to voice call page
+   // Handle call button - Exotel click-to-call
   const handleCall = async () => {
-     if (chatId && deliveryPartner && voiceCall) {
-       // Start the call - navigation will be handled by the context
-       voiceCall.startCall({
-        receiverId: deliveryPartner.id,
-        receiverName: deliveryPartner.name,
-        chatId,
-      });
-       // Close the chat dialog so the call UI is visible
-       onOpenChange(false);
+    if (!deliveryPartner?.mobile || !userMobile) {
+      toast({ title: "Cannot Call", description: "Phone numbers not available yet.", variant: "destructive" });
+      return;
     }
+    await initiateCall({
+      from: userMobile,
+      to: deliveryPartner.mobile,
+      orderId,
+      callerType: 'user',
+    });
   };
 
   // Scroll to bottom on new messages

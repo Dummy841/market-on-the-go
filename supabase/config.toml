@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.voice-search-products]
 verify_jwt = false
+
+[functions.exotel-click-to-call]
+verify_jwt = false

@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
-import { useDeliveryPartnerZegoVoiceCall } from "@/contexts/DeliveryPartnerZegoVoiceCallContext";
+import { useExotelCall } from "@/hooks/useExotelCall";
 
 interface Message {
   id: string;
@@ -49,25 +49,40 @@ const DeliveryCustomerChat = ({
   const [chatId, setChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [customerName, setCustomerName] = useState<string>('Customer');
+  const [customerMobile, setCustomerMobile] = useState<string>('');
+  const [deliveryPartnerMobile, setDeliveryPartnerMobile] = useState<string>('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Fetch customer name
+  // Fetch customer name & mobile
   useEffect(() => {
-    const fetchCustomerName = async () => {
+    const fetchCustomerInfo = async () => {
       if (!userId) return;
       const { data: user } = await supabase
         .from('users')
-        .select('name')
+        .select('name, mobile')
         .eq('id', userId)
         .single();
-      if (user?.name) {
-        setCustomerName(user.name);
-      }
+      if (user?.name) setCustomerName(user.name);
+      if (user?.mobile) setCustomerMobile(user.mobile);
     };
-    fetchCustomerName();
+    fetchCustomerInfo();
   }, [userId]);
+
+  // Fetch delivery partner mobile
+  useEffect(() => {
+    const fetchDPMobile = async () => {
+      if (!deliveryPartnerId) return;
+      const { data: dp } = await supabase
+        .from('delivery_partners')
+        .select('mobile')
+        .eq('id', deliveryPartnerId)
+        .single();
+      if (dp?.mobile) setDeliveryPartnerMobile(dp.mobile);
+    };
+    fetchDPMobile();
+  }, [deliveryPartnerId]);
 
   // Typing indicator
   const { isPartnerTyping, sendTyping } = useTypingIndicator({
@@ -75,13 +90,8 @@ const DeliveryCustomerChat = ({
     myType: 'delivery_partner',
   });
 
-  // Voice call - using context
-  let voiceCall: ReturnType<typeof useDeliveryPartnerZegoVoiceCall> | null = null;
-  try {
-    voiceCall = useDeliveryPartnerZegoVoiceCall();
-  } catch {
-    // Context not available
-  }
+  // Exotel call
+  const { initiateCall, isConnecting } = useExotelCall();
 
   // Get or create chat
   const getOrCreateChat = async () => {
@@ -215,16 +225,16 @@ const DeliveryCustomerChat = ({
   };
 
   const handleCall = async () => {
-    if (!chatId) {
-      toast({ title: "Cannot Call", description: "Chat not ready.", variant: "destructive" });
+    if (!deliveryPartnerMobile || !customerMobile) {
+      toast({ title: "Cannot Call", description: "Phone numbers not available yet.", variant: "destructive" });
       return;
     }
-    if (!voiceCall) {
-      toast({ title: "Cannot Call", description: "Voice call not available.", variant: "destructive" });
-      return;
-    }
-    voiceCall.startCall({ receiverId: userId, receiverName: customerName, chatId });
-    onOpenChange(false);
+    await initiateCall({
+      from: deliveryPartnerMobile,
+      to: customerMobile,
+      orderId,
+      callerType: 'delivery_partner',
+    });
   };
 
   useEffect(() => {
