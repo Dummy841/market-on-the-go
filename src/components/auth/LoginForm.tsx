@@ -89,8 +89,8 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       return;
     }
 
-    if (mobile.length !== 10) {
-      setError("Please enter a valid 10-digit mobile number");
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setError("Invalid mobile number. Must start with 6, 7, 8, or 9");
       return;
     }
 
