@@ -1,109 +1,71 @@
 
+# Fix: Complete Exotel Migration - Remove All ZegoCloud Voice Call Code
 
-# Plan: Mobile Number Validation + Exotel Click-to-Call Integration
+## Problem
+Two issues visible in the screenshots:
+- **User side**: "Edge Function returned a non-2xx status code" -- caused by `GlobalZegoVoiceCallProvider` in `App.tsx` trying to initialize ZegoCloud (calling `get-zego-token`) and failing.
+- **Delivery partner side**: Still showing the old ZegoCloud in-app voice call UI (Mute/End/Earpiece buttons) because `DeliveryPartnerOrders.tsx` still calls `voiceCall.startCall()` via `DeliveryPartnerZegoVoiceCallContext`.
 
-## Part 1: Fix Invalid Mobile Number OTP Waste
+## Root Cause
+Only `DeliveryCustomerChat.tsx` and `UserDeliveryChat.tsx` were updated to use Exotel. But the call buttons in `DeliveryPartnerOrders.tsx` and `OrderTrackingModal.tsx` + the providers in `App.tsx` and `DeliveryPartnerDashboard.tsx` still use ZegoCloud.
 
-**Problem**: Currently, any 10-digit number (even invalid ones like 3564563165) triggers OTP sending via Renflair, wasting SMS credits.
+## Solution: Remove all ZegoCloud voice call code, use Exotel everywhere
 
-**Solution**: Add Indian mobile number validation on both client-side and server-side.
+### Step 1: Update `DeliveryPartnerOrders.tsx`
+- Remove `useDeliveryPartnerZegoVoiceCall` import
+- Add `useExotelCall` hook
+- Replace `handleVoiceCall` to fetch both mobile numbers and call `initiateCall()` via Exotel
+- No in-app call UI -- Exotel dials both phones natively
 
-Indian mobile numbers must:
-- Be exactly 10 digits
-- Start with 6, 7, 8, or 9 (valid Indian mobile prefixes)
+### Step 2: Remove `DeliveryPartnerZegoVoiceCallProvider` from `DeliveryPartnerDashboard.tsx`
+- Remove the `DeliveryPartnerZegoVoiceCallProvider` wrapper entirely
+- Just render children directly
 
-### Changes:
+### Step 3: Remove `GlobalZegoVoiceCallProvider` from `App.tsx`
+- Remove the provider wrapper that initializes ZegoCloud on every page load
+- This fixes the "Edge Function returned non-2xx" error
 
-1. **LoginForm.tsx** - Add regex validation `/^[6-9]\d{9}$/` before calling the edge function. Show "Invalid mobile number" error immediately without making any API call.
+### Step 4: Remove the `/voice-call/:callId` route and `VoiceCall.tsx` page
+- This page was the ZegoCloud in-app call UI -- no longer needed
+- Exotel calls happen on the native phone dialer
 
-2. **RegisterForm.tsx** - Same validation as LoginForm.
+### Step 5: Clean up unused files (optional but recommended)
+Remove these files that are no longer used:
+- `src/contexts/GlobalZegoVoiceCallContext.tsx`
+- `src/contexts/DeliveryPartnerZegoVoiceCallContext.tsx`
+- `src/contexts/DeliveryPartnerVoiceCallContext.tsx`
+- `src/contexts/GlobalVoiceCallContext.tsx`
+- `src/hooks/useZegoVoiceCall.ts`
+- `src/hooks/useZegoSignaling.ts`
+- `src/hooks/useIncomingCall.ts`
+- `src/hooks/useVoiceCall.ts`
+- `src/services/zegoSignalingService.ts`
+- `src/config/zego.ts`
+- `src/pages/VoiceCall.tsx`
+- `src/components/voice-call/VoiceCallModal.tsx`
+- `src/components/voice-call/IncomingCallOverlay.tsx`
+- `src/components/voice-call/CallAvatar.tsx`
+- `src/components/voice-call/CallControls.tsx`
+- `src/components/voice-call/CallTimer.tsx`
+- `src/components/VoiceCallModal.tsx`
 
-3. **send-2factor-otp edge function** - Add server-side validation as a safety net: reject any mobile not matching `/^[6-9]\d{9}$/` with an "Invalid mobile number" error before calling Renflair API.
+### How Calls Will Work After This
+1. User or delivery partner taps "Call" button
+2. App calls `exotel-click-to-call` edge function with both mobile numbers
+3. Exotel dials the caller's phone first (shows Exotel virtual number / EXOTEL_CALLER_ID)
+4. Caller picks up on native phone dialer
+5. Exotel then dials the other party and connects them
+6. Neither party sees the other's real number
 
----
+### About Caller ID Display
+Exotel shows the `EXOTEL_CALLER_ID` (virtual number) on both phones. Custom names like "Zippy Delivery Partner" or "Zippy Customer" cannot be set by Exotel -- this depends on the recipient's phone contacts. However, the app will show a toast notification with the appropriate label ("Connecting to Zippy Delivery Partner..." or "Connecting to Zippy Customer...") so the user knows who they are being connected to.
 
-## Part 2: Exotel Click-to-Call Integration
+### Files Modified
 
-**How it works**: When user or delivery partner taps the "Call" button, the app calls an edge function which triggers Exotel's Click-to-Call API. Exotel first dials the caller, then connects them to the other party. Neither party sees the other's real phone number -- they see the Exotel virtual number instead.
-
-### Changes:
-
-1. **Add Exotel secrets** - Store `EXOTEL_SID`, `EXOTEL_API_KEY`, `EXOTEL_API_TOKEN`, and `EXOTEL_CALLER_ID` (virtual number) as Supabase secrets.
-
-2. **Create `exotel-click-to-call` edge function** - New edge function that:
-   - Accepts `{ from: string, to: string, orderId?: string }` (10-digit mobile numbers)
-   - Validates both numbers
-   - Calls Exotel's Connect API: `POST https://{SID}:{TOKEN}@api.exotel.com/v1/Accounts/{SID}/Calls/connect`
-   - Returns the call SID for tracking
-   - Stores call record in a new `exotel_calls` table
-
-3. **Create `exotel_calls` database table** - To track call history:
-   - `id` (uuid, primary key)
-   - `order_id` (text, nullable)
-   - `caller_mobile` (text)
-   - `callee_mobile` (text)
-   - `caller_type` (text - 'user' or 'delivery_partner')
-   - `exotel_call_sid` (text)
-   - `status` (text - 'initiated', 'ringing', 'connected', 'completed', 'failed')
-   - `created_at` (timestamptz)
-
-4. **Update voice call UI** - Replace the current ZegoCloud call initiation with Exotel click-to-call:
-   - When user taps "Call", invoke the `exotel-click-to-call` edge function
-   - Show a simple "Connecting your call..." status UI
-   - The actual call happens on the phone's native dialer (Exotel dials both parties)
-   - Remove ZegoCloud voice call dependencies or keep them as optional
-
-5. **Update delivery partner call flow** - Same approach for delivery partner calling user.
-
----
-
-## Technical Details
-
-### Exotel API Call
-
-```text
-POST https://api.exotel.com/v1/Accounts/{SID}/Calls/connect
-
-Headers:
-  Authorization: Basic base64({API_KEY}:{API_TOKEN})
-
-Body (form-encoded):
-  From = caller_mobile (with country code)
-  To = callee_mobile (with country code)  
-  CallerId = exotel_virtual_number
-  CallType = trans
-```
-
-### Flow Diagram
-
-```text
-User taps "Call" 
-  -> Edge function receives request
-  -> Validates numbers
-  -> Calls Exotel Connect API
-  -> Exotel dials User's phone first
-  -> User picks up
-  -> Exotel dials Delivery Partner
-  -> Both connected via Exotel virtual number
-```
-
-### Files to Create/Modify
-
-| File | Action |
+| File | Change |
 |------|--------|
-| `src/components/auth/LoginForm.tsx` | Add Indian mobile validation |
-| `src/components/auth/RegisterForm.tsx` | Add Indian mobile validation |
-| `supabase/functions/send-2factor-otp/index.ts` | Add server-side mobile validation |
-| `supabase/functions/exotel-click-to-call/index.ts` | New edge function |
-| `supabase/config.toml` | Add exotel-click-to-call config |
-| Database migration | Create `exotel_calls` table |
-| `src/hooks/useExotelCall.ts` | New hook for Exotel call flow |
-| Voice call UI components | Update to use Exotel instead of ZegoCloud |
-
-### Secrets Required
-
-- `EXOTEL_SID` - Your Exotel account SID
-- `EXOTEL_API_KEY` - Exotel API key
-- `EXOTEL_API_TOKEN` - Exotel API token
-- `EXOTEL_CALLER_ID` - Your Exotel virtual/caller ID number
-
+| `src/components/DeliveryPartnerOrders.tsx` | Replace ZegoCloud with Exotel call |
+| `src/pages/DeliveryPartnerDashboard.tsx` | Remove ZegoCloud provider wrapper |
+| `src/App.tsx` | Remove GlobalZegoVoiceCallProvider |
+| `src/hooks/useExotelCall.ts` | Add caller/callee name in toast messages |
+| Multiple files | Delete unused ZegoCloud files |
