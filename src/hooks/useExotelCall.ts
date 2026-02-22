@@ -25,9 +25,10 @@ export const useExotelCall = () => {
       if (error) throw error;
 
       if (data.success) {
+        const calleeName = callerType === 'user' ? 'Zippy Delivery Partner' : 'Zippy Customer';
         toast({
           title: "📞 Connecting your call...",
-          description: "You will receive a call on your phone shortly. Please pick up to connect.",
+          description: `Connecting to ${calleeName}. You will receive a call on your phone shortly.`,
         });
       } else {
         throw new Error(data.error || 'Failed to initiate call');

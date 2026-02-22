@@ -36,13 +36,13 @@ import CartPage from "./pages/CartPage";
 import UserWallet from "./pages/UserWallet";
 import Profile from "./pages/Profile";
 import SplashScreen from "./components/SplashScreen";
- import VoiceCall from "./pages/VoiceCall";
+ 
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import { OrderTrackingProvider } from "./contexts/OrderTrackingContext";
 import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
-import { GlobalZegoVoiceCallProvider } from "./contexts/GlobalZegoVoiceCallContext";
+
 import { useAndroidBackButton } from "./hooks/useAndroidBackButton";
 import { useLocationPermission } from "./hooks/useLocationPermission";
 import { useStatusBar } from "./hooks/useStatusBar";
@@ -69,7 +69,7 @@ const AppContent = () => {
       <Route path="/my-wallet" element={<UserWallet />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/help" element={<Help />} />
-       <Route path="/voice-call/:callId" element={<VoiceCall />} />
+       
       <Route path="/seller-login" element={<SellerLogin />} />
       <Route path="/seller-direct/:sellerId" element={<SellerDirectAccess />} />
       <Route path="/seller-dashboard" element={<SellerDashboard />} />
@@ -122,14 +122,12 @@ const App = () => {
             <SellerAuthProvider>
               <CartProvider>
                 <OrderTrackingProvider>
-                  <GlobalZegoVoiceCallProvider>
                     <TooltipProvider>
                       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
                       <Toaster />
                       <Sonner />
                       <AppContent />
                     </TooltipProvider>
-                  </GlobalZegoVoiceCallProvider>
                 </OrderTrackingProvider>
               </CartProvider>
             </SellerAuthProvider>

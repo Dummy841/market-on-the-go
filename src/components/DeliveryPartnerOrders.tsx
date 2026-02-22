@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PinVerificationModal } from "./PinVerificationModal";
 import { DeliveryPinVerificationModal } from "./DeliveryPinVerificationModal";
 import DeliveryCustomerChat from "./DeliveryCustomerChat";
-import { useDeliveryPartnerZegoVoiceCall } from "@/contexts/DeliveryPartnerZegoVoiceCallContext";
+import { useExotelCall } from "@/hooks/useExotelCall";
 import { cn } from "@/lib/utils";
 
 interface Order {
@@ -65,65 +65,48 @@ const DeliveryPartnerOrders = ({
   const [chatUserId, setChatUserId] = useState("");
   const { toast } = useToast();
 
-  // Voice calling MUST be handled by the DeliveryPartnerZegoVoiceCallContext.
-  // Using useZegoVoiceCall() here creates a second listener on `incoming-call-${partnerId}`
-  // which can cause one-way audio / missed joinRoom due to duplicated state.
-  const voiceCall = useDeliveryPartnerZegoVoiceCall();
+  const { initiateCall, isConnecting } = useExotelCall();
 
-  // Get or create chat and start voice call
+  // Get delivery partner mobile and customer mobile, then initiate Exotel call
   const handleVoiceCall = useCallback(async (order: Order) => {
     try {
-      // Fetch customer name
-      const { data: user } = await supabase
+      // Fetch delivery partner mobile
+      const { data: partnerData } = await supabase
+        .from('delivery_partners')
+        .select('mobile')
+        .eq('id', partnerId)
+        .single();
+
+      if (!partnerData?.mobile) {
+        throw new Error('Delivery partner mobile not found');
+      }
+
+      // Fetch customer mobile
+      const { data: userData } = await supabase
         .from('users')
-        .select('name')
+        .select('mobile')
         .eq('id', order.user_id)
         .single();
 
-      const customerName = user?.name || 'Customer';
-
-      // Get or create chat
-      const { data: existingChat } = await supabase
-        .from('delivery_customer_chats')
-        .select('id')
-        .eq('order_id', order.id)
-        .eq('delivery_partner_id', partnerId)
-        .maybeSingle();
-
-      let chatId: string;
-
-      if (existingChat) {
-        chatId = existingChat.id;
-      } else {
-        const { data: newChat } = await supabase
-          .from('delivery_customer_chats')
-          .insert({
-            order_id: order.id,
-            delivery_partner_id: partnerId,
-            user_id: order.user_id,
-          })
-          .select('id')
-          .single();
-
-        if (!newChat) {
-          throw new Error('Failed to create chat');
-        }
-        chatId = newChat.id;
+      if (!userData?.mobile) {
+        throw new Error('Customer mobile not found');
       }
-      await voiceCall.startCall({ 
-        receiverId: order.user_id,
-        receiverName: customerName,
-        chatId,
+
+      await initiateCall({
+        from: partnerData.mobile,
+        to: userData.mobile,
+        orderId: order.id,
+        callerType: 'delivery_partner',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting voice call:', error);
       toast({
         title: "Error",
-        description: "Could not start call. Please try again.",
+        description: error.message || "Could not start call. Please try again.",
         variant: "destructive",
       });
     }
-  }, [partnerId, toast, voiceCall]);
+  }, [partnerId, toast, initiateCall]);
 
   const statusOptions = [{
     value: "all",
