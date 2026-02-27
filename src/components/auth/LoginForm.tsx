@@ -98,11 +98,15 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     
     try {
       // Check if user exists
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
         .select('id')
         .eq('mobile', mobile)
         .maybeSingle();
+
+      if (userCheckError) {
+        throw new Error('Network error. Please check your connection and try again.');
+      }
 
       if (!existingUser) {
         setIsLoading(false);
