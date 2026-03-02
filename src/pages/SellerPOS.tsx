@@ -296,13 +296,17 @@ const SellerPOS = () => {
             <p className="text-sm">Search or scan products to add them</p>
           </div>
         ) : (
-          <div>
+          <div className="overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead className="text-center w-24">Qty</TableHead>
+                  <TableHead className="hidden md:table-cell">Barcode</TableHead>
+                  <TableHead className="text-center w-24 md:w-32">Qty</TableHead>
+                  <TableHead className="hidden md:table-cell text-right">Disc%</TableHead>
+                  <TableHead className="hidden md:table-cell text-right">Tax</TableHead>
+                  <TableHead className="hidden md:table-cell text-right">MRP</TableHead>
                   <TableHead className="text-right">Net</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -312,17 +316,21 @@ const SellerPOS = () => {
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{idx + 1}</TableCell>
                     <TableCell className="font-medium max-w-[150px] truncate">{item.item_name}</TableCell>
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.barcode || '-'}</TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center gap-0.5">
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(item.id, -1)}>
+                      <div className="flex items-center justify-center gap-0.5 md:gap-1">
+                        <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={() => updateQty(item.id, -1)}>
                           <Minus className="w-3 h-3" />
                         </Button>
-                        <span className="w-6 text-center font-semibold text-sm">{item.quantity}</span>
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(item.id, 1)}>
+                        <span className="w-6 md:w-8 text-center font-semibold text-sm">{item.quantity}</span>
+                        <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={() => updateQty(item.id, 1)}>
                           <Plus className="w-3 h-3" />
                         </Button>
                       </div>
                     </TableCell>
+                    <TableCell className="hidden md:table-cell text-right">{getDisc(item).toFixed(1)}%</TableCell>
+                    <TableCell className="hidden md:table-cell text-right">₹{getTax(item).toFixed(2)}</TableCell>
+                    <TableCell className="hidden md:table-cell text-right">₹{(item.mrp * item.quantity).toFixed(2)}</TableCell>
                     <TableCell className="text-right font-semibold">₹{getNet(item).toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.id)}>
