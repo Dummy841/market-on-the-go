@@ -28,6 +28,7 @@ import Help from "./pages/Help";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
 import SellerPOS from "./pages/SellerPOS";
+import POSTransactions from "./pages/POSTransactions";
 import SellerDirectAccess from "./pages/SellerDirectAccess";
 import SellerWallet from "./pages/SellerWallet";
 import DeliveryPartnerLogin from "./pages/DeliveryPartnerLogin";
@@ -79,6 +80,7 @@ const AppContent = () => {
       <Route path="/seller-dashboard" element={<SellerDashboard />} />
       <Route path="/seller-wallet" element={<SellerWallet />} />
       <Route path="/seller-pos" element={<SellerPOS />} />
+      <Route path="/seller-pos/transactions" element={<POSTransactions />} />
       <Route path="/delivery-login" element={<DeliveryPartnerLogin />} />
       <Route path="/delivery-dashboard" element={<DeliveryPartnerDashboard />} />
       <Route path="/dashboard" element={<Dashboard />}>
