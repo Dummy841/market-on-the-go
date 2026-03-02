@@ -71,6 +71,12 @@ const SellerWholesale = () => {
     fetchProducts();
   }, [seller]);
 
+  useEffect(() => {
+    if (step === 'orders') {
+      fetchOrders();
+    }
+  }, [step, seller]);
+
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
