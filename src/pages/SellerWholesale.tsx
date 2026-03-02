@@ -35,6 +35,7 @@ interface WholesaleOrder {
   payment_status: string;
   order_status: string;
   delivery_pin: string | null;
+  admin_notes: string | null;
   created_at: string;
 }
 
@@ -66,6 +67,10 @@ const SellerWholesale = () => {
   const [orders, setOrders] = useState<WholesaleOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [invoiceOrder, setInvoiceOrder] = useState<WholesaleOrder | null>(null);
+  const [proofUploadOrder, setProofUploadOrder] = useState<WholesaleOrder | null>(null);
+  const [reuploadFile, setReuploadFile] = useState<File | null>(null);
+  const [reuploadTxnId, setReuploadTxnId] = useState('');
+  const [reuploadSubmitting, setReuploadSubmitting] = useState(false);
 
   useEffect(() => {
     if (!seller) { navigate('/seller-login'); return; }
@@ -123,6 +128,39 @@ const SellerWholesale = () => {
       console.error('Error:', error);
     } finally {
       setOrdersLoading(false);
+    }
+  };
+
+  const handleReuploadProof = async () => {
+    if (!seller || !proofUploadOrder || !reuploadFile) return;
+    setReuploadSubmitting(true);
+    try {
+      const ext = reuploadFile.name.split('.').pop();
+      const path = `proofs/${seller.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('wholesale-images').upload(path, reuploadFile);
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('wholesale-images').getPublicUrl(path);
+
+      const { error } = await supabase
+        .from('wholesale_orders' as any)
+        .update({
+          payment_proof_url: urlData.publicUrl,
+          upi_transaction_id: reuploadTxnId || null,
+          payment_status: 'pending',
+          admin_notes: null,
+        } as any)
+        .eq('id', proofUploadOrder.id);
+      if (error) throw error;
+
+      toast({ title: 'Proof Uploaded', description: 'Your payment proof has been re-submitted for verification.' });
+      setProofUploadOrder(null);
+      setReuploadFile(null);
+      setReuploadTxnId('');
+      fetchOrders();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } finally {
+      setReuploadSubmitting(false);
     }
   };
 
@@ -271,6 +309,25 @@ const SellerWholesale = () => {
                   <span>Pending</span><span>Verified</span><span>Dispatched</span><span>Delivered</span>
                 </div>
 
+                {/* Rejection Remarks */}
+                {order.payment_status === 'rejected' && order.admin_notes && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-xs font-medium text-red-700">Rejection Reason:</p>
+                    <p className="text-sm text-red-800">{order.admin_notes}</p>
+                  </div>
+                )}
+
+                {/* Upload Payment Proof for rejected orders */}
+                {order.payment_status === 'rejected' && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-primary text-primary"
+                    onClick={() => { setProofUploadOrder(order); setReuploadFile(null); setReuploadTxnId(''); }}
+                  >
+                    <Upload className="w-4 h-4 mr-2" /> Upload Payment Proof
+                  </Button>
+                )}
+
                 {/* Delivery PIN */}
                 {order.delivery_pin && order.order_status !== 'delivered' && order.order_status !== 'cancelled' && (
                   <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
@@ -319,6 +376,43 @@ const SellerWholesale = () => {
                   <span>Status</span>
                   <span className="text-green-600 font-medium">Delivered ✓</span>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Upload Payment Proof Modal */}
+        {proofUploadOrder && (
+          <Dialog open={!!proofUploadOrder} onOpenChange={(open) => { if (!open) setProofUploadOrder(null); }}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Upload Payment Proof</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>UPI Transaction ID</Label>
+                  <Input value={reuploadTxnId} onChange={e => setReuploadTxnId(e.target.value)} placeholder="Enter UPI transaction ID" />
+                </div>
+                <div>
+                  <Label>Payment Screenshot *</Label>
+                  {reuploadFile ? (
+                    <div className="relative mt-2">
+                      <img src={URL.createObjectURL(reuploadFile)} className="w-full max-h-48 object-contain rounded-lg border" />
+                      <Button size="icon" variant="destructive" className="absolute top-2 right-2 h-6 w-6" onClick={() => setReuploadFile(null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="mt-2 flex flex-col items-center justify-center h-28 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
+                      <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                      <span className="text-sm text-muted-foreground">Tap to upload</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && setReuploadFile(e.target.files[0])} />
+                    </label>
+                  )}
+                </div>
+                <Button className="w-full" onClick={handleReuploadProof} disabled={reuploadSubmitting || !reuploadFile}>
+                  {reuploadSubmitting ? 'Submitting...' : 'Submit Proof'}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
