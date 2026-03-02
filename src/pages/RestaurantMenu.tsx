@@ -192,7 +192,7 @@ const RestaurantMenu = () => {
       const {
         data: restaurantData,
         error: restaurantError
-      } = await supabase.from('sellers').select('id, seller_name, profile_photo_url, owner_name, mobile, is_online, seller_latitude, seller_longitude').eq('id', restaurantId).eq('status', 'approved').single();
+      } = await supabase.from('sellers').select('id, seller_name, profile_photo_url, owner_name, mobile, is_online, seller_latitude, seller_longitude, seller_type').eq('id', restaurantId).eq('status', 'approved').in('seller_type', ['online', 'both']).single();
       if (restaurantError) throw restaurantError;
 
       // Fetch rating for this restaurant
@@ -298,7 +298,7 @@ const RestaurantMenu = () => {
       const {
         data: similarData,
         error: similarError
-      } = await supabase.from('sellers').select('id, seller_name, profile_photo_url, owner_name, mobile, is_online, seller_latitude, seller_longitude').eq('status', 'approved').neq('id', restaurantId);
+      } = await supabase.from('sellers').select('id, seller_name, profile_photo_url, owner_name, mobile, is_online, seller_latitude, seller_longitude').eq('status', 'approved').in('seller_type', ['online', 'both']).neq('id', restaurantId);
       if (similarError) throw similarError;
 
       // Fetch ratings and calculate distances for similar restaurants

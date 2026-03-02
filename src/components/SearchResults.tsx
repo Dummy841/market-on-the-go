@@ -88,7 +88,8 @@ export const SearchResults = ({ searchQuery, onClose }: SearchResultsProps) => {
         .from('sellers')
         .select('id, seller_name, profile_photo_url, owner_name, mobile, is_online')
         .ilike('seller_name', `%${searchQuery}%`)
-        .eq('status', 'approved');
+        .eq('status', 'approved')
+        .in('seller_type', ['online', 'both']);
 
       if (restaurantsError) throw restaurantsError;
       setSearchRestaurants(restaurantsData || []);
