@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Search, Camera, Plus, Minus, Trash2, Receipt } from 'lucide-react';
+import { ArrowLeft, Search, Camera, Plus, Minus, Trash2, Receipt, ShoppingBag } from 'lucide-react';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -147,6 +147,9 @@ const SellerPOS = () => {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-bold flex-1">POS - {seller.seller_name}</h1>
+        <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')}>
+          <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
+        </Button>
         <Button variant="outline" size="sm" onClick={() => navigate('/seller-pos/transactions')}>
           <Receipt className="w-4 h-4 mr-1" /> Transactions
         </Button>
