@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Eye, Printer, X } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Eye, Printer } from 'lucide-react';
+import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -30,24 +32,24 @@ interface PosOrder {
   customer_mobile?: string;
 }
 
-interface Props {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  sellerId: string;
-  sellerName: string;
-}
-
-const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Props) => {
+const POSTransactions = () => {
+  const { seller, loading } = useSellerAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<PosOrder[]>([]);
   const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [viewOrder, setViewOrder] = useState<PosOrder | null>(null);
-  const [printOrder, setPrintOrder] = useState<PosOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const [printOrder, setPrintOrder] = useState<PosOrder | null>(null);
+
+  useEffect(() => {
+    if (!loading && !seller) navigate('/seller-login');
+  }, [seller, loading, navigate]);
 
   const fetchOrders = async () => {
-    setLoading(true);
+    if (!seller) return;
+    setFetching(true);
     const fromDate = new Date(dateFrom);
     fromDate.setHours(0, 0, 0, 0);
     const toDate = new Date(dateTo);
@@ -56,14 +58,13 @@ const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Prop
     const { data } = await supabase
       .from('orders')
       .select('*')
-      .eq('seller_id', sellerId)
+      .eq('seller_id', seller.id)
       .eq('delivery_address', 'POS - In Store')
       .gte('created_at', fromDate.toISOString())
       .lte('created_at', toDate.toISOString())
       .order('created_at', { ascending: false });
 
     if (data) {
-      // Fetch customer names for non-walkIn orders
       const userIds = [...new Set(data.map(o => o.user_id).filter(id => id !== '00000000-0000-0000-0000-000000000000'))];
       let usersMap: Record<string, { name: string; mobile: string }> = {};
       if (userIds.length > 0) {
@@ -77,12 +78,12 @@ const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Prop
         customer_mobile: usersMap[o.user_id]?.mobile || '',
       })));
     }
-    setLoading(false);
+    setFetching(false);
   };
 
   useEffect(() => {
-    if (open) fetchOrders();
-  }, [open, dateFrom, dateTo]);
+    if (seller) fetchOrders();
+  }, [seller, dateFrom, dateTo]);
 
   const getPaymentLabel = (method: string) => {
     if (method === 'cash') return 'CASH';
@@ -103,7 +104,6 @@ const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Prop
         <style>
           body { font-family: 'Courier New', monospace; font-size: 13px; padding: 20px; max-width: 350px; margin: 0 auto; color: #000; }
           .center { text-align: center; }
-          .right { text-align: right; }
           .bold { font-weight: bold; }
           .line { border-top: 1px dashed #999; margin: 8px 0; }
           .row { display: flex; justify-content: space-between; }
@@ -134,7 +134,7 @@ const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Prop
 
     return (
       <div>
-        <div className="center title">{sellerName}</div>
+        <div className="center title">{seller?.seller_name}</div>
         <div className="line"></div>
         <div className="row"><span style={{ color: '#d97706' }}>Order #:</span><span>{order.id}</span></div>
         <div className="row"><span style={{ color: '#d97706' }}>Date:</span><span>{format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}</span></div>
@@ -175,72 +175,76 @@ const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Prop
     );
   };
 
+  if (loading || !seller) return <div className="min-h-screen flex items-center justify-center"><div>Loading...</div></div>;
+
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>POS Transactions</DialogTitle>
-          </DialogHeader>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="bg-card border-b border-border p-3 flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/seller-pos')}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <h1 className="text-lg font-bold flex-1">POS Transactions</h1>
+      </header>
 
-          {/* Date Filters */}
-          <div className="flex gap-2 items-center flex-wrap">
-            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-auto" />
-            <span className="text-sm text-muted-foreground">to</span>
-            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-auto" />
-          </div>
+      {/* Date Filters */}
+      <div className="bg-card border-b border-border p-3 flex gap-2 items-center flex-wrap">
+        <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-auto" />
+        <span className="text-sm text-muted-foreground">to</span>
+        <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-auto" />
+      </div>
 
-          {/* Table */}
-          <div className="flex-1 overflow-auto">
-            {loading ? (
-              <p className="text-center py-8 text-muted-foreground">Loading...</p>
-            ) : orders.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">No transactions found</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead className="w-10"></TableHead>
+      {/* Table */}
+      <div className="flex-1 overflow-auto p-3">
+        {fetching ? (
+          <p className="text-center py-8 text-muted-foreground">Loading...</p>
+        ) : orders.length === 0 ? (
+          <p className="text-center py-8 text-muted-foreground">No transactions found</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map(order => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                    <TableCell className="text-xs">{format(new Date(order.created_at), 'dd/MM/yy HH:mm')}</TableCell>
+                    <TableCell className="text-sm">{order.customer_name}</TableCell>
+                    <TableCell className="text-right font-semibold">₹{Number(order.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-xs">{getPaymentLabel(order.payment_method)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewOrder(order)}>
+                            <Eye className="w-4 h-4 mr-2" /> View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePrint(order)}>
+                            <Printer className="w-4 h-4 mr-2" /> Print
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map(order => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-xs">{order.id}</TableCell>
-                      <TableCell className="text-xs">{format(new Date(order.created_at), 'dd/MM/yy HH:mm')}</TableCell>
-                      <TableCell className="text-sm">{order.customer_name}</TableCell>
-                      <TableCell className="text-right font-semibold">₹{Number(order.total_amount).toFixed(2)}</TableCell>
-                      <TableCell className="text-xs">{getPaymentLabel(order.payment_method)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewOrder(order)}>
-                              <Eye className="w-4 h-4 mr-2" /> View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handlePrint(order)}>
-                              <Printer className="w-4 h-4 mr-2" /> Print
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
       {/* View Order Dialog */}
       <Dialog open={!!viewOrder} onOpenChange={() => setViewOrder(null)}>
@@ -279,8 +283,8 @@ const POSTransactionsModal = ({ open, onOpenChange, sellerId, sellerName }: Prop
           {printOrder && renderReceipt(printOrder)}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
-export default POSTransactionsModal;
+export default POSTransactions;
