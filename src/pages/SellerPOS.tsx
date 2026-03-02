@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Search, Camera, Plus, Minus, Trash2, Receipt, ShoppingBag, Settings, Keyboard } from 'lucide-react';
@@ -56,6 +57,7 @@ const SellerPOS = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'external' | null>(null);
+  const [onlinePendingCount, setOnlinePendingCount] = useState(0);
   
   const [dialogSearchQuery, setDialogSearchQuery] = useState('');
   const [allProducts, setAllProducts] = useState<Item[]>([]);
@@ -86,6 +88,62 @@ const SellerPOS = () => {
   useEffect(() => {
     if (seller) fetchAllProducts();
   }, [seller, fetchAllProducts]);
+
+  // Fetch online pending orders count & subscribe to new online orders
+  const orderSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  const fetchOnlinePendingCount = useCallback(async () => {
+    if (!seller) return;
+    const { data } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('seller_id', seller.id)
+      .neq('delivery_address', 'POS - In Store')
+      .in('seller_status', ['pending', 'accepted']);
+    setOnlinePendingCount(data?.length || 0);
+  }, [seller]);
+
+  const playOrderSound = useCallback(() => {
+    try {
+      const audio = new Audio('/ringtone.mp3');
+      orderSoundRef.current = audio;
+      audio.play();
+      setTimeout(() => { audio.pause(); audio.currentTime = 0; orderSoundRef.current = null; }, 2000);
+    } catch (e) { console.error('Sound error:', e); }
+  }, []);
+
+  useEffect(() => {
+    if (!seller) return;
+    fetchOnlinePendingCount();
+
+    const channel = supabase
+      .channel('pos-online-orders')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'orders',
+        filter: `seller_id=eq.${seller.id}`
+      }, payload => {
+        const newOrder = payload.new as any;
+        if (newOrder.delivery_address === 'POS - In Store') return;
+        setOnlinePendingCount(prev => prev + 1);
+        playOrderSound();
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `seller_id=eq.${seller.id}`
+      }, () => {
+        fetchOnlinePendingCount();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (orderSoundRef.current) { orderSoundRef.current.pause(); orderSoundRef.current = null; }
+    };
+  }, [seller, fetchOnlinePendingCount, playOrderSound]);
 
   const filteredProducts = allProducts.filter(item => {
     if (!dialogSearchQuery.trim()) return true;
@@ -167,8 +225,13 @@ const SellerPOS = () => {
         <Button variant="outline" size="icon" onClick={() => navigate('/seller-pos/settings')} title="Settings">
           <Settings className="w-4 h-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')}>
+        <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')} className="relative">
           <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
+          {onlinePendingCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">
+              {onlinePendingCount}
+            </span>
+          )}
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate('/seller-pos/transactions')}>
           <Receipt className="w-4 h-4 mr-1" /> Transactions
