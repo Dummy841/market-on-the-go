@@ -20,6 +20,7 @@ export interface Seller {
   category?: string;
   categories?: string;
   subcategory?: string;
+  seller_type?: string | null;
   created_at: string;
   updated_at: string;
 }
