@@ -1,43 +1,43 @@
 
 
-## Plan: POS Transactions Page, Payment Flow Improvements, and RLS Fix
+## Plan: Seller Access Type (Online Orders / POS) with Navigation Filtering
 
-### Issues Identified
+### Overview
+Add two checkboxes (Online Orders, POS) to the Create Seller and Edit Seller forms in the admin dashboard. Based on the selection, filter the navigation items visible to the seller in their dashboard.
 
-1. **Transactions is a modal** — needs to be a standalone page at `/seller-pos/transactions`
-2. **3-dot actions not rendering** — DropdownMenu inside Dialog has portal/z-index issues; moving to a page fixes this
-3. **Payment method behavior** — Quick Pay should complete immediately + auto-print; UPI should show QR then complete; Card should show transaction ID input then complete
-4. **RLS error on order insert** — The INSERT policy on `orders` requires `user_id` to exist in the `users` table. Walk-in customers use UUID `00000000-0000-0000-0000-000000000000` which doesn't exist in `users`, causing the violation
+### Access Rules
 
-### Changes
+```text
+Selection         | Visible Nav Items
+------------------|--------------------------------------------------
+Online Only       | Add Items, My Menu, Shop Wholesale, Online Orders, My Orders, Wallet
+POS Only          | Add Items, My Menu, Shop Wholesale, My Orders, Settings, Transactions
+Both              | All items (Add Items, My Menu, Online Orders, My Earnings, Shop Wholesale, POS, Transactions, Settings, My Orders, Wallet)
+Neither           | Shop Wholesale, My Orders only
+```
 
-**1. New page: `src/pages/POSTransactions.tsx`**
-- Convert `POSTransactionsModal` content into a full page with back navigation to `/seller-pos`
-- Header with "POS Transactions" title and back arrow
-- Date filters and table with 3-dot actions (View dialog, Print) — no longer inside a Dialog so DropdownMenu will work correctly
-- Reuse the existing receipt print logic and view order dialog
+### Step 1: Database Migration
+Add a `seller_type` column to the `sellers` table:
+- Type: `text`, nullable, default `null`
+- Values: `'online'`, `'pos'`, `'both'`, or `null` (neither)
 
-**2. Update `src/App.tsx`**
-- Add route: `/seller-pos/transactions` → `POSTransactions`
+### Step 2: Update CreateSellerForm.tsx
+- Add two checkbox inputs: "Online Orders" and "POS"
+- Map selections to `seller_type` value (`'online'`, `'pos'`, `'both'`, or `null`)
+- Save to `sellers` table on submit
 
-**3. Update `src/pages/SellerPOS.tsx`**
-- Change Transactions button to `navigate('/seller-pos/transactions')` instead of opening modal
-- Remove `POSTransactionsModal` import and usage
+### Step 3: Update EditSellerModal.tsx
+- Same two checkboxes, pre-populated from `seller.seller_type`
+- Save updated value on submit
 
-**4. Update `src/components/POSCheckoutModal.tsx`**
-- **Quick Pay (cash)**: On click, immediately call `handleCompletePayment('cash')` — no separate "Pay" button needed. Auto-print receipt after success.
-- **UPI**: On click, show a QR placeholder/instruction area with a "Complete Payment" button. On complete, auto-print receipt.
-- **Card**: On click, show a transaction ID input field with a "Complete Payment" button. On complete, auto-print receipt.
-- Add receipt print logic (reuse from POSTransactionsModal) to auto-print after every successful payment.
-- Pass `sellerName` to receipt renderer.
+### Step 4: Update Seller Interface
+- Add `seller_type?: string | null` to `Seller` interface in `SellerAuthContext.tsx`
 
-**5. Fix RLS error**
-- Add a SQL migration to insert a walk-in customer row into `users` table with id `00000000-0000-0000-0000-000000000000`, name `Walk-in Customer`, mobile `N/A` — so the RLS policy is satisfied
-- Use `ON CONFLICT DO NOTHING` to be idempotent
-
-**6. Delete `src/components/POSTransactionsModal.tsx`** — no longer needed
-
-### Technical Details
-- Receipt auto-print: after successful order insert, construct receipt HTML and open print window immediately
-- The order insert RLS policy checks `user_id IN (SELECT id FROM users WHERE id = orders.user_id)` — the walk-in UUID must exist as a row in `users`
+### Step 5: Update SellerDashboard.tsx
+- Read `seller.seller_type` and filter `navItems` accordingly before rendering
+- Logic:
+  - `'both'` → show all
+  - `'online'` → show: add, menu, wholesale, orders, wholesale-orders, wallet
+  - `'pos'` → show: add, menu, wholesale, wholesale-orders, settings, transactions
+  - `null`/undefined → show: wholesale, wholesale-orders only
 
