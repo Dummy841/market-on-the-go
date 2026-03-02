@@ -1042,6 +1042,7 @@ export type Database = {
           delivery_address: string | null
           delivery_latitude: number | null
           delivery_longitude: number | null
+          delivery_pin: string | null
           id: string
           items: Json
           order_status: string
@@ -1059,6 +1060,7 @@ export type Database = {
           delivery_address?: string | null
           delivery_latitude?: number | null
           delivery_longitude?: number | null
+          delivery_pin?: string | null
           id?: string
           items: Json
           order_status?: string
@@ -1076,6 +1078,7 @@ export type Database = {
           delivery_address?: string | null
           delivery_latitude?: number | null
           delivery_longitude?: number | null
+          delivery_pin?: string | null
           id?: string
           items?: Json
           order_status?: string

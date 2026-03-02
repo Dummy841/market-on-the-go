@@ -4,11 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, CheckCircle, XCircle, Truck } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Truck, PackageCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PinVerificationModal } from '@/components/PinVerificationModal';
 
 interface WholesaleOrder {
   id: string;
@@ -22,6 +22,7 @@ interface WholesaleOrder {
   payment_status: string;
   order_status: string;
   admin_notes: string | null;
+  delivery_pin: string | null;
   created_at: string;
 }
 
@@ -39,6 +40,7 @@ const WholesaleOrders = () => {
   const [loading, setLoading] = useState(true);
   const [viewOrder, setViewOrder] = useState<WholesaleOrder | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [pinOrder, setPinOrder] = useState<WholesaleOrder | null>(null);
   const { toast } = useToast();
 
   useEffect(() => { fetchOrders(); }, []);
@@ -134,6 +136,11 @@ const WholesaleOrders = () => {
                             <Truck className="w-4 h-4" />
                           </Button>
                         )}
+                        {order.order_status === 'dispatched' && (
+                          <Button size="icon" variant="ghost" className="text-green-600" onClick={() => setPinOrder(order)} title="Mark as Delivered">
+                            <PackageCheck className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -198,6 +205,20 @@ const WholesaleOrders = () => {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* PIN Verification Modal for Mark as Delivered */}
+      {pinOrder && (
+        <PinVerificationModal
+          open={!!pinOrder}
+          onOpenChange={(open) => { if (!open) setPinOrder(null); }}
+          expectedPin={pinOrder.delivery_pin || ''}
+          orderNumber={pinOrder.id}
+          onSuccess={() => {
+            updateOrder(pinOrder.id, { order_status: 'delivered' });
+            setPinOrder(null);
+          }}
+        />
       )}
     </div>
   );
