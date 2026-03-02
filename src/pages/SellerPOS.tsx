@@ -306,7 +306,7 @@ const SellerPOS = () => {
       </div>
 
       {/* Cart Table */}
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-y-auto min-h-0 p-3">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-20">
             <Search className="w-12 h-12" />
