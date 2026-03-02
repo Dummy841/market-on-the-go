@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Eye, CheckCircle, XCircle, Truck, PackageCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -41,6 +42,8 @@ const WholesaleOrders = () => {
   const [viewOrder, setViewOrder] = useState<WholesaleOrder | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [pinOrder, setPinOrder] = useState<WholesaleOrder | null>(null);
+  const [rejectOrder, setRejectOrder] = useState<WholesaleOrder | null>(null);
+  const [rejectRemarks, setRejectRemarks] = useState('');
   const { toast } = useToast();
 
   useEffect(() => { fetchOrders(); }, []);
@@ -155,7 +158,7 @@ const WholesaleOrders = () => {
                             <Button size="icon" variant="ghost" className="text-green-600" onClick={() => updateOrder(order.id, { payment_status: 'verified' })}>
                               <CheckCircle className="w-4 h-4" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => updateOrder(order.id, { payment_status: 'rejected' })}>
+                            <Button size="icon" variant="ghost" className="text-destructive" onClick={() => { setRejectOrder(order); setRejectRemarks(''); }}>
                               <XCircle className="w-4 h-4" />
                             </Button>
                           </>
@@ -231,6 +234,40 @@ const WholesaleOrders = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Reject with Remarks Modal */}
+      {rejectOrder && (
+        <Dialog open={!!rejectOrder} onOpenChange={(open) => { if (!open) setRejectOrder(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Reject Order: {rejectOrder.id}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Rejection Remarks *</Label>
+                <Textarea
+                  value={rejectRemarks}
+                  onChange={e => setRejectRemarks(e.target.value)}
+                  placeholder="Enter reason for rejection..."
+                  rows={3}
+                />
+              </div>
+              <Button
+                className="w-full"
+                variant="destructive"
+                disabled={!rejectRemarks.trim()}
+                onClick={() => {
+                  updateOrder(rejectOrder.id, { payment_status: 'rejected', admin_notes: rejectRemarks.trim() });
+                  setRejectOrder(null);
+                  setRejectRemarks('');
+                }}
+              >
+                Submit Rejection
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

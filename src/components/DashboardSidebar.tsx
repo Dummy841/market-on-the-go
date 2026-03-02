@@ -59,7 +59,8 @@ export function DashboardSidebar() {
       const { count, error } = await supabase
         .from("wholesale_orders")
         .select("*", { count: "exact", head: true })
-        .in("order_status", ["pending", "verified"]);
+        .in("order_status", ["pending", "verified"])
+        .neq("payment_status", "rejected");
       if (!error && count) setWholesaleOrderCount(count);
     };
     fetchCount();
