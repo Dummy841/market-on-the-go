@@ -65,7 +65,8 @@ export const SearchResults = ({ searchQuery, onClose }: SearchResultsProps) => {
           sellers!inner(seller_name, is_online)
         `)
         .ilike('item_name', `%${searchQuery}%`)
-        .eq('sellers.status', 'approved');
+        .eq('sellers.status', 'approved')
+        .in('sellers.seller_type', ['online', 'both']);
 
       if (itemsError) throw itemsError;
 
