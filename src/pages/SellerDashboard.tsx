@@ -422,15 +422,6 @@ const SellerDashboard = () => {
                       );
                     })}
                   </div>
-                  <div className="border-t border-border p-4">
-                    <button
-                      onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-0 py-2 text-sm text-destructive"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Logout</span>
-                    </button>
-                  </div>
                 </SheetContent>
               </Sheet>
             )}
@@ -513,10 +504,6 @@ const SellerDashboard = () => {
                 <DropdownMenuItem onClick={() => setShowChangePassword(true)}>
                   <Key className="mr-2 h-4 w-4" />
                   <span>Change Password</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Logout</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

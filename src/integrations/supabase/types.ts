@@ -525,6 +525,47 @@ export type Database = {
           },
         ]
       }
+      seller_sessions: {
+        Row: {
+          created_at: string
+          device_info: string | null
+          device_type: string
+          id: string
+          is_active: boolean
+          last_active_at: string
+          seller_id: string
+          session_token: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: string | null
+          device_type?: string
+          id?: string
+          is_active?: boolean
+          last_active_at?: string
+          seller_id: string
+          session_token: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: string | null
+          device_type?: string
+          id?: string
+          is_active?: boolean
+          last_active_at?: string
+          seller_id?: string
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_sessions_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seller_upi_ids: {
         Row: {
           created_at: string
