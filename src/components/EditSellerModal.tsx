@@ -58,6 +58,8 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [onlineOrdersChecked, setOnlineOrdersChecked] = useState(false);
+  const [posChecked, setPosChecked] = useState(false);
   const { toast } = useToast();
   
   const form = useForm<EditSellerFormData>({
@@ -117,6 +119,11 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
       });
       setProfilePhotoUrl(seller.profile_photo_url || '');
       setSelectedCategories(parsedCategories);
+      
+      // Set seller type checkboxes
+      const st = (seller as any).seller_type;
+      setOnlineOrdersChecked(st === 'online' || st === 'both');
+      setPosChecked(st === 'pos' || st === 'both');
       
       // Parse existing subcategories
       const existingSubcategories = (seller as any).subcategory;
@@ -193,6 +200,7 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
           category: data.categories[0] || 'food_delivery',
           categories: data.categories.join(','),
           subcategory: selectedSubcategories.join(', '),
+          seller_type: onlineOrdersChecked && posChecked ? 'both' : onlineOrdersChecked ? 'online' : posChecked ? 'pos' : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', seller.id);
@@ -452,6 +460,26 @@ const EditSellerModal = ({ seller, open, onOpenChange, onSuccess }: EditSellerMo
                 )}
               </div>
             )}
+
+            <div className="p-3 border rounded-lg space-y-3 bg-muted/30">
+              <Label className="text-base font-medium">Seller Access Type</Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit_online_orders"
+                  checked={onlineOrdersChecked}
+                  onCheckedChange={(checked) => setOnlineOrdersChecked(checked === true)}
+                />
+                <Label htmlFor="edit_online_orders" className="text-sm font-normal cursor-pointer">Online Orders</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit_pos_access"
+                  checked={posChecked}
+                  onCheckedChange={(checked) => setPosChecked(checked === true)}
+                />
+                <Label htmlFor="edit_pos_access" className="text-sm font-normal cursor-pointer">POS</Label>
+              </div>
+            </div>
 
             <div className="flex items-center space-x-2">
               <Switch

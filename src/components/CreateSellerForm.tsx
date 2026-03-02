@@ -60,6 +60,8 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
   const [isVerifyingBank, setIsVerifyingBank] = useState(false);
   const [modules, setModules] = useState<ServiceModule[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [onlineOrdersChecked, setOnlineOrdersChecked] = useState(false);
+  const [posChecked, setPosChecked] = useState(false);
   const { toast } = useToast();
   
   const form = useForm<SellerFormData>({
@@ -292,6 +294,7 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
             categories: data.categories.join(','),
             subcategory: data.subcategories.length > 0 ? data.subcategories.join(', ') : null,
             is_bank_verified: true,
+            seller_type: onlineOrdersChecked && posChecked ? 'both' : onlineOrdersChecked ? 'online' : posChecked ? 'pos' : null,
           },
         ]);
 
@@ -616,6 +619,26 @@ const CreateSellerForm = ({ open, onOpenChange, onSuccess }: CreateSellerFormPro
               )}
             </div>
           )}
+
+          <div className="p-3 border rounded-lg space-y-3 bg-muted/30">
+            <Label className="text-base font-medium">Seller Access Type</Label>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="online_orders"
+                checked={onlineOrdersChecked}
+                onCheckedChange={(checked) => setOnlineOrdersChecked(checked === true)}
+              />
+              <Label htmlFor="online_orders" className="text-sm font-normal cursor-pointer">Online Orders</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="pos_access"
+                checked={posChecked}
+                onCheckedChange={(checked) => setPosChecked(checked === true)}
+              />
+              <Label htmlFor="pos_access" className="text-sm font-normal cursor-pointer">POS</Label>
+            </div>
+          </div>
 
           <div className="flex items-center space-x-2">
             <Switch

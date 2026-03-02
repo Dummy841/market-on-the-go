@@ -650,6 +650,7 @@ export type Database = {
           seller_latitude: number | null
           seller_longitude: number | null
           seller_name: string
+          seller_type: string | null
           status: string
           subcategory: string | null
           updated_at: string
@@ -673,6 +674,7 @@ export type Database = {
           seller_latitude?: number | null
           seller_longitude?: number | null
           seller_name: string
+          seller_type?: string | null
           status?: string
           subcategory?: string | null
           updated_at?: string
@@ -696,6 +698,7 @@ export type Database = {
           seller_latitude?: number | null
           seller_longitude?: number | null
           seller_name?: string
+          seller_type?: string | null
           status?: string
           subcategory?: string | null
           updated_at?: string

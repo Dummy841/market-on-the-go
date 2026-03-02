@@ -1,0 +1,1 @@
+ALTER TABLE public.sellers ADD COLUMN seller_type text DEFAULT NULL;

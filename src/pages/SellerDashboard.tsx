@@ -329,7 +329,7 @@ const SellerDashboard = () => {
   };
 
 
-  const navItems = [
+  const allNavItems = [
     { id: 'add', label: 'Add Items', icon: Plus, action: () => setShowItemsForm(true) },
     { id: 'menu', label: 'My Menu', icon: Menu, action: () => setActiveSection('menu') },
     { id: 'orders', label: 'Online Orders', icon: ShoppingBag, action: () => setActiveSection('orders'), badge: orderCount },
@@ -341,6 +341,22 @@ const SellerDashboard = () => {
     { id: 'wholesale-orders', label: 'My Orders', icon: Package, action: () => navigate('/seller-wholesale?tab=orders') },
     { id: 'wallet', label: 'Wallet', icon: Wallet, action: () => navigate('/seller-wallet') },
   ];
+
+  const getVisibleNavIds = (): string[] => {
+    const sellerType = (seller as any)?.seller_type;
+    switch (sellerType) {
+      case 'both':
+        return allNavItems.map(item => item.id);
+      case 'online':
+        return ['add', 'menu', 'wholesale', 'orders', 'wholesale-orders', 'wallet'];
+      case 'pos':
+        return ['add', 'menu', 'wholesale', 'wholesale-orders', 'settings', 'transactions'];
+      default:
+        return ['wholesale', 'wholesale-orders'];
+    }
+  };
+
+  const navItems = allNavItems.filter(item => getVisibleNavIds().includes(item.id));
 
   if (loading) {
     return (
