@@ -310,7 +310,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             <Label>Category</Label>
             <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
               <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 {subcategories.map(sc => (
                   <SelectItem key={sc.id} value={sc.name}>{sc.name} ({sc.category})</SelectItem>
                 ))}

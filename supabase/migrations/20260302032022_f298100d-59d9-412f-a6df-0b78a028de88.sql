@@ -1,0 +1,1 @@
+ALTER TABLE public.wholesale_orders ADD COLUMN delivery_pin text;
