@@ -12,6 +12,8 @@ import POSCheckoutModal from '@/components/POSCheckoutModal';
 import POSBarcodeScannerModal from '@/components/POSBarcodeScannerModal';
 import POSSettingsModal from '@/components/POSSettingsModal';
 
+// No longer used - settings is now a separate page
+
 
 interface Item {
   id: string;
@@ -53,7 +55,6 @@ const SellerPOS = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'external' | null>(null);
   
   const [dialogSearchQuery, setDialogSearchQuery] = useState('');
@@ -163,7 +164,7 @@ const SellerPOS = () => {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-bold flex-1">POS - {seller.seller_name}</h1>
-        <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} title="Settings">
+        <Button variant="outline" size="icon" onClick={() => navigate('/seller-pos/settings')} title="Settings">
           <Settings className="w-4 h-4" />
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')}>
@@ -337,11 +338,6 @@ const SellerPOS = () => {
         />
       )}
 
-      <POSSettingsModal
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        sellerId={seller.id}
-      />
 
       {/* Search Products Dialog */}
       <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>
