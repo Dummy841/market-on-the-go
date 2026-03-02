@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Plus, User, Menu, ShoppingBag, TrendingUp, Power, PowerOff, Key, Wallet } from 'lucide-react';
+import { LogOut, Plus, User, Menu, ShoppingBag, TrendingUp, Power, PowerOff, Key, Wallet, Monitor } from 'lucide-react';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import SellerItemsForm from '@/components/SellerItemsForm';
 import MyMenu from '@/components/MyMenu';
@@ -326,6 +326,7 @@ const SellerDashboard = () => {
     { id: 'orders', label: 'My Orders', icon: ShoppingBag, action: () => setActiveSection('orders'), badge: orderCount },
     { id: 'earnings', label: 'My Earnings', icon: TrendingUp, action: () => setActiveSection('earnings') },
     { id: 'wholesale', label: 'Shop Wholesale', icon: ShoppingBag, action: () => navigate('/seller-wholesale') },
+    { id: 'pos', label: 'POS', icon: Monitor, action: () => navigate('/seller-pos') },
   ];
 
   if (loading) {
