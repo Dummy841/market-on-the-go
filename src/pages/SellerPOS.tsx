@@ -40,8 +40,14 @@ const SellerPOS = () => {
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [dialogSearchQuery, setDialogSearchQuery] = useState('');
   const [allProducts, setAllProducts] = useState<Item[]>([]);
+  const [barcodeDropdownOpen, setBarcodeDropdownOpen] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const barcodeFilteredProducts = allProducts.filter(item => {
+    if (!barcodeInput.trim()) return false;
+    return item.barcode?.toLowerCase().includes(barcodeInput.toLowerCase());
+  });
 
   useEffect(() => {
     if (!loading && !seller) navigate('/seller-login');
@@ -88,9 +94,10 @@ const SellerPOS = () => {
       .eq('barcode', barcodeInput.trim())
       .eq('is_active', true)
       .maybeSingle();
-    if (data) { addToCart(data); setBarcodeInput(''); }
+    if (data) { addToCart(data); setBarcodeInput(''); setBarcodeDropdownOpen(false); }
     else toast({ variant: 'destructive', title: 'Not Found', description: `No product with barcode "${barcodeInput}"` });
     setBarcodeInput('');
+    setBarcodeDropdownOpen(false);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -152,18 +159,41 @@ const SellerPOS = () => {
           />
         </div>
 
-        <form onSubmit={handleBarcodeSubmit} className="flex gap-2 min-w-[200px] flex-1">
-          <Input
-            ref={barcodeRef}
-            placeholder="Enter barcode..."
-            value={barcodeInput}
-            onChange={e => setBarcodeInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="submit" size="icon" variant="outline">
-            <Search className="w-4 h-4" />
-          </Button>
-        </form>
+        <div className="relative flex-1 min-w-[200px]">
+          <form onSubmit={handleBarcodeSubmit} className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                ref={barcodeRef}
+                placeholder="Enter barcode..."
+                value={barcodeInput}
+                onChange={e => { setBarcodeInput(e.target.value); setBarcodeDropdownOpen(true); }}
+                onFocus={() => barcodeInput && setBarcodeDropdownOpen(true)}
+                className="flex-1"
+              />
+              {barcodeDropdownOpen && barcodeFilteredProducts.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 bg-card border border-border rounded-b-lg shadow-lg max-h-60 overflow-y-auto">
+                  {barcodeFilteredProducts.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="w-full p-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
+                      onClick={() => { addToCart(item); setBarcodeInput(''); setBarcodeDropdownOpen(false); }}
+                    >
+                      <div>
+                        <div className="font-medium text-sm">{item.item_name}</div>
+                        <div className="text-xs text-muted-foreground">{item.barcode || '-'}</div>
+                      </div>
+                      <div className="text-sm font-semibold">₹{item.seller_price}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button type="submit" size="icon" variant="outline">
+              <Search className="w-4 h-4" />
+            </Button>
+          </form>
+        </div>
 
         <Button variant="outline" size="icon" onClick={() => setShowScanner(true)}>
           <Camera className="w-5 h-5" />
