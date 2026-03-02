@@ -67,6 +67,7 @@ export const MyOrders = () => {
         .from('orders')
         .select('*, delivery_partners(name, mobile)')
         .eq('user_id', user.id)
+        .neq('delivery_address', 'POS - In Store')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const ordersWithPartner = (data || []).map((order: any) => ({
