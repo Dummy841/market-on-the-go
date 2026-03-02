@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, Plus, ShoppingBag, TrendingUp, Monitor, Receipt, Settings, Package, Wallet, LogOut } from 'lucide-react';
+import { Menu, Plus, ShoppingBag, TrendingUp, Monitor, Receipt, Settings, Package, Wallet } from 'lucide-react';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const SellerHamburgerMenu = () => {
-  const { seller, logout } = useSellerAuth();
+  const { seller } = useSellerAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
@@ -59,11 +59,6 @@ const SellerHamburgerMenu = () => {
 
   const navItems = allNavItems.filter(item => getVisibleNavIds().includes(item.id));
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/seller-login');
-  };
-
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -92,15 +87,6 @@ const SellerHamburgerMenu = () => {
               )}
             </button>
           ))}
-        </div>
-        <div className="border-t border-border p-4">
-          <button
-            onClick={() => { handleLogout(); setOpen(false); }}
-            className="w-full flex items-center gap-3 px-0 py-2 text-sm text-destructive"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
         </div>
       </SheetContent>
     </Sheet>
