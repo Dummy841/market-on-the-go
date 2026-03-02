@@ -212,7 +212,10 @@ const SellerWholesale = () => {
   if (step === 'orders') {
     return (
       <div className="min-h-screen bg-background p-4 max-w-lg mx-auto">
-        <Button variant="ghost" onClick={() => setStep('browse')} className="mb-4"><ArrowLeft className="w-4 h-4 mr-2" /> Back</Button>
+        <div className="flex items-center gap-2 mb-4">
+          <SellerHamburgerMenu />
+          <h2 className="text-xl font-bold">My Wholesale Orders</h2>
+        </div>
         <h2 className="text-xl font-bold mb-4">My Wholesale Orders</h2>
 
         {ordersLoading ? (
