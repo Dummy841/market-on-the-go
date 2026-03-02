@@ -139,14 +139,24 @@ const WholesaleOrders = () => {
                     <TableCell>{Array.isArray(order.items) ? order.items.length : 0} items</TableCell>
                     <TableCell className="font-bold">₹{order.total_amount}</TableCell>
                     <TableCell>
-                      <Badge variant={order.payment_status === 'verified' ? 'default' : order.payment_status === 'rejected' ? 'destructive' : 'secondary'}>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        order.payment_status === 'verified' ? 'bg-green-100 text-green-800' :
+                        order.payment_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-orange-100 text-orange-800'
+                      }`}>
                         {order.payment_status}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={(statusColors[order.order_status] as any) || 'secondary'}>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        order.order_status === 'delivered' ? 'bg-green-100 text-green-800' :
+                        order.order_status === 'verified' ? 'bg-green-100 text-green-800' :
+                        order.order_status === 'rejected' || order.order_status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        order.order_status === 'dispatched' ? 'bg-blue-100 text-blue-800' :
+                        'bg-orange-100 text-orange-800'
+                      }`}>
                         {order.order_status}
-                      </Badge>
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
