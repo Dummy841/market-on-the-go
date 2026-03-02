@@ -4,10 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { Package, Clock, CheckCircle, Truck, AlertCircle, Eye, Search, Calendar } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, AlertCircle, Eye, Search, Calendar, Globe, Store } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import DeliveryPartnerAssignModal from "@/components/DeliveryPartnerAssignModal";
 
@@ -49,6 +50,11 @@ interface UserInfo {
   mobile: string;
 }
 
+interface SellerInfo {
+  id: string;
+  seller_name: string;
+}
+
 const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +66,11 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [usersMap, setUsersMap] = useState<Map<string, UserInfo>>(new Map());
+  const [orderMode, setOrderMode] = useState<"online" | "pos">("online");
+  const [sellers, setSellers] = useState<SellerInfo[]>([]);
+  const [posSellerFilter, setPosSellerFilter] = useState("all");
+  const [posSearchQuery, setPosSearchQuery] = useState("");
+  const [posDateFilter, setPosDateFilter] = useState(format(new Date(), "yyyy-MM-dd"));
 
   const autoRefundTriggeredRef = useRef<Set<string>>(new Set());
 
@@ -79,27 +90,21 @@ const Orders = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select(
-          `
-          *,
-          delivery_partner:assigned_delivery_partner_id (
-            name,
-            mobile
-          )
-        `
-        )
+        .select(`*, delivery_partner:assigned_delivery_partner_id (name, mobile)`)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       setOrders((data || []) as any);
 
-      // Users map for search by name
       const { data: usersData } = await supabase.from("users").select("id, name, mobile");
       if (usersData) {
         const map = new Map<string, UserInfo>();
         usersData.forEach((u: any) => map.set(u.id, u));
         setUsersMap(map);
       }
+
+      const { data: sellersData } = await supabase.from("sellers").select("id, seller_name").order("seller_name");
+      if (sellersData) setSellers(sellersData);
     } catch (error) {
       console.error("Error fetching orders:", error);
       toast({ title: "Error", description: "Failed to fetch orders", variant: "destructive" });
@@ -111,12 +116,7 @@ const Orders = () => {
   const triggerAutoRefund = useCallback(async (orderId: string) => {
     if (autoRefundTriggeredRef.current.has(orderId)) return;
     autoRefundTriggeredRef.current.add(orderId);
-
-    const { data, error } = await supabase.functions.invoke("refund-rejected-order", {
-      body: { order_id: orderId },
-    });
-
-    // If failed, allow retry later
+    const { data, error } = await supabase.functions.invoke("refund-rejected-order", { body: { order_id: orderId } });
     if (error || !data?.success) {
       autoRefundTriggeredRef.current.delete(orderId);
       console.error("Auto refund failed:", error || data);
@@ -135,90 +135,82 @@ const Orders = () => {
 
   useEffect(() => {
     fetchOrders();
-
     const channel = supabase
       .channel("admin-orders-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            fetchOrders();
-            toast({
-              title: "New Order",
-              description: `New order received from ${(payload.new as any).seller_name}`,
-            });
-            return;
-          }
-
-          if (payload.eventType === "UPDATE") {
-            setOrders((prev) =>
-              prev.map((o) => (o.id === (payload.new as any).id ? ({ ...o, ...(payload.new as any) } as any) : o))
-            );
-            return;
-          }
-
-          if (payload.eventType === "DELETE") {
-            setOrders((prev) => prev.filter((o) => o.id !== (payload.old as any).id));
-          }
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
+        if (payload.eventType === "INSERT") { fetchOrders(); toast({ title: "New Order", description: `New order received from ${(payload.new as any).seller_name}` }); return; }
+        if (payload.eventType === "UPDATE") { setOrders((prev) => prev.map((o) => (o.id === (payload.new as any).id ? ({ ...o, ...(payload.new as any) } as any) : o))); return; }
+        if (payload.eventType === "DELETE") { setOrders((prev) => prev.filter((o) => o.id !== (payload.old as any).id)); }
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Auto-refund any rejected orders (no admin button, no manual step)
   useEffect(() => {
     orders.forEach((o) => {
-      if (o.seller_status === "rejected" && o.status !== "refunded") {
-        triggerAutoRefund(o.id);
-      }
+      if (o.seller_status === "rejected" && o.status !== "refunded") triggerAutoRefund(o.id);
     });
   }, [orders, triggerAutoRefund]);
 
-  const getOrdersForDate = (date: string) =>
-    orders.filter((order) => format(toZonedTime(new Date(order.created_at), IST), "yyyy-MM-dd") === date);
+  const isPOSOrder = (order: Order) => order.delivery_address === "POS - In Store";
 
-  const dateFilteredOrders = dateFilter ? getOrdersForDate(dateFilter) : orders;
+  const getOrdersForMode = () => {
+    return orders.filter((o) => orderMode === "pos" ? isPOSOrder(o) : !isPOSOrder(o));
+  };
 
-  const filteredOrders = orders.filter((order) => {
-    if (dateFilter) {
-      const orderDateIST = format(toZonedTime(new Date(order.created_at), IST), "yyyy-MM-dd");
-      if (orderDateIST !== dateFilter) return false;
-    }
+  const getOrdersForDate = (date: string, base: Order[]) =>
+    base.filter((order) => format(toZonedTime(new Date(order.created_at), IST), "yyyy-MM-dd") === date);
 
-    if (selectedStatus !== "All" && order.status !== selectedStatus) return false;
-
+  // Online filtered orders
+  const getOnlineFiltered = () => {
+    let result = getOrdersForMode();
+    if (dateFilter) result = getOrdersForDate(dateFilter, result);
+    if (selectedStatus !== "All") result = result.filter((o) => o.status === selectedStatus);
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const matchesOrderId = order.id.toLowerCase().includes(query);
-      const matchesMobile = order.delivery_mobile?.toLowerCase().includes(query);
-      const user = usersMap.get(order.user_id);
-      const matchesName = user?.name?.toLowerCase().includes(query);
-      if (!matchesOrderId && !matchesMobile && !matchesName) return false;
+      result = result.filter((o) => {
+        const matchesOrderId = o.id.toLowerCase().includes(query);
+        const matchesMobile = o.delivery_mobile?.toLowerCase().includes(query);
+        const user = usersMap.get(o.user_id);
+        const matchesName = user?.name?.toLowerCase().includes(query);
+        return matchesOrderId || matchesMobile || matchesName;
+      });
     }
+    return result;
+  };
 
-    return true;
-  });
+  // POS filtered orders
+  const getPosFiltered = () => {
+    let result = getOrdersForMode();
+    if (posDateFilter) result = getOrdersForDate(posDateFilter, result);
+    if (posSellerFilter && posSellerFilter !== "all") result = result.filter((o) => o.seller_id === posSellerFilter);
+    if (posSearchQuery) {
+      const query = posSearchQuery.toLowerCase();
+      result = result.filter((o) => o.id.toLowerCase().includes(query));
+    }
+    return result;
+  };
+
+  const filteredOrders = orderMode === "online" ? getOnlineFiltered() : getPosFiltered();
+
+  const dateFilteredForCounts = (() => {
+    let base = getOrdersForMode();
+    const df = orderMode === "online" ? dateFilter : posDateFilter;
+    if (df) base = getOrdersForDate(df, base);
+    return base;
+  })();
 
   const getStatusCount = (statusVal: string) => {
-    if (statusVal === "All") return dateFilteredOrders.length;
-    return dateFilteredOrders.filter((order) => order.status === statusVal).length;
+    if (statusVal === "All") return dateFilteredForCounts.length;
+    return dateFilteredForCounts.filter((order) => order.status === statusVal).length;
   };
 
   const getSellerStatusBadge = (sellerStatus: string) => {
     switch (sellerStatus) {
-      case "accepted":
-        return { color: "bg-green-100 text-green-800", text: "Accepted" };
-      case "packed":
-        return { color: "bg-blue-100 text-blue-800", text: "Packed" };
-      case "rejected":
-        return { color: "bg-red-100 text-red-800", text: "Rejected" };
-      default:
-        return { color: "bg-yellow-100 text-yellow-800", text: "Pending" };
+      case "accepted": return { color: "bg-green-100 text-green-800", text: "Accepted" };
+      case "packed": return { color: "bg-blue-100 text-blue-800", text: "Packed" };
+      case "rejected": return { color: "bg-red-100 text-red-800", text: "Rejected" };
+      default: return { color: "bg-yellow-100 text-yellow-800", text: "Pending" };
     }
   };
 
@@ -233,11 +225,7 @@ const Orders = () => {
         <h2 className="text-2xl font-semibold text-foreground">Orders Management</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-16 bg-muted rounded" />
-              </CardContent>
-            </Card>
+            <Card key={i} className="animate-pulse"><CardContent className="p-6"><div className="h-16 bg-muted rounded" /></CardContent></Card>
           ))}
         </div>
       </div>
@@ -246,73 +234,127 @@ const Orders = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold text-foreground">Orders Management</h2>
-
-      {/* Status Filter Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        {statusOptions.map((status) => {
-          const Icon = status.icon;
-          const count = getStatusCount(status.value);
-          return (
-            <Card
-              key={status.value}
-              className={`cursor-pointer transition-all hover:shadow-md ${selectedStatus === status.value ? "ring-2 ring-primary shadow-md" : ""}`}
-              onClick={() => setSelectedStatus(status.value)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
-                    <p className="text-xl font-bold">{count}</p>
-                  </div>
-                  <Icon className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-2xl font-semibold text-foreground">Orders Management</h2>
+        <div className="flex gap-1 bg-muted rounded-lg p-1">
+          <Button
+            variant={orderMode === "online" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setOrderMode("online")}
+            className="gap-1.5"
+          >
+            <Globe className="h-4 w-4" />
+            Online
+          </Button>
+          <Button
+            variant={orderMode === "pos" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setOrderMode("pos")}
+            className="gap-1.5"
+          >
+            <Store className="h-4 w-4" />
+            POS
+          </Button>
+        </div>
       </div>
 
-      {/* Search + Date */}
-      <Card>
-        <CardContent className="p-3">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search Order ID, Mobile, or Customer Name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-8"
-                />
+      {orderMode === "online" && (
+        <>
+          {/* Status Filter Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {statusOptions.map((status) => {
+              const Icon = status.icon;
+              const count = getStatusCount(status.value);
+              return (
+                <Card
+                  key={status.value}
+                  className={`cursor-pointer transition-all hover:shadow-md ${selectedStatus === status.value ? "ring-2 ring-primary shadow-md" : ""}`}
+                  onClick={() => setSelectedStatus(status.value)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">{status.label}</p>
+                        <p className="text-xl font-bold">{count}</p>
+                      </div>
+                      <Icon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Search + Date */}
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search Order ID, Mobile, or Customer Name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-8" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-auto h-8" />
+                  {dateFilter && dateFilter !== todayIST && (
+                    <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter(todayIST)}>Today</Button>
+                  )}
+                  {dateFilter && (
+                    <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter("")}>All</Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {orderMode === "pos" && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex-1 min-w-[150px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search by Order ID..." value={posSearchQuery} onChange={(e) => setPosSearchQuery(e.target.value)} className="pl-9 h-8" />
+                </div>
+              </div>
+              <Select value={posSellerFilter} onValueChange={setPosSellerFilter}>
+                <SelectTrigger className="w-[180px] h-8">
+                  <SelectValue placeholder="All Sellers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sellers</SelectItem>
+                  {sellers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.seller_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Input type="date" value={posDateFilter} onChange={(e) => setPosDateFilter(e.target.value)} className="w-auto h-8" />
+                {posDateFilter && posDateFilter !== todayIST && (
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => setPosDateFilter(todayIST)}>Today</Button>
+                )}
+                {posDateFilter && (
+                  <Button variant="ghost" size="sm" className="h-8" onClick={() => setPosDateFilter("")}>All</Button>
+                )}
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-auto h-8" />
-              {dateFilter && dateFilter !== todayIST && (
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter(todayIST)}>
-                  Today
-                </Button>
-              )}
-              {dateFilter && (
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => setDateFilter("")}>
-                  All
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Orders List */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            {selectedStatus === "All" ? "All Orders" : `${selectedStatus} Orders`}
+            {orderMode === "online"
+              ? (selectedStatus === "All" ? "All Online Orders" : `${selectedStatus} Orders`)
+              : "POS In-Store Orders"}
             <Badge variant="secondary">{filteredOrders.length}</Badge>
           </CardTitle>
         </CardHeader>
@@ -338,35 +380,26 @@ const Orders = () => {
                           {order.status === "delivered" && <Badge className="bg-green-100 text-green-800">Delivered</Badge>}
                           {order.status === "refunded" && <Badge className="bg-orange-100 text-orange-800">Refunded</Badge>}
                         </div>
-
                         <p className="text-sm text-muted-foreground">
                           Restaurant: <span className="font-medium">{order.seller_name}</span>
                         </p>
-
-                        {order.status === "assigned" && order.delivery_partner && (
+                        {orderMode === "online" && order.status === "assigned" && order.delivery_partner && (
                           <p className="text-sm text-muted-foreground">
                             Delivery Partner: <span className="font-medium">{order.delivery_partner.name}</span> - {order.delivery_partner.mobile}
                           </p>
                         )}
-
                         <p className="text-sm text-muted-foreground">
                           Total: <span className="font-medium">₹{order.total_amount}</span>
                         </p>
-
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}</p>
                       </div>
-
                       <div className="flex flex-col sm:flex-row gap-2">
-                        {order.seller_status === "packed" && order.status === "pending" && (
-                          <Button size="sm" onClick={() => openAssignModal(order.id)}>
-                            Assign Order
-                          </Button>
+                        {orderMode === "online" && order.seller_status === "packed" && order.status === "pending" && (
+                          <Button size="sm" onClick={() => openAssignModal(order.id)}>Assign Order</Button>
                         )}
-
                         {order.seller_status === "rejected" && order.status !== "refunded" && (
                           <Badge className="bg-orange-100 text-orange-800">Auto refunding…</Badge>
                         )}
-
                         <Button variant="outline" size="sm" onClick={() => handleViewDetails(order)}>
                           <Eye className="h-4 w-4 mr-1" />
                           View Details
@@ -381,19 +414,12 @@ const Orders = () => {
         </CardContent>
       </Card>
 
-      <DeliveryPartnerAssignModal
-        isOpen={assignModalOpen}
-        onClose={() => setAssignModalOpen(false)}
-        orderId={selectedOrderId || ""}
-        onAssignSuccess={fetchOrders}
-      />
+      <DeliveryPartnerAssignModal isOpen={assignModalOpen} onClose={() => setAssignModalOpen(false)} orderId={selectedOrderId || ""} onAssignSuccess={fetchOrders} />
 
       {/* Order Details Modal */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Order Details</DialogTitle></DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -406,31 +432,25 @@ const Orders = () => {
                   <Badge className={getSellerStatusBadge(selectedOrder.seller_status).color}>{getSellerStatusBadge(selectedOrder.seller_status).text}</Badge>
                 </div>
               </div>
-
               <div>
                 <p className="text-sm text-muted-foreground">Customer</p>
                 <p className="font-medium">{customerName}</p>
               </div>
-
               <div>
                 <p className="text-sm text-muted-foreground">Delivery Address</p>
                 <p className="text-sm">{selectedOrder.delivery_address}</p>
               </div>
-
               <div>
                 <p className="text-sm text-muted-foreground">Items</p>
                 <div className="space-y-1">
                   {selectedOrder.items?.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
-                      <span>
-                        {item.item_name} x{item.quantity}
-                      </span>
+                      <span>{item.item_name} x{item.quantity}</span>
                       <span>₹{item.seller_price * item.quantity}</span>
                     </div>
                   ))}
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Total</p>

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Eye, Edit, DollarSign, CreditCard, MoreVertical, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -126,8 +127,8 @@ const Sellers = () => {
                   <TableHead>Seller</TableHead>
                   <TableHead>Owner</TableHead>
                   <TableHead>Mobile</TableHead>
-                  <TableHead>Bank Details</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Type</TableHead>
+                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -155,13 +156,14 @@ const Sellers = () => {
                     <TableCell>{seller.owner_name}</TableCell>
                     <TableCell>{seller.mobile}</TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        <div>{seller.bank_name}</div>
-                        <div className="text-muted-foreground">
-                          {seller.account_number} • {seller.ifsc_code}
-                        </div>
-                      </div>
-                    </TableCell>
+                       <Badge variant={
+                         seller.seller_type === 'both' ? 'default' :
+                         seller.seller_type === 'online' ? 'secondary' :
+                         seller.seller_type === 'pos' ? 'outline' : 'outline'
+                       } className="capitalize">
+                         {seller.seller_type || 'Not Set'}
+                       </Badge>
+                     </TableCell>
                     <TableCell>
                       <span className={`font-medium ${seller.status === 'approved' || seller.status === 'active' ? 'text-green-600' : 'text-gray-600'}`}>
                         {getStatusText(seller.status)}
