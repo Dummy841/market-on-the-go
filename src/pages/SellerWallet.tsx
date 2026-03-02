@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft, Filter, FileText, ImageIcon, ExternalLink } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Filter, FileText, ImageIcon, ExternalLink } from 'lucide-react';
+import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -220,9 +221,7 @@ const SellerWallet = () => {
       {/* Header */}
       <header className="bg-card border-b border-border p-4">
         <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/seller-dashboard')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <SellerHamburgerMenu />
           <div className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-bold">My Wallet</h1>

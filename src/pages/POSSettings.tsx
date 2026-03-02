@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, CreditCard, Plus, Trash2, Check, Camera, Usb, ChevronRight } from 'lucide-react';
+import { CreditCard, Plus, Trash2, Check, Camera, Usb, ChevronRight } from 'lucide-react';
+import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -96,9 +97,7 @@ const POSSettings = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/seller-pos')}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
+        <SellerHamburgerMenu />
         <h1 className="text-lg font-bold flex-1">POS Settings</h1>
       </header>
 
