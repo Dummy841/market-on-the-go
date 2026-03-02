@@ -221,10 +221,7 @@ const SellerPOS = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate('/seller-dashboard')}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-bold flex-1">POS - {seller.seller_name}</h1>
-        <Button variant="outline" size="icon" onClick={() => navigate('/seller-pos/settings')} title="Settings">
-          <Settings className="w-4 h-4" />
-        </Button>
+        <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
         <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')} className="relative">
           <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
           {onlinePendingCount > 0 && (
@@ -232,9 +229,6 @@ const SellerPOS = () => {
               {onlinePendingCount}
             </span>
           )}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => navigate('/seller-pos/transactions')}>
-          <Receipt className="w-4 h-4 mr-1" /> Transactions
         </Button>
       </header>
 
