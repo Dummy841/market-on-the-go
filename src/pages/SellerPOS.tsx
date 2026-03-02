@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Search, Camera, Plus, Minus, Trash2 } from 'lucide-react';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +37,9 @@ const SellerPOS = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showSearchDialog, setShowSearchDialog] = useState(false);
+  const [dialogSearchQuery, setDialogSearchQuery] = useState('');
+  const [allProducts, setAllProducts] = useState<Item[]>([]);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -43,23 +47,26 @@ const SellerPOS = () => {
     if (!loading && !seller) navigate('/seller-login');
   }, [seller, loading, navigate]);
 
-  const searchProducts = useCallback(async (query: string) => {
-    if (!seller || !query.trim()) { setSearchResults([]); setShowSearchResults(false); return; }
+  const fetchAllProducts = useCallback(async () => {
+    if (!seller) return;
     const { data } = await supabase
       .from('items')
       .select('id, item_name, barcode, mrp, seller_price, gst_percentage, stock_quantity, item_photo_url')
       .eq('seller_id', seller.id)
       .eq('is_active', true)
-      .ilike('item_name', `%${query}%`)
-      .limit(20);
-    setSearchResults(data || []);
-    setShowSearchResults(true);
+      .order('item_name');
+    setAllProducts(data || []);
   }, [seller]);
 
   useEffect(() => {
-    const t = setTimeout(() => searchProducts(searchQuery), 300);
-    return () => clearTimeout(t);
-  }, [searchQuery, searchProducts]);
+    if (seller) fetchAllProducts();
+  }, [seller, fetchAllProducts]);
+
+  const filteredProducts = allProducts.filter(item => {
+    if (!dialogSearchQuery.trim()) return true;
+    const q = dialogSearchQuery.toLowerCase();
+    return item.item_name.toLowerCase().includes(q) || (item.barcode && item.barcode.toLowerCase().includes(q));
+  });
 
   const addToCart = (item: Item) => {
     setCart(prev => {
@@ -67,8 +74,8 @@ const SellerPOS = () => {
       if (existing) return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       return [...prev, { ...item, quantity: 1 }];
     });
-    setShowSearchResults(false);
-    setSearchQuery('');
+    setShowSearchDialog(false);
+    setDialogSearchQuery('');
   };
 
   const handleBarcodeSubmit = async (e: React.FormEvent) => {
@@ -138,30 +145,11 @@ const SellerPOS = () => {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            ref={searchRef}
-            placeholder="Search products by name..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onFocus={() => searchQuery && setShowSearchResults(true)}
-            className="pl-9"
+            readOnly
+            placeholder="Search product..."
+            onClick={() => setShowSearchDialog(true)}
+            className="pl-9 cursor-pointer"
           />
-          {showSearchResults && searchResults.length > 0 && (
-            <div className="absolute z-50 top-full left-0 right-0 bg-card border border-border rounded-b-lg shadow-lg max-h-60 overflow-y-auto">
-              {searchResults.map(item => (
-                <button
-                  key={item.id}
-                  className="w-full p-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
-                  onClick={() => addToCart(item)}
-                >
-                  <div>
-                    <div className="font-medium text-sm">{item.item_name}</div>
-                    <div className="text-xs text-muted-foreground">{item.barcode || 'No barcode'}</div>
-                  </div>
-                  <div className="text-sm font-semibold">₹{item.seller_price}</div>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <form onSubmit={handleBarcodeSubmit} className="flex gap-2 min-w-[200px] flex-1">
@@ -277,6 +265,49 @@ const SellerPOS = () => {
           onItemsScanned={handleScannedItems}
         />
       )}
+
+      {/* Search Products Dialog */}
+      <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Search Products</DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or barcode..."
+              value={dialogSearchQuery}
+              onChange={e => setDialogSearchQuery(e.target.value)}
+              className="pl-9 border-2 border-primary"
+              autoFocus
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto -mx-6 px-6">
+            {filteredProducts.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No products found</p>
+            ) : (
+              filteredProducts.map(item => (
+                <button
+                  key={item.id}
+                  className="w-full py-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
+                  onClick={() => addToCart(item)}
+                >
+                  <div>
+                    <div className="font-semibold text-sm">{item.item_name}</div>
+                    <div className="text-xs text-muted-foreground">{item.barcode || '-'} • Stock: {item.stock_quantity}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-sm">₹{Number(item.seller_price).toFixed(2)}</div>
+                    {item.mrp > item.seller_price && (
+                      <div className="text-xs text-muted-foreground line-through">₹{Number(item.mrp).toFixed(2)}</div>
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
