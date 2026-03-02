@@ -199,8 +199,9 @@ const SellerDashboard = () => {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, seller_status')
+        .select('id, seller_status, delivery_address')
         .eq('seller_id', seller.id)
+        .neq('delivery_address', 'POS - In Store')
         .in('seller_status', ['pending', 'accepted']);
       
       if (error) throw error;
@@ -237,6 +238,9 @@ const SellerDashboard = () => {
       }, payload => {
         console.log('Dashboard: New order received:', payload);
         const newOrder = payload.new as any;
+
+        // Skip POS orders
+        if (newOrder.delivery_address === 'POS - In Store') return;
 
         if (!previousOrderIdsRef.current.has(newOrder.id)) {
           previousOrderIdsRef.current.add(newOrder.id);
