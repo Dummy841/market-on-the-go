@@ -71,6 +71,7 @@ const MyMenu = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [deleteItem, setDeleteItem] = useState<Item | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { seller } = useSellerAuth();
 
@@ -120,31 +121,67 @@ const MyMenu = () => {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (filteredItems: Item[]) => {
+    if (filteredItems.every(i => selectedIds.has(i.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredItems.map(i => i.id)));
+    }
+  };
+
+  const generateBarcodeDataUrl = (barcode: string): string | null => {
+    const canvas = document.createElement('canvas');
+    try {
+      JsBarcode(canvas, barcode, { format: 'CODE128', width: 2, height: 60, displayValue: true, fontSize: 14 });
+      return canvas.toDataURL();
+    } catch { return null; }
+  };
+
   const handlePrintBarcode = (item: Item) => {
     if (!item.barcode) {
       toast({ variant: "destructive", title: "No Barcode", description: "This item has no barcode" });
       return;
     }
+    handleBulkPrint([item]);
+  };
+
+  const handleBulkPrint = (itemsToPrint: Item[]) => {
+    const withBarcodes = itemsToPrint.filter(i => i.barcode);
+    if (withBarcodes.length === 0) {
+      toast({ variant: "destructive", title: "No Barcodes", description: "Selected items have no barcodes" });
+      return;
+    }
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const canvas = document.createElement('canvas');
-    try {
-      JsBarcode(canvas, item.barcode, { format: 'CODE128', width: 2, height: 60, displayValue: true, fontSize: 14 });
-    } catch { return; }
-
-    printWindow.document.write(`
-      <html><head><title>Barcode - ${item.item_name}</title>
-      <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;margin:0}
-      .label{text-align:center;padding:10px}.name{font-weight:bold;font-size:14px;margin-bottom:4px}
-      .prices{font-size:12px;color:#666;margin-bottom:8px}
-      @media print{button{display:none}}</style></head><body>
-      <div class="label">
+    const labels = withBarcodes.map(item => {
+      const imgSrc = generateBarcodeDataUrl(item.barcode!);
+      return `<div class="label">
         <div class="name">${item.item_name}</div>
         <div class="prices">MRP: ₹${item.mrp || 0} | Selling: ₹${item.seller_price}</div>
-        <img src="${canvas.toDataURL()}" />
+        ${imgSrc ? `<img src="${imgSrc}" />` : ''}
+      </div>`;
+    }).join('');
+
+    printWindow.document.write(`
+      <html><head><title>Print Barcodes</title>
+      <style>body{font-family:sans-serif;margin:20px;display:flex;flex-wrap:wrap;gap:20px;justify-content:center}
+      .label{text-align:center;padding:10px;border:1px dashed #ccc;page-break-inside:avoid}
+      .name{font-weight:bold;font-size:14px;margin-bottom:4px}
+      .prices{font-size:12px;color:#666;margin-bottom:8px}
+      @media print{button{display:none}.label{border:none}}</style></head><body>
+      ${labels}
+      <div style="width:100%;text-align:center;margin-top:20px">
+        <button onclick="window.print()" style="padding:8px 24px;cursor:pointer">Print All</button>
       </div>
-      <button onclick="window.print()" style="margin-top:20px;padding:8px 24px;cursor:pointer">Print</button>
       </body></html>
     `);
     printWindow.document.close();
@@ -245,14 +282,30 @@ const MyMenu = () => {
 
       {/* Products Table */}
       <div className="rounded-md border">
-        <div className="p-4 border-b">
-          <h3 className="font-semibold">Products</h3>
-          <p className="text-sm text-muted-foreground">{filtered.length} of {items.length} products</p>
+        <div className="p-4 border-b flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold">Products</h3>
+            <p className="text-sm text-muted-foreground">{filtered.length} of {items.length} products</p>
+          </div>
+          {selectedIds.size > 0 && (
+            <Button size="sm" onClick={() => handleBulkPrint(items.filter(i => selectedIds.has(i.id)))}>
+              <Printer className="w-4 h-4 mr-1" />
+              Print Barcodes ({selectedIds.size})
+            </Button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))}
+                    onChange={() => toggleSelectAll(filtered)}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                </TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead className="text-right">Purchase</TableHead>
                 <TableHead className="text-right">MRP</TableHead>
@@ -267,6 +320,14 @@ const MyMenu = () => {
                 const status = getStockStatus(item);
                 return (
                   <TableRow key={item.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium">{item.item_name}</p>
