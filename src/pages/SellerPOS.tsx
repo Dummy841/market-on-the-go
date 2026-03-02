@@ -35,7 +35,20 @@ const SellerPOS = () => {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [searchResults, setSearchResults] = useState<Item[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCartState] = useState<CartItem[]>(() => {
+    try {
+      const saved = sessionStorage.getItem(`pos_cart_${seller?.id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  const setCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
+    setCartState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { sessionStorage.setItem(`pos_cart_${seller?.id}`, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const [showCheckout, setShowCheckout] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
