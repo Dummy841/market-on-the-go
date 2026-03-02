@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Eye, Pencil } from 'lucide-react';
+import { Plus, Search, Eye, Pencil, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import WholesaleProductModal from '@/components/WholesaleProductModal';
 import WholesaleProductViewModal from '@/components/WholesaleProductViewModal';
+import JsBarcode from 'jsbarcode';
 
 interface WholesaleProduct {
   id: string;
@@ -25,13 +27,6 @@ interface WholesaleProduct {
   created_at: string;
 }
 
-interface ProductImage {
-  id: string;
-  product_id: string;
-  image_url: string;
-  display_order: number;
-}
-
 const WholesaleInventory = () => {
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +34,7 @@ const WholesaleInventory = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<WholesaleProduct | null>(null);
   const [viewProduct, setViewProduct] = useState<WholesaleProduct | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -67,13 +63,110 @@ const WholesaleInventory = () => {
     p.barcode.includes(search)
   );
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(p => p.id)));
+    }
+  };
+
+  const printBarcodes = () => {
+    const selected = products.filter(p => selectedIds.has(p.id));
+    if (selected.length === 0) {
+      toast({ variant: 'destructive', title: 'No products selected', description: 'Please select products to print barcodes' });
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const barcodeHtml = selected.map(product => {
+      const canvas = document.createElement('canvas');
+      try {
+        JsBarcode(canvas, product.barcode, {
+          format: 'CODE128',
+          width: 2,
+          height: 60,
+          displayValue: true,
+          fontSize: 14,
+          margin: 5,
+        });
+      } catch {
+        JsBarcode(canvas, product.barcode, { format: 'CODE128', width: 2, height: 60 });
+      }
+      const barcodeDataUrl = canvas.toDataURL('image/png');
+
+      return `
+        <div class="barcode-card">
+          <div class="product-name">${product.product_name}</div>
+          <img src="${barcodeDataUrl}" class="barcode-img" />
+          <div class="price-row">
+            <span class="mrp">MRP: ₹${product.mrp}</span>
+            <span class="selling">Price: ₹${product.selling_price}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Print Barcodes</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 10px; }
+          .barcode-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+          .barcode-card {
+            border: 1px dashed #ccc;
+            padding: 8px;
+            width: 220px;
+            text-align: center;
+            page-break-inside: avoid;
+          }
+          .product-name { font-weight: bold; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
+          .barcode-img { width: 200px; height: auto; }
+          .price-row { display: flex; justify-content: space-between; font-size: 10px; margin-top: 4px; }
+          .mrp { color: #888; text-decoration: line-through; }
+          .selling { font-weight: bold; color: #000; }
+          @media print {
+            body { padding: 0; }
+            .barcode-card { border: 1px dashed #999; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="barcode-grid">${barcodeHtml}</div>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h1 className="text-2xl font-bold">Wholesale Inventory</h1>
-        <Button onClick={() => { setEditProduct(null); setShowAddModal(true); }}>
-          <Plus className="w-4 h-4 mr-2" /> Add Product
-        </Button>
+        <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <Button variant="outline" onClick={printBarcodes}>
+              <Printer className="w-4 h-4 mr-2" /> Print Barcodes ({selectedIds.size})
+            </Button>
+          )}
+          <Button onClick={() => { setEditProduct(null); setShowAddModal(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -93,6 +186,12 @@ const WholesaleInventory = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onCheckedChange={toggleAll}
+                  />
+                </TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Barcode</TableHead>
                 <TableHead>Category</TableHead>
@@ -106,13 +205,19 @@ const WholesaleInventory = () => {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No products found
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map(product => (
                   <TableRow key={product.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(product.id)}
+                        onCheckedChange={() => toggleSelect(product.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{product.product_name}</TableCell>
                     <TableCell className="font-mono text-xs">{product.barcode}</TableCell>
                     <TableCell>{product.category || '-'}</TableCell>
