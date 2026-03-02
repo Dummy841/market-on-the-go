@@ -60,6 +60,28 @@ const WholesaleOrders = () => {
     }
   };
 
+  const deductStock = async (order: WholesaleOrder) => {
+    try {
+      const items = Array.isArray(order.items) ? order.items : [];
+      for (const item of items) {
+        const { data: product } = await supabase
+          .from('wholesale_products' as any)
+          .select('stock_quantity')
+          .eq('id', item.product_id)
+          .single();
+        if (product) {
+          const newQty = Math.max(0, (product as any).stock_quantity - item.quantity);
+          await supabase
+            .from('wholesale_products' as any)
+            .update({ stock_quantity: newQty } as any)
+            .eq('id', item.product_id);
+        }
+      }
+    } catch (error) {
+      console.error('Stock deduction error:', error);
+    }
+  };
+
   const updateOrder = async (orderId: string, updates: Record<string, any>) => {
     try {
       const { error } = await supabase
@@ -67,6 +89,13 @@ const WholesaleOrders = () => {
         .update(updates as any)
         .eq('id', orderId);
       if (error) throw error;
+
+      // Deduct stock when payment is verified
+      if (updates.payment_status === 'verified') {
+        const order = orders.find(o => o.id === orderId);
+        if (order) await deductStock(order);
+      }
+
       toast({ title: 'Updated', description: 'Order updated successfully' });
       fetchOrders();
     } catch (error: any) {
