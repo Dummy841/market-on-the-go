@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,11 +51,13 @@ const statusColors: Record<string, string> = {
 const SellerWholesale = () => {
   const { seller } = useSellerAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
-  const [step, setStep] = useState<Step>('browse');
+  const initialTab = searchParams.get('tab') === 'orders' ? 'orders' : 'browse';
+  const [step, setStep] = useState<Step>(initialTab);
   const [loading, setLoading] = useState(true);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [upiTxnId, setUpiTxnId] = useState('');
