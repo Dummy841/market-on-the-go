@@ -218,6 +218,7 @@ export type Database = {
       }
       items: {
         Row: {
+          barcode: string | null
           created_at: string
           franchise_price: number
           gst_percentage: number
@@ -228,13 +229,16 @@ export type Database = {
           item_photo_url: string | null
           low_stock_alert: number
           mrp: number
+          purchase_price: number
           seller_id: string
           seller_price: number
+          show_in_quick_add: boolean
           stock_quantity: number
           subcategory_id: string | null
           updated_at: string
         }
         Insert: {
+          barcode?: string | null
           created_at?: string
           franchise_price: number
           gst_percentage?: number
@@ -245,13 +249,16 @@ export type Database = {
           item_photo_url?: string | null
           low_stock_alert?: number
           mrp?: number
+          purchase_price?: number
           seller_id: string
           seller_price: number
+          show_in_quick_add?: boolean
           stock_quantity?: number
           subcategory_id?: string | null
           updated_at?: string
         }
         Update: {
+          barcode?: string | null
           created_at?: string
           franchise_price?: number
           gst_percentage?: number
@@ -262,8 +269,10 @@ export type Database = {
           item_photo_url?: string | null
           low_stock_alert?: number
           mrp?: number
+          purchase_price?: number
           seller_id?: string
           seller_price?: number
+          show_in_quick_add?: boolean
           stock_quantity?: number
           subcategory_id?: string | null
           updated_at?: string
