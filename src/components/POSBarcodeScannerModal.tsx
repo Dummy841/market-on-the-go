@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-
 import { Button } from '@/components/ui/button';
-import { X, Plus, Minus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { X, Plus, Minus, Keyboard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,32 +30,20 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
   const streamRef = useRef<MediaStream | null>(null);
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [hasBarcodeDetector] = useState(() => 'BarcodeDetector' in window);
   const lastScannedRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
+  const scanningRef = useRef(false);
 
   const stopCamera = useCallback(() => {
+    scanningRef.current = false;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
     setScanning(false);
   }, []);
-
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setScanning(true);
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera' });
-    }
-  }, [toast]);
 
   const lookupBarcode = useCallback(async (barcode: string) => {
     const now = Date.now();
@@ -83,13 +71,30 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
     }
   }, [sellerId, toast]);
 
-  // Barcode detection loop
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setScanning(true);
+      scanningRef.current = true;
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera. Check permissions.' });
+    }
+  }, [toast]);
+
+  // Barcode detection loop using ref to avoid stale closure
   useEffect(() => {
-    if (!scanning || !videoRef.current) return;
+    if (!scanning || !videoRef.current || !hasBarcodeDetector) return;
     let cancelled = false;
 
     const detect = async () => {
-      if (cancelled || !videoRef.current || !('BarcodeDetector' in window)) return;
+      if (cancelled || !videoRef.current || !scanningRef.current) return;
       try {
         const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'] });
         const barcodes = await detector.detect(videoRef.current);
@@ -97,17 +102,25 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
           lookupBarcode(barcodes[0].rawValue);
         }
       } catch { /* ignore */ }
-      if (!cancelled) setTimeout(detect, 500);
+      if (!cancelled && scanningRef.current) setTimeout(detect, 400);
     };
 
     detect();
     return () => { cancelled = true; };
-  }, [scanning, lookupBarcode]);
+  }, [scanning, lookupBarcode, hasBarcodeDetector]);
 
   useEffect(() => {
     if (open) startCamera();
     return () => stopCamera();
   }, [open, startCamera, stopCamera]);
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualBarcode.trim()) {
+      lookupBarcode(manualBarcode.trim());
+      setManualBarcode('');
+    }
+  };
 
   const handleAddToCart = () => {
     onItemsScanned(scannedItems);
@@ -133,14 +146,30 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
       {/* Camera View */}
       <div className="relative bg-black flex-1 min-h-0">
         <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-        {!('BarcodeDetector' in window) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-sm p-4 text-center">
-            BarcodeDetector API not supported in this browser. Use Chrome on Android for best results.
-          </div>
-        )}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-64 h-32 border-2 border-white/50 rounded-lg" />
         </div>
+        {!hasBarcodeDetector && (
+          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 text-center">
+            Auto-scan not supported. Use manual entry below.
+          </div>
+        )}
+      </div>
+
+      {/* Manual Barcode Entry - always visible */}
+      <div className="bg-card border-t border-border p-3 shrink-0">
+        <form onSubmit={handleManualSubmit} className="flex gap-2">
+          <Input
+            placeholder="Enter barcode manually..."
+            value={manualBarcode}
+            onChange={e => setManualBarcode(e.target.value)}
+            className="font-mono flex-1"
+            autoFocus={!hasBarcodeDetector}
+          />
+          <Button type="submit" size="sm">
+            <Keyboard className="w-4 h-4 mr-1" /> Add
+          </Button>
+        </form>
       </div>
 
       {/* Scanned Items */}

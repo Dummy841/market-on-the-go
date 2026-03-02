@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, X, ScanBarcode } from 'lucide-react';
+import { Upload, X, ScanBarcode, Keyboard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
@@ -42,8 +42,10 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
   const [loading, setLoading] = useState(false);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [manualBarcodeEntry, setManualBarcodeEntry] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const scanningRef = useRef(false);
   const { toast } = useToast();
   const { seller } = useSellerAuth();
 
@@ -89,41 +91,107 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
     }
   };
 
+  // Look up existing product by barcode and prefill form
+  const lookupExistingProduct = async (barcode: string) => {
+    if (!seller) return;
+    const { data } = await supabase
+      .from('items')
+      .select('*')
+      .eq('seller_id', seller.id)
+      .eq('barcode', barcode)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (data) {
+      setForm(f => ({
+        ...f,
+        barcode: barcode,
+        item_name: data.item_name || '',
+        purchase_price: String(data.purchase_price || 0),
+        mrp: String(data.mrp || 0),
+        seller_price: String(data.seller_price || 0),
+        stock_quantity: String(data.stock_quantity || 0),
+        low_stock_alert: String(data.low_stock_alert || 10),
+        gst_percentage: String(data.gst_percentage || 0),
+        show_in_quick_add: data.show_in_quick_add || false,
+        is_active: data.is_active ?? true,
+        item_info: data.item_info || '',
+        subcategory_id: data.subcategory_id || ''
+      }));
+      if (data.item_photo_url) {
+        setImagePreview(data.item_photo_url);
+      }
+      toast({ title: '📦 Product Found', description: `"${data.item_name}" details loaded from existing inventory` });
+      return true;
+    }
+    return false;
+  };
+
   const startScanner = async () => {
     setScanning(true);
+    scanningRef.current = true;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
+      });
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      if (videoRef.current) { 
+        videoRef.current.srcObject = stream; 
+        await videoRef.current.play(); 
+      }
+      
       if ('BarcodeDetector' in window) {
-        const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'] });
+        const detector = new (window as any).BarcodeDetector({ 
+          formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'] 
+        });
         const detect = async () => {
-          if (!videoRef.current || !scanning) return;
+          if (!videoRef.current || !scanningRef.current) return;
           try {
             const barcodes = await detector.detect(videoRef.current);
             if (barcodes.length > 0) {
-              setForm(f => ({ ...f, barcode: barcodes[0].rawValue }));
+              const scannedBarcode = barcodes[0].rawValue;
+              setForm(f => ({ ...f, barcode: scannedBarcode }));
               stopScanner();
-              toast({ title: 'Barcode Scanned', description: `Barcode: ${barcodes[0].rawValue}` });
+              toast({ title: '✅ Barcode Scanned', description: `Barcode: ${scannedBarcode}` });
+              // Check if product already exists
+              await lookupExistingProduct(scannedBarcode);
               return;
             }
           } catch (e) { /* continue */ }
-          if (scanning) requestAnimationFrame(detect);
+          if (scanningRef.current) setTimeout(detect, 300);
         };
-        requestAnimationFrame(detect);
+        detect();
       } else {
-        toast({ variant: 'destructive', title: 'Not Supported', description: 'Barcode scanner not supported. Enter manually.' });
-        stopScanner();
+        // No BarcodeDetector - show manual entry option
+        toast({ 
+          title: 'Scanner Not Available', 
+          description: 'Camera is on but auto-detection not supported. Enter barcode manually below.' 
+        });
+        setManualBarcodeEntry(true);
       }
     } catch (err) {
-      toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera' });
+      toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera. Please check permissions.' });
       setScanning(false);
+      scanningRef.current = false;
     }
   };
 
   const stopScanner = () => {
     setScanning(false);
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    scanningRef.current = false;
+    setManualBarcodeEntry(false);
+    if (streamRef.current) { 
+      streamRef.current.getTracks().forEach(t => t.stop()); 
+      streamRef.current = null; 
+    }
+  };
+
+  const handleManualBarcodeSubmit = async () => {
+    if (form.barcode.trim()) {
+      stopScanner();
+      toast({ title: '✅ Barcode Set', description: `Barcode: ${form.barcode}` });
+      await lookupExistingProduct(form.barcode.trim());
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,14 +289,34 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
           <div>
             <Label>Barcode</Label>
             <div className="flex gap-2">
-              <Input value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))} className="font-mono" />
+              <Input 
+                value={form.barcode} 
+                onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))} 
+                className="font-mono" 
+                placeholder="Scan or enter barcode"
+              />
               <Button type="button" variant="outline" size="icon" onClick={scanning ? stopScanner : startScanner}>
                 <ScanBarcode className="w-4 h-4" />
               </Button>
             </div>
             {scanning && (
               <div className="mt-2 rounded-lg overflow-hidden border">
-                <video ref={videoRef} className="w-full h-48 object-cover" />
+                <video ref={videoRef} className="w-full h-48 object-cover" playsInline muted />
+                {manualBarcodeEntry && (
+                  <div className="p-2 bg-muted flex gap-2">
+                    <Input 
+                      placeholder="Type barcode manually..." 
+                      value={form.barcode}
+                      onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))}
+                      className="font-mono"
+                      autoFocus
+                      onKeyDown={e => e.key === 'Enter' && handleManualBarcodeSubmit()}
+                    />
+                    <Button size="sm" onClick={handleManualBarcodeSubmit}>
+                      <Keyboard className="w-4 h-4 mr-1" /> Set
+                    </Button>
+                  </div>
+                )}
                 <Button size="sm" variant="destructive" className="w-full rounded-none" onClick={stopScanner}>Stop Scanner</Button>
               </div>
             )}
