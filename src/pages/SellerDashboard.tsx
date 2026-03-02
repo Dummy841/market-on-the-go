@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { LogOut, Plus, User, Menu, ShoppingBag, TrendingUp, Power, PowerOff, Key, Wallet, Monitor } from 'lucide-react';
+import { LogOut, Plus, User, Menu, ShoppingBag, TrendingUp, Power, PowerOff, Key, Wallet, Monitor, Receipt, Settings, Package, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import SellerItemsForm from '@/components/SellerItemsForm';
 import MyMenu from '@/components/MyMenu';
@@ -148,9 +150,11 @@ const SellerDashboard = () => {
   const [orderCount, setOrderCount] = useState(0);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
   const processedOrderIdsRef = useRef<Set<string>>(new Set());
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!loading && !seller) {
@@ -324,13 +328,18 @@ const SellerDashboard = () => {
     }).format(amount);
   };
 
+
   const navItems = [
     { id: 'add', label: 'Add Items', icon: Plus, action: () => setShowItemsForm(true) },
     { id: 'menu', label: 'My Menu', icon: Menu, action: () => setActiveSection('menu') },
-    { id: 'orders', label: 'My Orders', icon: ShoppingBag, action: () => setActiveSection('orders'), badge: orderCount },
+    { id: 'orders', label: 'Online Orders', icon: ShoppingBag, action: () => setActiveSection('orders'), badge: orderCount },
     { id: 'earnings', label: 'My Earnings', icon: TrendingUp, action: () => setActiveSection('earnings') },
     { id: 'wholesale', label: 'Shop Wholesale', icon: ShoppingBag, action: () => navigate('/seller-wholesale') },
     { id: 'pos', label: 'POS', icon: Monitor, action: () => navigate('/seller-pos') },
+    { id: 'transactions', label: 'Transactions', icon: Receipt, action: () => navigate('/seller-pos/transactions') },
+    { id: 'settings', label: 'Settings', icon: Settings, action: () => navigate('/seller-pos/settings') },
+    { id: 'wholesale-orders', label: 'My Orders', icon: Package, action: () => navigate('/seller-wholesale?tab=orders') },
+    { id: 'wallet', label: 'Wallet', icon: Wallet, action: () => navigate('/seller-wallet') },
   ];
 
   if (loading) {
@@ -349,7 +358,54 @@ const SellerDashboard = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border p-3">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
+          <div className="flex items-center gap-2">
+            {/* Mobile Hamburger Menu */}
+            {isMobile && (
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-64 p-0">
+                  <div className="p-4 border-b border-border">
+                    <h2 className="font-bold text-lg">{seller.seller_name}</h2>
+                    <p className="text-sm text-muted-foreground">{seller.owner_name}</p>
+                  </div>
+                  <div className="py-2">
+                    {navItems.map((item) => {
+                      const isActive = activeSection === item.id || (item.id === 'add' && showItemsForm);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => { item.action(); setMobileMenuOpen(false); }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors relative ${
+                            isActive ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'
+                          }`}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                          {item.badge && item.badge > 0 && (
+                            <span className="ml-auto bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-border p-4">
+                    <button
+                      onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-0 py-2 text-sm text-destructive"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
             <h1 className="text-lg font-bold">{seller.seller_name}</h1>
           </div>
           
@@ -422,33 +478,35 @@ const SellerDashboard = () => {
         </div>
       </header>
 
-      {/* Compact Navigation Buttons - Always Visible */}
-      <div className="bg-card border-b border-border px-3 py-2">
-        <div className="max-w-7xl mx-auto flex gap-2 overflow-x-auto">
-          {navItems.map((item) => {
-            const isActive = activeSection === item.id || (item.id === 'add' && showItemsForm);
-            return (
-              <Button
-                key={item.id}
-                variant={isActive ? "default" : "outline"}
-                size="sm"
-                onClick={item.action}
-                className={`flex items-center gap-2 relative whitespace-nowrap ${
-                  isActive ? 'bg-primary text-primary-foreground' : ''
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{item.label}</span>
-                {item.badge && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                    {item.badge}
-                  </span>
-                )}
-              </Button>
-            );
-          })}
+      {/* Compact Navigation Buttons - Desktop Only */}
+      {!isMobile && (
+        <div className="bg-card border-b border-border px-3 py-2">
+          <div className="max-w-7xl mx-auto flex gap-2 overflow-x-auto">
+            {navItems.map((item) => {
+              const isActive = activeSection === item.id || (item.id === 'add' && showItemsForm);
+              return (
+                <Button
+                  key={item.id}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  onClick={item.action}
+                  className={`flex items-center gap-2 relative whitespace-nowrap ${
+                    isActive ? 'bg-primary text-primary-foreground' : ''
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                      {item.badge}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <main className="max-w-7xl mx-auto p-4 space-y-4">
         {activeSection === 'menu' && <MyMenu />}
