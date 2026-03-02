@@ -39,18 +39,19 @@ export const useAndroidBackButton = () => {
         return;
       }
       
-      // If we're on the home page, exit the app
-      if (location.pathname === '/') {
+      // Define pages where back button should exit the app
+      const exitPages = ['/', '/seller-dashboard', '/delivery-dashboard'];
+      
+      if (exitPages.includes(location.pathname)) {
         App.exitApp();
         return;
       }
       
-      // For all other pages, use window.history.back() which is more reliable
-      // in Capacitor WebViews than React Router's navigate(-1)
-      if (window.history.length > 1) {
+      // For all other pages, go back in history
+      if (window.history.length > 2) {
         window.history.back();
       } else {
-        // No history, navigate to home
+        // No meaningful history — go to home instead of exiting
         navigate('/', { replace: true });
       }
     });
