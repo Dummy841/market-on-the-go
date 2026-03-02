@@ -50,8 +50,20 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
   useEffect(() => {
     if (open && seller) {
       fetchSubcategories();
+      generateBarcode();
     }
   }, [open, seller]);
+
+  const generateBarcode = async () => {
+    try {
+      const { data, error } = await supabase.rpc('generate_seller_item_barcode' as any);
+      if (!error && data) {
+        setForm(f => ({ ...f, barcode: data as string }));
+      }
+    } catch (err) {
+      console.error('Error generating barcode:', err);
+    }
+  };
 
   const fetchSubcategories = async () => {
     if (!seller) return;

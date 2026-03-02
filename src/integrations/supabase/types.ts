@@ -1252,6 +1252,7 @@ export type Database = {
         Returns: string
       }
       generate_seller_id: { Args: never; Returns: string }
+      generate_seller_item_barcode: { Args: never; Returns: string }
       generate_wholesale_order_id: { Args: never; Returns: string }
       get_seller_rating: {
         Args: { seller_uuid: string }
