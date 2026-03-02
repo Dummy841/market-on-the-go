@@ -28,10 +28,6 @@ const SellerLogin = () => {
         description: error,
       });
     } else {
-      toast({
-        title: "Login Successful",
-        description: "Welcome to your dashboard!",
-      });
       navigate('/seller-dashboard');
     }
 
