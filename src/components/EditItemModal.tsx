@@ -14,6 +14,10 @@ interface Item {
   item_name: string;
   item_photo_url?: string;
   seller_price: number;
+  mrp?: number;
+  stock_quantity?: number;
+  low_stock_alert?: number;
+  gst_percentage?: number;
   item_info?: string | null;
   subcategory_id?: string | null;
 }
@@ -35,6 +39,10 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
   const [formData, setFormData] = useState({
     item_name: '',
     seller_price: '',
+    mrp: '',
+    stock_quantity: '0',
+    low_stock_alert: '10',
+    gst_percentage: '0',
     item_info: '',
     subcategory_id: ''
   });
@@ -56,6 +64,10 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
       setFormData({
         item_name: item.item_name,
         seller_price: item.seller_price.toString(),
+        mrp: (item.mrp || 0).toString(),
+        stock_quantity: (item.stock_quantity || 0).toString(),
+        low_stock_alert: (item.low_stock_alert || 10).toString(),
+        gst_percentage: (item.gst_percentage || 0).toString(),
         item_info: item.item_info || '',
         subcategory_id: item.subcategory_id || ''
       });
@@ -171,6 +183,10 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
           item_photo_url: imageUrl,
           seller_price: parseFloat(formData.seller_price),
           franchise_price: parseFloat(formData.seller_price),
+          mrp: parseFloat(formData.mrp) || 0,
+          stock_quantity: parseInt(formData.stock_quantity) || 0,
+          low_stock_alert: parseInt(formData.low_stock_alert) || 10,
+          gst_percentage: parseFloat(formData.gst_percentage) || 0,
           item_info: formData.item_info || null,
           subcategory_id: formData.subcategory_id || null
         })
@@ -250,16 +266,58 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="seller_price">Price (₹)</Label>
-            <Input
-              id="seller_price"
-              type="number"
-              step="0.01"
-              value={formData.seller_price}
-              onChange={(e) => handleInputChange('seller_price', e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="seller_price">Price (₹) *</Label>
+              <Input
+                id="seller_price"
+                type="number"
+                step="0.01"
+                value={formData.seller_price}
+                onChange={(e) => handleInputChange('seller_price', e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="mrp">MRP (₹)</Label>
+              <Input
+                id="mrp"
+                type="number"
+                step="0.01"
+                value={formData.mrp}
+                onChange={(e) => handleInputChange('mrp', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="stock_quantity">Stock Qty</Label>
+              <Input
+                id="stock_quantity"
+                type="number"
+                value={formData.stock_quantity}
+                onChange={(e) => handleInputChange('stock_quantity', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="low_stock_alert">Low Stock Alert</Label>
+              <Input
+                id="low_stock_alert"
+                type="number"
+                value={formData.low_stock_alert}
+                onChange={(e) => handleInputChange('low_stock_alert', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="gst_percentage">GST %</Label>
+              <Input
+                id="gst_percentage"
+                type="number"
+                value={formData.gst_percentage}
+                onChange={(e) => handleInputChange('gst_percentage', e.target.value)}
+              />
+            </div>
           </div>
 
           {/* Subcategory Dropdown */}

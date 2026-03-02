@@ -220,39 +220,51 @@ export type Database = {
         Row: {
           created_at: string
           franchise_price: number
+          gst_percentage: number
           id: string
           is_active: boolean
           item_info: string | null
           item_name: string
           item_photo_url: string | null
+          low_stock_alert: number
+          mrp: number
           seller_id: string
           seller_price: number
+          stock_quantity: number
           subcategory_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           franchise_price: number
+          gst_percentage?: number
           id?: string
           is_active?: boolean
           item_info?: string | null
           item_name: string
           item_photo_url?: string | null
+          low_stock_alert?: number
+          mrp?: number
           seller_id: string
           seller_price: number
+          stock_quantity?: number
           subcategory_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           franchise_price?: number
+          gst_percentage?: number
           id?: string
           is_active?: boolean
           item_info?: string | null
           item_name?: string
           item_photo_url?: string | null
+          low_stock_alert?: number
+          mrp?: number
           seller_id?: string
           seller_price?: number
+          stock_quantity?: number
           subcategory_id?: string | null
           updated_at?: string
         }
