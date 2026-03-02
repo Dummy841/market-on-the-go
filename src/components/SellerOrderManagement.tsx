@@ -272,7 +272,7 @@ export const SellerOrderManagement = () => {
       const {
         data,
         error
-      } = await supabase.from('orders').select('*').eq('seller_id', seller.id).order('created_at', {
+      } = await supabase.from('orders').select('*').eq('seller_id', seller.id).neq('delivery_address', 'POS - In Store').order('created_at', {
         ascending: false
       });
       if (error) throw error;
