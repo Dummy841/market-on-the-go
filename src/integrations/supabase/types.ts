@@ -1020,6 +1020,158 @@ export type Database = {
           },
         ]
       }
+      wholesale_barcode_sequence: {
+        Row: {
+          id: string
+          last_barcode: number
+        }
+        Insert: {
+          id?: string
+          last_barcode?: number
+        }
+        Update: {
+          id?: string
+          last_barcode?: number
+        }
+        Relationships: []
+      }
+      wholesale_orders: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          delivery_address: string | null
+          delivery_latitude: number | null
+          delivery_longitude: number | null
+          id: string
+          items: Json
+          order_status: string
+          payment_proof_url: string | null
+          payment_status: string
+          seller_id: string
+          seller_name: string
+          total_amount: number
+          updated_at: string
+          upi_transaction_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          delivery_address?: string | null
+          delivery_latitude?: number | null
+          delivery_longitude?: number | null
+          id?: string
+          items: Json
+          order_status?: string
+          payment_proof_url?: string | null
+          payment_status?: string
+          seller_id: string
+          seller_name: string
+          total_amount?: number
+          updated_at?: string
+          upi_transaction_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          delivery_address?: string | null
+          delivery_latitude?: number | null
+          delivery_longitude?: number | null
+          id?: string
+          items?: Json
+          order_status?: string
+          payment_proof_url?: string | null
+          payment_status?: string
+          seller_id?: string
+          seller_name?: string
+          total_amount?: number
+          updated_at?: string
+          upi_transaction_id?: string | null
+        }
+        Relationships: []
+      }
+      wholesale_product_images: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wholesale_product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "wholesale_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wholesale_products: {
+        Row: {
+          barcode: string
+          category: string | null
+          created_at: string
+          gst_percentage: number
+          id: string
+          is_active: boolean
+          low_stock_alert: number
+          mrp: number
+          product_name: string
+          purchase_price: number
+          selling_price: number
+          show_in_quick_add: boolean
+          stock_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          barcode: string
+          category?: string | null
+          created_at?: string
+          gst_percentage?: number
+          id?: string
+          is_active?: boolean
+          low_stock_alert?: number
+          mrp?: number
+          product_name: string
+          purchase_price?: number
+          selling_price?: number
+          show_in_quick_add?: boolean
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string
+          category?: string | null
+          created_at?: string
+          gst_percentage?: number
+          id?: string
+          is_active?: boolean
+          low_stock_alert?: number
+          mrp?: number
+          product_name?: string
+          purchase_price?: number
+          selling_price?: number
+          show_in_quick_add?: boolean
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       zippy_pass_subscriptions: {
         Row: {
           amount: number
@@ -1076,6 +1228,7 @@ export type Database = {
         Returns: string
       }
       generate_seller_id: { Args: never; Returns: string }
+      generate_wholesale_order_id: { Args: never; Returns: string }
       get_seller_rating: {
         Args: { seller_uuid: string }
         Returns: {

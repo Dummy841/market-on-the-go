@@ -21,6 +21,9 @@ import Modules from "./pages/dashboard/Modules";
 import Subcategories from "./pages/dashboard/Subcategories";
 import SupportChats from "./pages/dashboard/SupportChats";
 import Revenue from "./pages/dashboard/Revenue";
+import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
+import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
+import SellerWholesale from "./pages/SellerWholesale";
 import Help from "./pages/Help";
 import SellerLogin from "./pages/SellerLogin";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -90,7 +93,10 @@ const AppContent = () => {
         <Route path="modules" element={<Modules />} />
         <Route path="subcategories" element={<Subcategories />} />
         <Route path="support-chats" element={<SupportChats />} />
+        <Route path="wholesale-inventory" element={<WholesaleInventory />} />
+        <Route path="wholesale-orders" element={<WholesaleOrders />} />
       </Route>
+      <Route path="/seller-wholesale" element={<SellerWholesale />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

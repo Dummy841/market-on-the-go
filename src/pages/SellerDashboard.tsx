@@ -325,6 +325,7 @@ const SellerDashboard = () => {
     { id: 'menu', label: 'My Menu', icon: Menu, action: () => setActiveSection('menu') },
     { id: 'orders', label: 'My Orders', icon: ShoppingBag, action: () => setActiveSection('orders'), badge: orderCount },
     { id: 'earnings', label: 'My Earnings', icon: TrendingUp, action: () => setActiveSection('earnings') },
+    { id: 'wholesale', label: 'Shop Wholesale', icon: ShoppingBag, action: () => navigate('/seller-wholesale') },
   ];
 
   if (loading) {
