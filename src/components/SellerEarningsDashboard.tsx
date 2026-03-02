@@ -58,7 +58,7 @@ const SellerEarningsDashboard = () => {
       const {
         data,
         error
-      } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status').eq('seller_id', seller.id).gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
+      } = await supabase.from('orders').select('id, created_at, total_amount, status, items, seller_status, delivery_address').eq('seller_id', seller.id).neq('delivery_address', 'POS - In Store').gte('created_at', startDateTime).lte('created_at', endDateTime).order('created_at', {
         ascending: false
       });
 
