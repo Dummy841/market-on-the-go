@@ -362,7 +362,7 @@ const SellerDashboard = () => {
       case 'online':
         return ['add', 'menu', 'wholesale', 'orders', 'wholesale-orders', 'wallet'];
       case 'pos':
-        return ['add', 'menu', 'wholesale', 'wholesale-orders', 'settings', 'transactions'];
+        return ['add', 'menu', 'wholesale', 'wholesale-orders', 'pos', 'settings', 'transactions'];
       default:
         return ['wholesale', 'wholesale-orders'];
     }
@@ -451,41 +451,43 @@ const SellerDashboard = () => {
               </Button>
             )}
 
-            {isMobile ? (
-              <Button 
-                variant={isOnline ? "default" : "outline"} 
-                size="icon" 
-                onClick={handleToggleOnlineStatus} 
-                className={`h-8 w-8 ${isOnline ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                title={isOnline ? 'Go Offline' : 'Go Online'}
-              >
-                {isOnline ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
-              </Button>
-            ) : (
-              <>
+            {((seller as any)?.seller_type === 'online' || (seller as any)?.seller_type === 'both') && (
+              isMobile ? (
                 <Button 
                   variant={isOnline ? "default" : "outline"} 
-                  size="sm" 
+                  size="icon" 
                   onClick={handleToggleOnlineStatus} 
-                  className="flex items-center gap-2"
+                  className={`h-8 w-8 ${isOnline ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                  title={isOnline ? 'Go Offline' : 'Go Online'}
                 >
-                  {isOnline ? (
-                    <>
-                      <Power className="w-4 h-4" />
-                      Go Offline
-                    </>
-                  ) : (
-                    <>
-                      <PowerOff className="w-4 h-4" />
-                      Go Online
-                    </>
-                  )}
+                  {isOnline ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
                 </Button>
-                
-                <Badge variant={isOnline ? "default" : "secondary"}>
-                  {isOnline ? "Online" : "Offline"}
-                </Badge>
-              </>
+              ) : (
+                <>
+                  <Button 
+                    variant={isOnline ? "default" : "outline"} 
+                    size="sm" 
+                    onClick={handleToggleOnlineStatus} 
+                    className="flex items-center gap-2"
+                  >
+                    {isOnline ? (
+                      <>
+                        <Power className="w-4 h-4" />
+                        Go Offline
+                      </>
+                    ) : (
+                      <>
+                        <PowerOff className="w-4 h-4" />
+                        Go Online
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Badge variant={isOnline ? "default" : "secondary"}>
+                    {isOnline ? "Online" : "Offline"}
+                  </Badge>
+                </>
+              )
             )}
             
             <DropdownMenu>

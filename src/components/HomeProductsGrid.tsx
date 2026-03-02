@@ -194,6 +194,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           .from('sellers')
           .select('id, seller_name, owner_name, profile_photo_url, is_online, category, categories')
           .eq('status', 'approved')
+          .in('seller_type', ['online', 'both'])
           .ilike('seller_name', `%${searchQuery}%`)
           .limit(10);
 

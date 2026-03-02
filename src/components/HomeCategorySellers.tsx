@@ -41,8 +41,9 @@ export const HomeCategorySellers = ({ title, category, userLocation }: HomeCateg
       setLoading(true);
       const { data, error } = await supabase
         .from('sellers')
-        .select('id, seller_name, profile_photo_url, is_online, seller_latitude, seller_longitude, category, categories')
+        .select('id, seller_name, profile_photo_url, is_online, seller_latitude, seller_longitude, category, categories, seller_type')
         .eq('status', 'approved')
+        .in('seller_type', ['online', 'both'])
         .or(`categories.ilike.%${category}%,category.eq.${category}`);
 
       if (error) throw error;
