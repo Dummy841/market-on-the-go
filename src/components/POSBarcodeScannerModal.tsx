@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { X, Plus, Minus, Keyboard } from 'lucide-react';
+import { X, Plus, Minus, Keyboard, Camera, Usb } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,9 +22,10 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   sellerId: string;
   onItemsScanned: (items: ScannedItem[]) => void;
+  mode?: 'camera' | 'external';
 }
 
-const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }: Props) => {
+const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned, mode = 'camera' }: Props) => {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -35,6 +36,7 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
   const lastScannedRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
   const scanningRef = useRef(false);
+  const externalInputRef = useRef<HTMLInputElement>(null);
 
   const stopCamera = useCallback(() => {
     scanningRef.current = false;
@@ -72,6 +74,7 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
   }, [sellerId, toast]);
 
   const startCamera = useCallback(async () => {
+    if (mode !== 'camera') return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
@@ -86,11 +89,11 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
     } catch (err) {
       toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera. Check permissions.' });
     }
-  }, [toast]);
+  }, [toast, mode]);
 
-  // Barcode detection loop using ref to avoid stale closure
+  // Barcode detection loop for camera mode
   useEffect(() => {
-    if (!scanning || !videoRef.current || !hasBarcodeDetector) return;
+    if (mode !== 'camera' || !scanning || !videoRef.current || !hasBarcodeDetector) return;
     let cancelled = false;
 
     const detect = async () => {
@@ -107,18 +110,34 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
 
     detect();
     return () => { cancelled = true; };
-  }, [scanning, lookupBarcode, hasBarcodeDetector]);
+  }, [scanning, lookupBarcode, hasBarcodeDetector, mode]);
 
   useEffect(() => {
-    if (open) startCamera();
+    if (open && mode === 'camera') startCamera();
+    if (open && mode === 'external') {
+      // Focus the external input for USB/Bluetooth scanner
+      setTimeout(() => externalInputRef.current?.focus(), 300);
+    }
     return () => stopCamera();
-  }, [open, startCamera, stopCamera]);
+  }, [open, startCamera, stopCamera, mode]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualBarcode.trim()) {
       lookupBarcode(manualBarcode.trim());
       setManualBarcode('');
+    }
+  };
+
+  // External scanner: barcodes come as rapid keystrokes ending with Enter
+  const handleExternalScannerInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = (e.target as HTMLInputElement).value.trim();
+      if (val) {
+        lookupBarcode(val);
+        setManualBarcode('');
+      }
     }
   };
 
@@ -137,40 +156,73 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center justify-between shrink-0">
-        <h1 className="text-lg font-bold">Multi Scan</h1>
+        <div className="flex items-center gap-2">
+          {mode === 'camera' ? <Camera className="w-5 h-5 text-primary" /> : <Usb className="w-5 h-5 text-primary" />}
+          <h1 className="text-lg font-bold">{mode === 'camera' ? 'Camera Scanner' : 'External Scanner'}</h1>
+        </div>
         <Button variant="ghost" size="icon" onClick={() => { stopCamera(); onOpenChange(false); }}>
           <X className="w-5 h-5" />
         </Button>
       </header>
 
-      {/* Camera View */}
-      <div className="relative bg-black flex-1 min-h-0">
-        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-64 h-32 border-2 border-white/50 rounded-lg" />
-        </div>
-        {!hasBarcodeDetector && (
-          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 text-center">
-            Auto-scan not supported. Use manual entry below.
+      {mode === 'camera' ? (
+        <>
+          {/* Camera View */}
+          <div className="relative bg-black flex-1 min-h-0">
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-64 h-32 border-2 border-white/50 rounded-lg" />
+            </div>
+            {!hasBarcodeDetector && (
+              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2 text-center">
+                Auto-scan not supported. Use manual entry below.
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Manual Barcode Entry - always visible */}
-      <div className="bg-card border-t border-border p-3 shrink-0">
-        <form onSubmit={handleManualSubmit} className="flex gap-2">
-          <Input
-            placeholder="Enter barcode manually..."
-            value={manualBarcode}
-            onChange={e => setManualBarcode(e.target.value)}
-            className="font-mono flex-1"
-            autoFocus={!hasBarcodeDetector}
-          />
-          <Button type="submit" size="sm">
-            <Keyboard className="w-4 h-4 mr-1" /> Add
-          </Button>
-        </form>
-      </div>
+          {/* Manual Barcode Entry */}
+          <div className="bg-card border-t border-border p-3 shrink-0">
+            <form onSubmit={handleManualSubmit} className="flex gap-2">
+              <Input
+                placeholder="Enter barcode manually..."
+                value={manualBarcode}
+                onChange={e => setManualBarcode(e.target.value)}
+                className="font-mono flex-1"
+                autoFocus={!hasBarcodeDetector}
+              />
+              <Button type="submit" size="sm">
+                <Keyboard className="w-4 h-4 mr-1" /> Add
+              </Button>
+            </form>
+          </div>
+        </>
+      ) : (
+        /* External Scanner Mode */
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+          <div className="text-center space-y-3">
+            <Usb className="w-16 h-16 mx-auto text-primary opacity-70" />
+            <h2 className="text-xl font-bold">External Scanner Ready</h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Connect your USB or Bluetooth barcode scanner. Scan a barcode and it will be automatically detected.
+            </p>
+          </div>
+
+          <div className="w-full max-w-md">
+            <Input
+              ref={externalInputRef}
+              placeholder="Scanner input will appear here..."
+              value={manualBarcode}
+              onChange={e => setManualBarcode(e.target.value)}
+              onKeyDown={handleExternalScannerInput}
+              className="font-mono text-center text-lg h-14 border-2 border-primary"
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Keep this field focused. Scanner sends barcodes as keystrokes + Enter.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Scanned Items */}
       {scannedItems.length > 0 && (
