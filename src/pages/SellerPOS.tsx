@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Search, Camera, Plus, Minus, Trash2, Receipt, ShoppingBag, Settings, Keyboard } from 'lucide-react';
+import { Search, Camera, Plus, Minus, Trash2, ShoppingBag, Keyboard } from 'lucide-react';
+import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -218,9 +219,7 @@ const SellerPOS = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/seller-dashboard')}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
+        <SellerHamburgerMenu />
         <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
         <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')} className="relative">
           <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
@@ -303,11 +302,7 @@ const SellerPOS = () => {
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead>Barcode</TableHead>
                   <TableHead className="text-center w-32">Qty</TableHead>
-                  <TableHead className="text-right">Disc%</TableHead>
-                  <TableHead className="text-right">Tax</TableHead>
-                  <TableHead className="text-right">MRP</TableHead>
                   <TableHead className="text-right">Net</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
@@ -317,7 +312,6 @@ const SellerPOS = () => {
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{idx + 1}</TableCell>
                     <TableCell className="font-medium max-w-[150px] truncate">{item.item_name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{item.barcode || '-'}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
                         <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQty(item.id, -1)}>
@@ -329,9 +323,6 @@ const SellerPOS = () => {
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">{getDisc(item).toFixed(1)}%</TableCell>
-                    <TableCell className="text-right">₹{getTax(item).toFixed(2)}</TableCell>
-                    <TableCell className="text-right">₹{(item.mrp * item.quantity).toFixed(2)}</TableCell>
                     <TableCell className="text-right font-semibold">₹{getNet(item).toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.id)}>

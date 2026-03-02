@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, MoreVertical, Eye, Printer } from 'lucide-react';
+import { MoreVertical, Eye, Printer } from 'lucide-react';
+import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -181,9 +182,7 @@ const POSTransactions = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/seller-pos')}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
+        <SellerHamburgerMenu />
         <h1 className="text-lg font-bold flex-1">POS Transactions</h1>
       </header>
 

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Minus, ShoppingCart, Upload, Search, X, Package, FileText, Lock } from 'lucide-react';
+import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -446,7 +447,7 @@ const SellerWholesale = () => {
       <header className="bg-card border-b border-border p-3 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/seller-dashboard')}><ArrowLeft className="w-5 h-5" /></Button>
+            <SellerHamburgerMenu />
             <h1 className="text-lg font-bold">Wholesale Shop</h1>
           </div>
           <div className="flex items-center gap-2">
