@@ -1,43 +1,39 @@
 
 
-## Plan: Seller Access Type (Online Orders / POS) with Navigation Filtering
+## Plan: Wholesale Order Rejection Flow with Payment Proof Re-upload
 
-### Overview
-Add two checkboxes (Online Orders, POS) to the Create Seller and Edit Seller forms in the admin dashboard. Based on the selection, filter the navigation items visible to the seller in their dashboard.
+### Changes Overview
 
-### Access Rules
+**1. Admin: Reject with Remarks Modal (`src/pages/dashboard/WholesaleOrders.tsx`)**
+- When admin clicks the reject (X) button, instead of immediately rejecting, open a modal with a textarea for remarks and a Submit button
+- On submit, update the order with `payment_status: 'rejected'` and `admin_notes: <remarks>`
+- Add state for `rejectOrder` and `rejectRemarks`
 
-```text
-Selection         | Visible Nav Items
-------------------|--------------------------------------------------
-Online Only       | Add Items, My Menu, Shop Wholesale, Online Orders, My Orders, Wallet
-POS Only          | Add Items, My Menu, Shop Wholesale, My Orders, Settings, Transactions
-Both              | All items (Add Items, My Menu, Online Orders, My Earnings, Shop Wholesale, POS, Transactions, Settings, My Orders, Wallet)
-Neither           | Shop Wholesale, My Orders only
-```
+**2. Seller: Show Rejection Remarks + Upload Proof Button (`src/pages/SellerWholesale.tsx`)**
+- On the order card, when `payment_status === 'rejected'`, display the `admin_notes` (rejection remarks) in a red alert box
+- Show an "Upload Payment Proof" button on rejected orders
+- Clicking it opens a modal with: transaction ID input, file upload, and submit button
+- On submit, upload the file to storage, update the order's `payment_proof_url`, `upi_transaction_id`, and reset `payment_status` back to `'pending'` so it appears for admin verification again
 
-### Step 1: Database Migration
-Add a `seller_type` column to the `sellers` table:
-- Type: `text`, nullable, default `null`
-- Values: `'online'`, `'pos'`, `'both'`, or `null` (neither)
+**3. Admin Sidebar Badge Fix (`src/components/DashboardSidebar.tsx`)**
+- Change the query filter from `in("order_status", ["pending", "verified"])` to also exclude rejected payment orders
+- Specifically: count orders where `order_status` is `pending` or `verified` AND `payment_status` is NOT `rejected`
+- This ensures rejected orders don't inflate the badge count
 
-### Step 2: Update CreateSellerForm.tsx
-- Add two checkbox inputs: "Online Orders" and "POS"
-- Map selections to `seller_type` value (`'online'`, `'pos'`, `'both'`, or `null`)
-- Save to `sellers` table on submit
+### Technical Details
 
-### Step 3: Update EditSellerModal.tsx
-- Same two checkboxes, pre-populated from `seller.seller_type`
-- Save updated value on submit
+**Admin Reject Modal** (new state + Dialog in WholesaleOrders.tsx):
+- `rejectOrder: WholesaleOrder | null` — tracks which order is being rejected
+- `rejectRemarks: string` — the remarks text
+- Replace the direct `updateOrder(order.id, { payment_status: 'rejected' })` call with `setRejectOrder(order)`
+- Modal contains Textarea + Submit button that calls `updateOrder(order.id, { payment_status: 'rejected', admin_notes: rejectRemarks })`
 
-### Step 4: Update Seller Interface
-- Add `seller_type?: string | null` to `Seller` interface in `SellerAuthContext.tsx`
+**Seller Upload Proof Modal** (new state + Dialog in SellerWholesale.tsx orders view):
+- `proofOrder: WholesaleOrder | null` — which order to upload proof for
+- `proofFile: File | null`, `proofTxnId: string` — form state
+- On submit: upload image to `wholesale-images` bucket, then update order with new `payment_proof_url`, `upi_transaction_id`, and `payment_status: 'pending'`
+- Show admin rejection remarks (`admin_notes`) on the order card in a red box
 
-### Step 5: Update SellerDashboard.tsx
-- Read `seller.seller_type` and filter `navItems` accordingly before rendering
-- Logic:
-  - `'both'` → show all
-  - `'online'` → show: add, menu, wholesale, orders, wholesale-orders, wallet
-  - `'pos'` → show: add, menu, wholesale, wholesale-orders, settings, transactions
-  - `null`/undefined → show: wholesale, wholesale-orders only
+**Sidebar Badge Query Fix** (DashboardSidebar.tsx):
+- Add `.neq("payment_status", "rejected")` to the count query so rejected-payment orders are excluded from the badge
 
