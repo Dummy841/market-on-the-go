@@ -114,7 +114,8 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           )
         `)
         .eq('is_active', true)
-        .eq('sellers.status', 'approved');
+        .eq('sellers.status', 'approved')
+        .in('sellers.seller_type', ['online', 'both']);
 
       // Apply search filter if query exists
       if (searchQuery) {
