@@ -48,16 +48,21 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
   const [processing, setProcessing] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const searchCustomers = async () => {
-    if (!customerSearch.trim()) return;
-    const query = customerSearch.trim();
+  const searchCustomers = async (query?: string) => {
+    const q = (query ?? customerSearch).trim();
+    if (!q) { setCustomers([]); setSearched(false); return; }
     const { data } = await supabase
       .from('users')
       .select('id, name, mobile')
-      .or(`mobile.ilike.%${query}%,name.ilike.%${query}%`)
+      .or(`mobile.ilike.%${q}%,name.ilike.%${q}%`)
       .limit(10);
     setCustomers(data || []);
     setSearched(true);
+  };
+
+  const handleCustomerSearchChange = (value: string) => {
+    setCustomerSearch(value);
+    searchCustomers(value);
   };
 
   const handleAddCustomer = async () => {
@@ -267,10 +272,9 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
                 <Input
                   placeholder="Search by name or mobile..."
                   value={customerSearch}
-                  onChange={e => setCustomerSearch(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && searchCustomers()}
+                  onChange={e => handleCustomerSearchChange(e.target.value)}
                 />
-                <Button variant="outline" size="icon" onClick={searchCustomers}>
+                <Button variant="outline" size="icon" onClick={() => searchCustomers()}>
                   <Search className="w-4 h-4" />
                 </Button>
               </div>
@@ -287,7 +291,7 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
                 ) : (
                   <div className="text-center py-3 space-y-2">
                     <p className="text-sm text-muted-foreground">No customers found</p>
-                    <Button variant="outline" size="sm" onClick={() => { setShowAddCustomer(true); setSearched(false); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setShowAddCustomer(true); setNewPhone(/^\d+$/.test(customerSearch.trim()) ? customerSearch.trim() : ''); setSearched(false); }}>
                       <UserPlus className="w-4 h-4 mr-2" /> Add New Customer
                     </Button>
                   </div>
