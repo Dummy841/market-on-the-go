@@ -145,6 +145,12 @@ const SellerDashboard = () => {
   const { seller, loading, logout } = useSellerAuth();
   const navigate = useNavigate();
   const [showItemsForm, setShowItemsForm] = useState(false);
+  const getDefaultSection = () => {
+    const st = (seller as any)?.seller_type;
+    if (st === 'online' || st === 'both') return 'orders';
+    if (st === 'pos') return 'menu';
+    return 'wholesale';
+  };
   const [activeSection, setActiveSection] = useState('orders');
   const [isOnline, setIsOnline] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
@@ -167,6 +173,12 @@ const SellerDashboard = () => {
       setIsOnline(seller.is_online === true);
       fetchPendingOrdersCount();
       fetchWalletBalance();
+      // Set default section based on seller_type
+      const st = (seller as any)?.seller_type;
+      if (!st || (st !== 'online' && st !== 'both')) {
+        if (st === 'pos') setActiveSection('menu');
+        else setActiveSection('wholesale');
+      }
     }
   }, [seller]);
 
@@ -426,16 +438,18 @@ const SellerDashboard = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Wallet Card */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => navigate('/seller-wallet')}
-              className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 hover:from-green-600 hover:to-emerald-700"
-            >
-              <Wallet className="w-4 h-4" />
-              <span className="font-semibold">{formatCurrency(walletBalance)}</span>
-            </Button>
+            {/* Wallet Card - only show for online or both */}
+            {((seller as any)?.seller_type === 'online' || (seller as any)?.seller_type === 'both') && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/seller-wallet')}
+                className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 hover:from-green-600 hover:to-emerald-700"
+              >
+                <Wallet className="w-4 h-4" />
+                <span className="font-semibold">{formatCurrency(walletBalance)}</span>
+              </Button>
+            )}
 
             {isMobile ? (
               <Button 
