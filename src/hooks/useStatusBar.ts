@@ -18,7 +18,7 @@ export const useStatusBar = () => {
           // Set status bar background color to match theme
           await StatusBar.setBackgroundColor({ color: '#f97316' });
           
-          // Make status bar overlay WebView (optional - for edge-to-edge)
+          // Don't overlay WebView — keep content below status bar
           await StatusBar.setOverlaysWebView({ overlay: false });
         }
       } catch (error) {

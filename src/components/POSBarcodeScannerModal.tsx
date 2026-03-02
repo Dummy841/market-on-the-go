@@ -47,6 +47,24 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned, 
     setScanning(false);
   }, []);
 
+  // Play a short beep sound using Web Audio API
+  const playBeep = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(1800, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.15);
+    } catch { /* ignore */ }
+  }, []);
+
   const lookupBarcode = useCallback(async (barcode: string) => {
     const now = Date.now();
     if (barcode === lastScannedRef.current && now - lastScannedTimeRef.current < 3000) return;
@@ -62,6 +80,7 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned, 
       .maybeSingle();
 
     if (data) {
+      playBeep();
       setScannedItems(prev => {
         const existing = prev.find(i => i.id === data.id);
         if (existing) return prev.map(i => i.id === data.id ? { ...i, quantity: i.quantity + 1 } : i);
@@ -71,7 +90,7 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned, 
     } else {
       toast({ variant: 'destructive', title: 'Not Found', description: `Barcode "${barcode}" not in your inventory` });
     }
-  }, [sellerId, toast]);
+  }, [sellerId, toast, playBeep]);
 
   const startCamera = useCallback(async () => {
     if (mode !== 'camera') return;
