@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import { Button } from '@/components/ui/button';
 import { X, Plus, Minus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -118,64 +118,65 @@ const POSBarcodeScannerModal = ({ open, onOpenChange, sellerId, onItemsScanned }
   const totalItems = scannedItems.reduce((s, i) => s + i.quantity, 0);
   const totalAmount = scannedItems.reduce((s, i) => s + i.seller_price * i.quantity, 0);
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) stopCamera(); onOpenChange(v); }}>
-      <DialogContent className="max-w-lg max-h-[95vh] overflow-y-auto p-0">
-        <DialogHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-          <DialogTitle>Multi Scan</DialogTitle>
-          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-            <X className="w-5 h-5" />
-          </Button>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Header */}
+      <header className="bg-card border-b border-border p-3 flex items-center justify-between shrink-0">
+        <h1 className="text-lg font-bold">Multi Scan</h1>
+        <Button variant="ghost" size="icon" onClick={() => { stopCamera(); onOpenChange(false); }}>
+          <X className="w-5 h-5" />
+        </Button>
+      </header>
 
-        {/* Camera View */}
-        <div className="relative bg-black aspect-video">
-          <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-          {!('BarcodeDetector' in window) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-sm p-4 text-center">
-              BarcodeDetector API not supported in this browser. Use Chrome on Android for best results.
-            </div>
-          )}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-64 h-32 border-2 border-white/50 rounded-lg" />
-          </div>
-        </div>
-
-        {/* Scanned Items */}
-        {scannedItems.length > 0 && (
-          <div className="p-4 space-y-2">
-            <h3 className="font-semibold text-sm">Scanned Items ({totalItems})</h3>
-            {scannedItems.map(item => (
-              <div key={item.id} className="flex items-center gap-2 p-2 bg-accent/30 rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{item.item_name}</div>
-                  <div className="text-xs text-muted-foreground">₹{item.seller_price}</div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => setScannedItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i))}>
-                    <Minus className="w-3 h-3" />
-                  </Button>
-                  <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                  <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => setScannedItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i))}>
-                    <Plus className="w-3 h-3" />
-                  </Button>
-                </div>
-                <div className="text-sm font-semibold w-16 text-right">₹{(item.seller_price * item.quantity).toFixed(2)}</div>
-              </div>
-            ))}
-
-            <div className="flex justify-between font-semibold pt-2 border-t border-border">
-              <span>Total</span>
-              <span>₹{totalAmount.toFixed(2)}</span>
-            </div>
-
-            <Button className="w-full" onClick={handleAddToCart}>
-              Add {totalItems} items to Cart
-            </Button>
+      {/* Camera View */}
+      <div className="relative bg-black flex-1 min-h-0">
+        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+        {!('BarcodeDetector' in window) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white text-sm p-4 text-center">
+            BarcodeDetector API not supported in this browser. Use Chrome on Android for best results.
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-64 h-32 border-2 border-white/50 rounded-lg" />
+        </div>
+      </div>
+
+      {/* Scanned Items */}
+      {scannedItems.length > 0 && (
+        <div className="bg-card border-t border-border p-4 space-y-2 max-h-[40vh] overflow-y-auto shrink-0">
+          <h3 className="font-semibold text-sm">Scanned Items ({totalItems})</h3>
+          {scannedItems.map(item => (
+            <div key={item.id} className="flex items-center gap-2 p-2 bg-accent/30 rounded-lg">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{item.item_name}</div>
+                <div className="text-xs text-muted-foreground">₹{item.seller_price}</div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => setScannedItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i))}>
+                  <Minus className="w-3 h-3" />
+                </Button>
+                <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => setScannedItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i))}>
+                  <Plus className="w-3 h-3" />
+                </Button>
+              </div>
+              <div className="text-sm font-semibold w-16 text-right">₹{(item.seller_price * item.quantity).toFixed(2)}</div>
+            </div>
+          ))}
+
+          <div className="flex justify-between font-semibold pt-2 border-t border-border">
+            <span>Total</span>
+            <span>₹{totalAmount.toFixed(2)}</span>
+          </div>
+
+          <Button className="w-full" onClick={handleAddToCart}>
+            Add {totalItems} items to Cart
+          </Button>
+        </div>
+      )}
+    </div>
   );
 };
 
