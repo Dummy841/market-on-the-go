@@ -493,6 +493,41 @@ export type Database = {
         }
         Relationships: []
       }
+      seller_upi_ids: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string | null
+          seller_id: string
+          upi_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          seller_id: string
+          upi_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string | null
+          seller_id?: string
+          upi_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_upi_ids_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seller_wallet_transactions: {
         Row: {
           amount: number

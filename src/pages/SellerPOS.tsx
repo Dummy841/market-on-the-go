@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Search, Camera, Plus, Minus, Trash2, Receipt, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Search, Camera, Plus, Minus, Trash2, Receipt, ShoppingBag, Settings, Keyboard } from 'lucide-react';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import POSCheckoutModal from '@/components/POSCheckoutModal';
 import POSBarcodeScannerModal from '@/components/POSBarcodeScannerModal';
+import POSSettingsModal from '@/components/POSSettingsModal';
 
 
 interface Item {
@@ -52,6 +53,8 @@ const SellerPOS = () => {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [scannerMode, setScannerMode] = useState<'camera' | 'external' | null>(null);
   
   const [dialogSearchQuery, setDialogSearchQuery] = useState('');
   const [allProducts, setAllProducts] = useState<Item[]>([]);
@@ -160,6 +163,9 @@ const SellerPOS = () => {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-bold flex-1">POS - {seller.seller_name}</h1>
+        <Button variant="outline" size="icon" onClick={() => setShowSettings(true)} title="Settings">
+          <Settings className="w-4 h-4" />
+        </Button>
         <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')}>
           <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
         </Button>
@@ -216,8 +222,11 @@ const SellerPOS = () => {
           </form>
         </div>
 
-        <Button variant="outline" size="icon" onClick={() => setShowScanner(true)}>
+        <Button variant="outline" size="icon" onClick={() => setScannerMode('camera')} title="Camera Scanner">
           <Camera className="w-5 h-5" />
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setScannerMode('external')} title="External Scanner">
+          <Keyboard className="w-4 h-4 mr-1" /> External
         </Button>
       </div>
 
@@ -308,14 +317,31 @@ const SellerPOS = () => {
         />
       )}
 
-      {showScanner && (
+      {scannerMode === 'camera' && (
         <POSBarcodeScannerModal
-          open={showScanner}
-          onOpenChange={setShowScanner}
+          open={true}
+          onOpenChange={() => setScannerMode(null)}
           sellerId={seller.id}
           onItemsScanned={handleScannedItems}
+          mode="camera"
         />
       )}
+
+      {scannerMode === 'external' && (
+        <POSBarcodeScannerModal
+          open={true}
+          onOpenChange={() => setScannerMode(null)}
+          sellerId={seller.id}
+          onItemsScanned={handleScannedItems}
+          mode="external"
+        />
+      )}
+
+      <POSSettingsModal
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        sellerId={seller.id}
+      />
 
       {/* Search Products Dialog */}
       <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,22 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
   const [cardTransactionId, setCardTransactionId] = useState('');
   const [processing, setProcessing] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const [defaultUpiId, setDefaultUpiId] = useState<string | null>(null);
+
+  // Fetch default UPI ID for this seller
+  useEffect(() => {
+    if (!open || !sellerId) return;
+    const fetchUpi = async () => {
+      const { data } = await supabase
+        .from('seller_upi_ids')
+        .select('upi_id')
+        .eq('seller_id', sellerId)
+        .eq('is_default', true)
+        .maybeSingle();
+      setDefaultUpiId((data as any)?.upi_id || null);
+    };
+    fetchUpi();
+  }, [open, sellerId]);
 
   const searchCustomers = async (query?: string) => {
     const q = (query ?? customerSearch).trim();
@@ -324,11 +340,25 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
 
           {paymentStep === 'upi' && (
             <div className="space-y-3">
-              <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-500/5">
-                <QrCode className="w-16 h-16 mx-auto mb-2 text-blue-500" />
-                <p className="text-sm font-semibold">Scan QR to Pay</p>
-                <p className="text-2xl font-bold text-primary mt-1">₹{totalAmount.toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground mt-2">Show this QR to the customer</p>
+              <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center bg-primary/5">
+                {defaultUpiId ? (
+                  <>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${defaultUpiId}&pn=${encodeURIComponent(sellerName)}&am=${totalAmount.toFixed(2)}&cu=INR`)}`}
+                      alt="UPI QR Code"
+                      className="w-48 h-48 mx-auto mb-3 rounded-lg"
+                    />
+                    <p className="text-sm font-semibold">Scan QR to Pay</p>
+                    <p className="text-2xl font-bold text-primary mt-1">₹{totalAmount.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">UPI: {defaultUpiId}</p>
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="w-16 h-16 mx-auto mb-2 text-primary" />
+                    <p className="text-sm font-semibold">No UPI ID configured</p>
+                    <p className="text-xs text-muted-foreground mt-1">Go to POS Settings → Payment Settings to add a UPI ID</p>
+                  </>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setPaymentStep('select')}>Back</Button>
