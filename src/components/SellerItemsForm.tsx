@@ -37,8 +37,8 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
     item_info: '',
     subcategory_id: ''
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -119,7 +119,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
         subcategory_id: data.subcategory_id || ''
       }));
       if (data.item_photo_url) {
-        setImagePreview(data.item_photo_url);
+        setImagePreviews([data.item_photo_url]);
       }
       toast({ title: '📦 Product Found', description: `"${data.item_name}" details loaded from existing inventory` });
       return true;
@@ -195,16 +195,23 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
+    const files = Array.from(e.target.files || []);
+    const remaining = 4 - imagePreviews.length;
+    const newFiles = files.slice(0, remaining);
+    if (newFiles.length === 0) return;
+    
+    setImageFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
+      reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
       reader.readAsDataURL(file);
-    }
+    });
   };
 
-  const removeImage = () => { setImageFile(null); setImagePreview(null); };
+  const removeImage = (index: number) => {
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
@@ -229,17 +236,18 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
     if (!seller) return;
     setLoading(true);
     try {
-      let imageUrl = null;
-      if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
-        if (!imageUrl) throw new Error('Failed to upload image');
+      // Upload first image as main item_photo_url
+      let mainImageUrl = null;
+      if (imageFiles.length > 0) {
+        mainImageUrl = await uploadImage(imageFiles[0]);
+        if (!mainImageUrl) throw new Error('Failed to upload image');
       }
 
-      const { error } = await supabase.from('items').insert({
+      const { data: insertedItem, error } = await supabase.from('items').insert({
         seller_id: seller.id,
         item_name: form.item_name,
         barcode: form.barcode || null,
-        item_photo_url: imageUrl,
+        item_photo_url: mainImageUrl,
         purchase_price: parseFloat(form.purchase_price) || 0,
         mrp: parseFloat(form.mrp) || 0,
         seller_price: parseFloat(form.seller_price) || 0,
@@ -251,9 +259,24 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
         is_active: form.is_active,
         item_info: form.item_info || null,
         subcategory_id: form.subcategory_id || null
-      } as any);
+      } as any).select('id').single();
 
       if (error) throw error;
+
+      // Upload additional images to seller_item_images table
+      if (insertedItem && imageFiles.length > 0) {
+        const imageUploads = await Promise.all(
+          imageFiles.map(async (file, index) => {
+            const url = index === 0 ? mainImageUrl : await uploadImage(file);
+            return url ? { item_id: insertedItem.id, image_url: url, display_order: index } : null;
+          })
+        );
+        const validUploads = imageUploads.filter(Boolean);
+        if (validUploads.length > 0) {
+          await supabase.from('seller_item_images' as any).insert(validUploads);
+        }
+      }
+
       toast({ title: 'Success', description: 'Item added successfully!' });
 
       setForm({
@@ -261,8 +284,8 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
         stock_quantity: '0', low_stock_alert: '10', gst_percentage: '0',
         show_in_quick_add: false, is_active: true, item_info: '', subcategory_id: ''
       });
-      setImageFile(null);
-      setImagePreview(null);
+      setImageFiles([]);
+      setImagePreviews([]);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -378,21 +401,22 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
             <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
           </div>
 
-          {/* Item Photo */}
+          {/* Item Photos (up to 4) */}
           <div>
-            <Label>Item Photo</Label>
-            <div className="mt-2">
-              {imagePreview ? (
-                <div className="relative w-20 h-20 rounded border overflow-hidden">
-                  <img src={imagePreview} className="w-full h-full object-cover" />
-                  <button type="button" onClick={removeImage} className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
+            <Label>Item Photos (up to 4)</Label>
+            <div className="mt-2 flex gap-2 flex-wrap">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="relative w-20 h-20 rounded border overflow-hidden">
+                  <img src={preview} className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => removeImage(index)} className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
                     <X className="w-3 h-3" />
                   </button>
                 </div>
-              ) : (
+              ))}
+              {imagePreviews.length < 4 && (
                 <label className="w-20 h-20 rounded border-2 border-dashed border-muted-foreground/30 flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
                   <Upload className="w-5 h-5 text-muted-foreground" />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
                 </label>
               )}
             </div>

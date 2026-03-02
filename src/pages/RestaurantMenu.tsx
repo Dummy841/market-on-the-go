@@ -13,6 +13,7 @@ import { useCart } from "@/contexts/CartContext";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ItemImageCarousel from "@/components/ItemImageCarousel";
 import restaurant1 from "@/assets/restaurant-1.jpg";
 import { calculateDistance, getDeliveryTime, formatDistance } from "@/lib/distanceUtils";
 interface Restaurant {
@@ -39,6 +40,7 @@ interface MenuItem {
   item_info?: string | null;
   average_rating?: number;
   total_ratings?: number;
+  images?: string[];
 }
 const RestaurantMenu = () => {
   const {
@@ -259,13 +261,34 @@ const RestaurantMenu = () => {
         }
       });
       
-      // Merge ratings into items
+      // Fetch item images from seller_item_images
+      const itemIds = (itemsData || []).map(i => i.id);
+      let itemImagesMap = new Map<string, string[]>();
+      if (itemIds.length > 0) {
+        const { data: imagesData } = await supabase
+          .from('seller_item_images' as any)
+          .select('item_id, image_url, display_order')
+          .in('item_id', itemIds)
+          .order('display_order', { ascending: true });
+        
+        if (imagesData) {
+          (imagesData as any[]).forEach((img: any) => {
+            const existing = itemImagesMap.get(img.item_id) || [];
+            existing.push(img.image_url);
+            itemImagesMap.set(img.item_id, existing);
+          });
+        }
+      }
+
+      // Merge ratings and images into items
       const itemsWithRatings = (itemsData || []).map(item => {
         const ratingInfo = itemRatingsMap.get(item.id);
+        const images = itemImagesMap.get(item.id);
         return {
           ...item,
           average_rating: ratingInfo ? Math.round((ratingInfo.total / ratingInfo.count) * 10) / 10 : 0,
-          total_ratings: ratingInfo?.count || 0
+          total_ratings: ratingInfo?.count || 0,
+          images: images && images.length > 0 ? images : (item.item_photo_url ? [item.item_photo_url] : [])
         };
       });
       
@@ -447,17 +470,11 @@ const RestaurantMenu = () => {
                       className="overflow-hidden hover:shadow-lg transition-shadow border-border/40"
                     >
                       <div className="relative h-40 overflow-hidden">
-                        {item.item_photo_url ? (
-                          <img
-                            src={item.item_photo_url}
-                            alt={item.item_name}
-                            className="w-full h-full object-cover rounded-t-lg"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-subtle flex items-center justify-center">
-                            <span className="text-muted-foreground">No image</span>
-                          </div>
-                        )}
+                        <ItemImageCarousel 
+                          images={item.images || (item.item_photo_url ? [item.item_photo_url] : [])} 
+                          alt={item.item_name}
+                          className="rounded-t-lg"
+                        />
                         {/* Rating Badge Overlay */}
                         {item.average_rating > 0 && (
                           <div className="absolute top-2 left-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm flex items-center gap-1">

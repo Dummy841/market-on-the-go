@@ -55,8 +55,8 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
     item_info: '',
     subcategory_id: ''
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [scanning, setScanning] = useState(false);
@@ -85,10 +85,27 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
         item_info: item.item_info || '',
         subcategory_id: item.subcategory_id || ''
       });
-      setImagePreview(item.item_photo_url || null);
-      setImageFile(null);
+      setImageFiles([]);
+      // Fetch existing images from seller_item_images
+      fetchItemImages(item.id);
     }
   }, [item, open]);
+
+  const fetchItemImages = async (itemId: string) => {
+    const { data } = await supabase
+      .from('seller_item_images' as any)
+      .select('image_url, display_order')
+      .eq('item_id', itemId)
+      .order('display_order', { ascending: true });
+    
+    if (data && (data as any[]).length > 0) {
+      setImagePreviews((data as any[]).map((img: any) => img.image_url));
+    } else if (item?.item_photo_url) {
+      setImagePreviews([item.item_photo_url]);
+    } else {
+      setImagePreviews([]);
+    }
+  };
 
   const fetchSubcategories = async () => {
     if (!seller) return;
@@ -150,16 +167,23 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
+    const files = Array.from(e.target.files || []);
+    const remaining = 4 - imagePreviews.length;
+    const newFiles = files.slice(0, remaining);
+    if (newFiles.length === 0) return;
+    
+    setImageFiles(prev => [...prev, ...newFiles]);
+    newFiles.forEach(file => {
       const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
+      reader.onload = () => setImagePreviews(prev => [...prev, reader.result as string]);
       reader.readAsDataURL(file);
-    }
+    });
   };
 
-  const removeImage = () => { setImageFile(null); setImagePreview(null); };
+  const removeImage = (index: number) => {
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
@@ -183,19 +207,31 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
     }
     setLoading(true);
     try {
-      let imageUrl = item.item_photo_url;
-      if (imageFile) {
-        const uploadedUrl = await uploadImage(imageFile);
-        if (!uploadedUrl) throw new Error('Failed to upload image');
-        imageUrl = uploadedUrl;
-      } else if (!imagePreview) {
-        imageUrl = null;
+      // Upload any new files and build final image list
+      const finalImageUrls: string[] = [];
+      let newFileIndex = 0;
+      
+      for (const preview of imagePreviews) {
+        if (preview.startsWith('data:')) {
+          // This is a new file that needs uploading
+          const file = imageFiles[newFileIndex];
+          newFileIndex++;
+          if (file) {
+            const url = await uploadImage(file);
+            if (url) finalImageUrls.push(url);
+          }
+        } else {
+          // Existing URL
+          finalImageUrls.push(preview);
+        }
       }
+
+      const mainImageUrl = finalImageUrls.length > 0 ? finalImageUrls[0] : null;
 
       const { error } = await supabase.from('items').update({
         item_name: form.item_name,
         barcode: form.barcode || null,
-        item_photo_url: imageUrl,
+        item_photo_url: mainImageUrl,
         purchase_price: parseFloat(form.purchase_price) || 0,
         mrp: parseFloat(form.mrp) || 0,
         seller_price: parseFloat(form.seller_price) || 0,
@@ -210,6 +246,18 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
       } as any).eq('id', item.id);
 
       if (error) throw error;
+
+      // Update seller_item_images: delete old, insert new
+      await supabase.from('seller_item_images' as any).delete().eq('item_id', item.id);
+      if (finalImageUrls.length > 0) {
+        const imageRows = finalImageUrls.map((url, idx) => ({
+          item_id: item.id,
+          image_url: url,
+          display_order: idx
+        }));
+        await supabase.from('seller_item_images' as any).insert(imageRows);
+      }
+
       toast({ title: 'Success', description: 'Item updated successfully!' });
       onOpenChange(false);
       onSuccess?.();
@@ -306,21 +354,22 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
             <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
           </div>
 
-          {/* Item Photo */}
+          {/* Item Photos (up to 4) */}
           <div>
-            <Label>Item Photo</Label>
-            <div className="mt-2">
-              {imagePreview ? (
-                <div className="relative w-20 h-20 rounded border overflow-hidden">
-                  <img src={imagePreview} className="w-full h-full object-cover" />
-                  <button type="button" onClick={removeImage} className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
+            <Label>Item Photos (up to 4)</Label>
+            <div className="mt-2 flex gap-2 flex-wrap">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="relative w-20 h-20 rounded border overflow-hidden">
+                  <img src={preview} className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => removeImage(index)} className="absolute top-0 right-0 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
                     <X className="w-3 h-3" />
                   </button>
                 </div>
-              ) : (
+              ))}
+              {imagePreviews.length < 4 && (
                 <label className="w-20 h-20 rounded border-2 border-dashed border-muted-foreground/30 flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
                   <Upload className="w-5 h-5 text-muted-foreground" />
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
                 </label>
               )}
             </div>

@@ -493,6 +493,38 @@ export type Database = {
         }
         Relationships: []
       }
+      seller_item_images: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string
+          item_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url: string
+          item_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_item_images_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seller_upi_ids: {
         Row: {
           created_at: string
