@@ -133,7 +133,12 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
       if (item.mrp > item.seller_price) {
         receiptHtml += `<div class="item-mrp">&nbsp;&nbsp;MRP: ₹${Number(item.mrp).toFixed(2)}</div>`;
       }
-      receiptHtml += `<div class="row"><span>&nbsp;&nbsp;₹${Number(item.seller_price).toFixed(2)} × ${item.quantity}</span><span>₹${(item.seller_price * item.quantity).toFixed(2)}</span></div></div>`;
+      receiptHtml += `<div class="row"><span>&nbsp;&nbsp;₹${Number(item.seller_price).toFixed(2)} × ${item.quantity}</span><span>₹${(item.seller_price * item.quantity).toFixed(2)}</span></div>`;
+      if (item.gst_percentage > 0) {
+        const itemGst = (item.seller_price * item.quantity * item.gst_percentage / 100);
+        receiptHtml += `<div class="row muted"><span>&nbsp;&nbsp;GST (${item.gst_percentage}%)</span><span>₹${itemGst.toFixed(2)}</span></div>`;
+      }
+      receiptHtml += `</div>`;
     });
     receiptHtml += `
       <div class="line"></div>
@@ -155,8 +160,9 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
     if (!win) return;
     win.document.write(`
       <html><head><title>Receipt</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
       <style>
-        body { font-family: 'Courier New', monospace; font-size: 13px; padding: 20px; max-width: 350px; margin: 0 auto; color: #000; }
+        body { font-family: 'Courier New', monospace; font-size: 13px; padding: 20px; padding-top: calc(20px + env(safe-area-inset-top)); max-width: 350px; margin: 0 auto; color: #000; }
         .center { text-align: center; }
         .bold { font-weight: bold; }
         .line { border-top: 1px dashed #999; margin: 8px 0; }

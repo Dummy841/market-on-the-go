@@ -234,7 +234,7 @@ const SellerPOS = () => {
   if (loading || !seller) return <div className="min-h-screen flex items-center justify-center"><div>Loading...</div></div>;
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3">
         <SellerHamburgerMenu />
