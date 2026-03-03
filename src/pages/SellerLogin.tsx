@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -162,6 +162,13 @@ const SellerLogin = () => {
     setLoading(false);
   };
 
+  // Auto-submit when 4 digits entered
+  useEffect(() => {
+    if (otp.length === 4 && otpSent && !loading && sessionId) {
+      handleVerifyOtp({ preventDefault: () => {} } as React.FormEvent);
+    }
+  }, [otp]);
+
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;
     setOtp('');
@@ -208,9 +215,7 @@ const SellerLogin = () => {
                   </InputOTPGroup>
                 </InputOTP>
               </div>
-              <Button type="submit" className="w-full" disabled={loading || otp.length !== 4}>
-                {loading ? 'Verifying...' : 'Verify & Login'}
-              </Button>
+              {loading && <p className="text-center text-sm text-muted-foreground">Verifying...</p>}
               <div className="text-center">
                 {resendTimer > 0 ? (
                   <p className="text-sm text-muted-foreground">

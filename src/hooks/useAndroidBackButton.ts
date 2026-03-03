@@ -40,7 +40,7 @@ export const useAndroidBackButton = () => {
       }
       
       // Define pages where back button should exit the app
-      const exitPages = ['/', '/seller-dashboard', '/delivery-dashboard'];
+      const exitPages = ['/', '/seller-dashboard', '/delivery-dashboard', '/seller-pos'];
       
       if (exitPages.includes(location.pathname)) {
         App.exitApp();

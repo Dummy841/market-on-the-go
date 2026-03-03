@@ -37,8 +37,8 @@ const POSTransactions = () => {
   const { seller, loading } = useSellerAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<PosOrder[]>([]);
-  const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [filterMode, setFilterMode] = useState<'date' | 'all'>('date');
   const [fetching, setFetching] = useState(false);
   const [viewOrder, setViewOrder] = useState<PosOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -51,19 +51,23 @@ const POSTransactions = () => {
   const fetchOrders = async () => {
     if (!seller) return;
     setFetching(true);
-    const fromDate = new Date(dateFrom);
-    fromDate.setHours(0, 0, 0, 0);
-    const toDate = new Date(dateTo);
-    toDate.setHours(23, 59, 59, 999);
 
-    const { data } = await supabase
+    let query = supabase
       .from('orders')
       .select('*')
       .eq('seller_id', seller.id)
       .eq('delivery_address', 'POS - In Store')
-      .gte('created_at', fromDate.toISOString())
-      .lte('created_at', toDate.toISOString())
       .order('created_at', { ascending: false });
+
+    if (filterMode === 'date') {
+      const fromDate = new Date(selectedDate);
+      fromDate.setHours(0, 0, 0, 0);
+      const toDate = new Date(selectedDate);
+      toDate.setHours(23, 59, 59, 999);
+      query = query.gte('created_at', fromDate.toISOString()).lte('created_at', toDate.toISOString());
+    }
+
+    const { data } = await query;
 
     if (data) {
       const userIds = [...new Set(data.map(o => o.user_id).filter(id => id !== '00000000-0000-0000-0000-000000000000'))];
@@ -84,7 +88,9 @@ const POSTransactions = () => {
 
   useEffect(() => {
     if (seller) fetchOrders();
-  }, [seller, dateFrom, dateTo]);
+  }, [seller, selectedDate, filterMode]);
+
+  const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
 
   const getPaymentLabel = (method: string) => {
     if (method === 'cash') return 'CASH';
@@ -102,8 +108,9 @@ const POSTransactions = () => {
       if (!win) return;
       win.document.write(`
         <html><head><title>Receipt</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <style>
-          body { font-family: 'Courier New', monospace; font-size: 13px; padding: 20px; max-width: 350px; margin: 0 auto; color: #000; }
+          body { font-family: 'Courier New', monospace; font-size: 13px; padding: 20px; padding-top: calc(20px + env(safe-area-inset-top)); max-width: 350px; margin: 0 auto; color: #000; }
           .center { text-align: center; }
           .bold { font-weight: bold; }
           .line { border-top: 1px dashed #999; margin: 8px 0; }
@@ -115,7 +122,7 @@ const POSTransactions = () => {
           .item-mrp { text-decoration: line-through; color: #888; font-size: 11px; }
           .muted { color: #888; font-size: 12px; }
           .footer { color: #d97706; text-align: center; margin-top: 12px; }
-          @media print { body { padding: 0; } }
+          @media print { body { padding: 0; padding-top: env(safe-area-inset-top); } }
         </style>
         </head><body>
         ${content.innerHTML}
@@ -156,6 +163,12 @@ const POSTransactions = () => {
               <span>&nbsp;&nbsp;₹{Number(item.seller_price).toFixed(2)} × {item.quantity}</span>
               <span>₹{(item.seller_price * item.quantity).toFixed(2)}</span>
             </div>
+            {item.gst_percentage > 0 && (
+              <div className="row muted">
+                <span>&nbsp;&nbsp;GST ({item.gst_percentage}%)</span>
+                <span>₹{(item.seller_price * item.quantity * item.gst_percentage / 100).toFixed(2)}</span>
+              </div>
+            )}
           </div>
         ))}
         <div className="line"></div>
@@ -184,13 +197,34 @@ const POSTransactions = () => {
       <header className="bg-card border-b border-border p-3 flex items-center gap-3">
         <SellerHamburgerMenu />
         <h1 className="text-lg font-bold flex-1">POS Transactions</h1>
+        <div className="text-right">
+          <div className="text-xs text-muted-foreground">Total</div>
+          <div className="text-sm font-bold text-primary">₹{totalAmount.toFixed(2)}</div>
+        </div>
       </header>
 
       {/* Date Filters */}
       <div className="bg-card border-b border-border p-3 flex gap-2 items-center flex-wrap">
-        <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-auto" />
-        <span className="text-sm text-muted-foreground">to</span>
-        <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-auto" />
+        <Input
+          type="date"
+          value={selectedDate}
+          onChange={e => { setSelectedDate(e.target.value); setFilterMode('date'); }}
+          className="w-auto"
+        />
+        <Button
+          variant={filterMode === 'date' && selectedDate === format(new Date(), 'yyyy-MM-dd') ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setSelectedDate(format(new Date(), 'yyyy-MM-dd')); setFilterMode('date'); }}
+        >
+          Today
+        </Button>
+        <Button
+          variant={filterMode === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterMode('all')}
+        >
+          All
+        </Button>
       </div>
 
       {/* Table */}
@@ -260,9 +294,17 @@ const POSTransactions = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span>{getPaymentLabel(viewOrder.payment_method)}</span></div>
               <hr className="border-border" />
               {viewOrder.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between">
-                  <span>{item.item_name} × {item.quantity}</span>
-                  <span className="font-semibold">₹{(item.seller_price * item.quantity).toFixed(2)}</span>
+                <div key={idx}>
+                  <div className="flex justify-between">
+                    <span>{item.item_name} × {item.quantity}</span>
+                    <span className="font-semibold">₹{(item.seller_price * item.quantity).toFixed(2)}</span>
+                  </div>
+                  {item.gst_percentage > 0 && (
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>&nbsp;&nbsp;GST ({item.gst_percentage}%)</span>
+                      <span>₹{(item.seller_price * item.quantity * item.gst_percentage / 100).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               ))}
               <hr className="border-border" />
