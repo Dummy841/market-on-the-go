@@ -1,39 +1,65 @@
 
+## Plan: Fix Multiple Seller App Issues
 
-## Plan: Wholesale Order Rejection Flow with Payment Proof Re-upload
+### 1. POS Page Fixed Layout (Header & Footer Pinned)
+The POS page already uses `h-screen overflow-hidden flex flex-col`, but on Android the safe-area padding on `body` adds extra height causing overflow. Fix by making the POS page account for safe-area insets explicitly, ensuring only the cart area scrolls.
 
-### Changes Overview
+**Files:** `src/pages/SellerPOS.tsx`
+- Change root container to use `fixed inset-0` with flex column layout so it fills exactly the viewport regardless of safe-area padding on body.
 
-**1. Admin: Reject with Remarks Modal (`src/pages/dashboard/WholesaleOrders.tsx`)**
-- When admin clicks the reject (X) button, instead of immediately rejecting, open a modal with a textarea for remarks and a Submit button
-- On submit, update the order with `payment_status: 'rejected'` and `admin_notes: <remarks>`
-- Add state for `rejectOrder` and `rejectRemarks`
+### 2. Seller OTP Auto-Submit on 4 Digits
+Currently the OTP form requires clicking "Verify & Login". Add auto-submit: when `otp.length === 4`, automatically trigger verification.
 
-**2. Seller: Show Rejection Remarks + Upload Proof Button (`src/pages/SellerWholesale.tsx`)**
-- On the order card, when `payment_status === 'rejected'`, display the `admin_notes` (rejection remarks) in a red alert box
-- Show an "Upload Payment Proof" button on rejected orders
-- Clicking it opens a modal with: transaction ID input, file upload, and submit button
-- On submit, upload the file to storage, update the order's `payment_proof_url`, `upi_transaction_id`, and reset `payment_status` back to `'pending'` so it appears for admin verification again
+**Files:** `src/pages/SellerLogin.tsx`
+- Add `useEffect` watching `otp` state; when length reaches 4, call `handleVerifyOtp` automatically.
 
-**3. Admin Sidebar Badge Fix (`src/components/DashboardSidebar.tsx`)**
-- Change the query filter from `in("order_status", ["pending", "verified"])` to also exclude rejected payment orders
-- Specifically: count orders where `order_status` is `pending` or `verified` AND `payment_status` is NOT `rejected`
-- This ensures rejected orders don't inflate the badge count
+### 3. Receipt: Show Tax Per Item + Fix Status Bar Overlap
+The receipt HTML opens in a new window without safe-area meta tag. Add viewport meta and safe-area padding. Also add GST line per item (like the reference image showing "GST (2%) ₹5.00").
 
-### Technical Details
+**Files:** `src/components/POSCheckoutModal.tsx`, `src/pages/POSTransactions.tsx`
+- In the receipt HTML `<head>`, add `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">` and `padding-top: env(safe-area-inset-top)` on body.
+- For each item with `gst_percentage > 0`, add a line showing `GST ({gst_percentage}%) ₹{amount}`.
 
-**Admin Reject Modal** (new state + Dialog in WholesaleOrders.tsx):
-- `rejectOrder: WholesaleOrder | null` — tracks which order is being rejected
-- `rejectRemarks: string` — the remarks text
-- Replace the direct `updateOrder(order.id, { payment_status: 'rejected' })` call with `setRejectOrder(order)`
-- Modal contains Textarea + Submit button that calls `updateOrder(order.id, { payment_status: 'rejected', admin_notes: rejectRemarks })`
+### 4. Android Back Button from Receipt Page
+The receipt opens via `window.open` in a new tab/window, so back button behavior from there is outside app control. However, the `/seller-pos` route needs to be added to the exit pages list OR ensure back navigation works properly. Currently `/seller-pos` is not an exit page and `window.history.back()` should work. The issue is likely that the receipt triggers navigation. Will verify the back button hook includes seller-pos sub-routes properly.
 
-**Seller Upload Proof Modal** (new state + Dialog in SellerWholesale.tsx orders view):
-- `proofOrder: WholesaleOrder | null` — which order to upload proof for
-- `proofFile: File | null`, `proofTxnId: string` — form state
-- On submit: upload image to `wholesale-images` bucket, then update order with new `payment_proof_url`, `upi_transaction_id`, and `payment_status: 'pending'`
-- Show admin rejection remarks (`admin_notes`) on the order card in a red box
+**Files:** `src/hooks/useAndroidBackButton.ts`
+- Add `/seller-pos` to exit pages so back from POS goes to exit (or keep it navigating back). The real fix: ensure receipt doesn't push to history. Since receipt uses `window.open`, this should be fine. The issue might be that after checkout completes, there's no history to go back to. Will ensure POS page stays in history.
 
-**Sidebar Badge Query Fix** (DashboardSidebar.tsx):
-- Add `.neq("payment_status", "rejected")` to the count query so rejected-payment orders are excluded from the badge
+### 5. Daily Wallet Credits: Exclude POS Orders
+The database function `compute_seller_daily_net_earnings` includes ALL delivered orders. Must add filter `AND o.delivery_address != 'POS - In Store'` to exclude POS transactions.
 
+**Database Migration:**
+```sql
+CREATE OR REPLACE FUNCTION public.compute_seller_daily_net_earnings(
+  p_seller_id uuid, p_date date
+) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+-- Same logic but with added filter:
+-- AND o.delivery_address != 'POS - In Store'
+-- in both the delivered items query and rejected orders query
+$$;
+```
+
+### 6. POS Transactions: Single Date Filter + All/Today Buttons + Total Amount
+Replace the dual date range with a single date picker, "All" and "Today" quick buttons, and show total amount in the top-right corner.
+
+**Files:** `src/pages/POSTransactions.tsx`
+- Replace `dateFrom`/`dateTo` with single `selectedDate` state and an `filterMode` (`'date' | 'all'`).
+- Add "Today" button (sets date to today) and "All" button (fetches all).
+- Show total amount badge in the header area.
+
+### 7. Hamburger Menu: Fix "My Earnings" to "Online Earnings" and "Transactions" to "POS Transactions"
+The `SellerHamburgerMenu` still shows old labels.
+
+**Files:** `src/components/SellerHamburgerMenu.tsx`
+- Change `label: 'My Earnings'` to `'Online Earnings'`
+- Change `label: 'Transactions'` to `'POS Transactions'`
+
+### Summary of Files to Modify
+1. `src/pages/SellerPOS.tsx` - Fixed layout for Android
+2. `src/pages/SellerLogin.tsx` - Auto-submit OTP on 4 digits
+3. `src/components/POSCheckoutModal.tsx` - Receipt: safe-area + tax per item
+4. `src/pages/POSTransactions.tsx` - Receipt fix + single date filter + total amount
+5. `src/hooks/useAndroidBackButton.ts` - Back button fix for POS flow
+6. `src/components/SellerHamburgerMenu.tsx` - Label fixes
+7. **Database migration** - Exclude POS orders from daily wallet earnings function
