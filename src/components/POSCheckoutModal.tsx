@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, UserPlus, Banknote, QrCode, CreditCard, User } from 'lucide-react';
+import { Search, UserPlus, Banknote, QrCode, CreditCard, User, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 interface CartItem {
   id: string;
   item_name: string;
+  telugu_name?: string | null;
   barcode: string | null;
   mrp: number;
   seller_price: number;
@@ -43,11 +44,17 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const [paymentStep, setPaymentStep] = useState<'select' | 'upi' | 'card'>('select');
+  const [paymentStep, setPaymentStep] = useState<'select' | 'upi' | 'card' | 'done'>('select');
   const [cardTransactionId, setCardTransactionId] = useState('');
   const [processing, setProcessing] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   const [defaultUpiId, setDefaultUpiId] = useState<string | null>(null);
+  const [completedOrderId, setCompletedOrderId] = useState<string>('');
+  const [completedPaymentMethod, setCompletedPaymentMethod] = useState<string>('');
+  const [teluguNames, setTeluguNames] = useState<Record<string, string>>({});
+
+  // Preload QR image as soon as modal opens
+  const [qrPreloaded, setQrPreloaded] = useState(false);
 
   // Fetch default UPI ID for this seller
   useEffect(() => {
@@ -62,7 +69,33 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
       setDefaultUpiId((data as any)?.upi_id || null);
     };
     fetchUpi();
+    // Fetch Telugu names for cart items
+    fetchTeluguNames();
   }, [open, sellerId]);
+
+  // Preload QR code image when we have UPI ID
+  useEffect(() => {
+    if (defaultUpiId && open) {
+      const upiUrl = `upi://pay?pa=${defaultUpiId}&pn=${encodeURIComponent(sellerName)}&am=${totalAmount.toFixed(2)}&cu=INR`;
+      const img = new Image();
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+      img.onload = () => setQrPreloaded(true);
+    }
+  }, [defaultUpiId, open, totalAmount, sellerName]);
+
+  const fetchTeluguNames = async () => {
+    const itemIds = cart.map(c => c.id);
+    if (itemIds.length === 0) return;
+    const { data } = await supabase
+      .from('items')
+      .select('id, telugu_name')
+      .in('id', itemIds);
+    if (data) {
+      const map: Record<string, string> = {};
+      (data as any[]).forEach(d => { if (d.telugu_name) map[d.id] = d.telugu_name; });
+      setTeluguNames(map);
+    }
+  };
 
   const searchCustomers = async (query?: string) => {
     const q = (query ?? customerSearch).trim();
@@ -105,7 +138,7 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
     return method.toUpperCase();
   };
 
-  const printReceipt = (orderId: string, paymentMethod: string) => {
+  const printReceipt = (orderId: string, paymentMethod: string, language: 'english' | 'telugu' = 'english') => {
     const items = cart;
     const subtotal = items.reduce((s, i) => s + (i.seller_price * i.quantity), 0);
     const totalMrp = items.reduce((s, i) => s + (i.mrp * i.quantity), 0);
@@ -129,7 +162,10 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
     }
     receiptHtml += `<div class="line"></div>`;
     items.forEach(item => {
-      receiptHtml += `<div style="margin-bottom:6px"><div class="item-name">${item.item_name}</div>`;
+      const displayName = language === 'telugu' && teluguNames[item.id] 
+        ? teluguNames[item.id] 
+        : item.item_name;
+      receiptHtml += `<div style="margin-bottom:6px"><div class="item-name">${displayName}</div>`;
       if (item.mrp > item.seller_price) {
         receiptHtml += `<div class="item-mrp">&nbsp;&nbsp;MRP: ₹${Number(item.mrp).toFixed(2)}</div>`;
       }
@@ -221,16 +257,24 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
         await supabase.from('items').update({ stock_quantity: Math.max(0, (c as any).stock_quantity - c.quantity) }).eq('id', c.id);
       }
 
-      // Auto-print receipt
       const orderId = data?.id || 'N/A';
-      printReceipt(orderId, method);
-
-      onPaymentComplete();
+      setCompletedOrderId(orderId);
+      setCompletedPaymentMethod(method);
+      setPaymentStep('done');
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error', description: err.message });
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handlePrintAndClose = (language: 'english' | 'telugu') => {
+    printReceipt(completedOrderId, completedPaymentMethod, language);
+    onPaymentComplete();
+  };
+
+  const handleSkipPrint = () => {
+    onPaymentComplete();
   };
 
   const paymentMethods = [
@@ -241,7 +285,6 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
 
   const handlePaymentClick = (methodId: string) => {
     if (methodId === 'cash') {
-      // Immediately complete as cash
       handleCompletePayment('cash');
     } else if (methodId === 'upi') {
       setPaymentStep('upi');
@@ -255,166 +298,198 @@ const POSCheckoutModal = ({ open, onOpenChange, totalAmount, cart, sellerId, sel
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-center">
-            Complete Payment
+            {paymentStep === 'done' ? '✅ Payment Complete' : 'Complete Payment'}
             <div className="text-2xl font-bold text-primary mt-1">₹{totalAmount.toFixed(2)}</div>
           </DialogTitle>
         </DialogHeader>
 
-        {/* Customer Section */}
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold">Customer</Label>
-          {selectedCustomer ? (
-            <div className="flex items-center gap-3 p-3 bg-accent/50 rounded-lg">
-              <User className="w-8 h-8 text-primary" />
-              <div className="flex-1">
-                <div className="font-medium">{selectedCustomer.name}</div>
-                <div className="text-sm text-muted-foreground">{selectedCustomer.mobile}</div>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>Change</Button>
+        {paymentStep === 'done' ? (
+          /* Post-payment: Print buttons */
+          <div className="space-y-4">
+            <div className="text-center text-sm text-muted-foreground">
+              Order <span className="font-semibold text-foreground">{completedOrderId}</span> saved successfully!
             </div>
-          ) : showAddCustomer ? (
-            <div className="space-y-3 p-3 border border-border rounded-lg">
-              <h4 className="font-semibold text-sm">Add New Customer</h4>
-              <div>
-                <Label className="text-xs">Name *</Label>
-                <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Customer name" />
-              </div>
-              <div>
-                <Label className="text-xs">Phone</Label>
-                <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Mobile number" />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleAddCustomer} className="flex-1">Add</Button>
-                <Button size="sm" variant="outline" onClick={() => setShowAddCustomer(false)}>Cancel</Button>
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline" 
+                className="h-20 flex flex-col gap-2"
+                onClick={() => handlePrintAndClose('english')}
+              >
+                <Printer className="w-6 h-6" />
+                <span className="text-xs font-semibold">Print in English</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="h-20 flex flex-col gap-2"
+                onClick={() => handlePrintAndClose('telugu')}
+              >
+                <Printer className="w-6 h-6" />
+                <span className="text-xs font-semibold">Print in Telugu</span>
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Search by name or mobile..."
-                  value={customerSearch}
-                  onChange={e => handleCustomerSearchChange(e.target.value)}
-                />
-                <Button variant="outline" size="icon" onClick={() => searchCustomers()}>
-                  <Search className="w-4 h-4" />
-                </Button>
-              </div>
-              {searched && (
-                customers.length > 0 ? (
-                  <div className="border border-border rounded-lg max-h-40 overflow-y-auto">
-                    {customers.map(c => (
-                      <button key={c.id} className="w-full p-2 text-left hover:bg-accent flex justify-between text-sm border-b last:border-0" onClick={() => { setSelectedCustomer(c); setSearched(false); }}>
-                        <span className="font-medium">{c.name}</span>
-                        <span className="text-muted-foreground">{c.mobile}</span>
-                      </button>
-                    ))}
+            <Button variant="ghost" className="w-full text-muted-foreground" onClick={handleSkipPrint}>
+              Skip Print
+            </Button>
+          </div>
+        ) : (
+          <>
+            {/* Customer Section */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Customer</Label>
+              {selectedCustomer ? (
+                <div className="flex items-center gap-3 p-3 bg-accent/50 rounded-lg">
+                  <User className="w-8 h-8 text-primary" />
+                  <div className="flex-1">
+                    <div className="font-medium">{selectedCustomer.name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedCustomer.mobile}</div>
                   </div>
-                ) : (
-                  <div className="text-center py-3 space-y-2">
-                    <p className="text-sm text-muted-foreground">No customers found</p>
-                    <Button variant="outline" size="sm" onClick={() => { setShowAddCustomer(true); setNewPhone(/^\d+$/.test(customerSearch.trim()) ? customerSearch.trim() : ''); setSearched(false); }}>
-                      <UserPlus className="w-4 h-4 mr-2" /> Add New Customer
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedCustomer(null)}>Change</Button>
+                </div>
+              ) : showAddCustomer ? (
+                <div className="space-y-3 p-3 border border-border rounded-lg">
+                  <h4 className="font-semibold text-sm">Add New Customer</h4>
+                  <div>
+                    <Label className="text-xs">Name *</Label>
+                    <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Customer name" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Phone</Label>
+                    <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Mobile number" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleAddCustomer} className="flex-1">Add</Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowAddCustomer(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search by name or mobile..."
+                      value={customerSearch}
+                      onChange={e => handleCustomerSearchChange(e.target.value)}
+                    />
+                    <Button variant="outline" size="icon" onClick={() => searchCustomers()}>
+                      <Search className="w-4 h-4" />
                     </Button>
                   </div>
-                )
+                  {searched && (
+                    customers.length > 0 ? (
+                      <div className="border border-border rounded-lg max-h-40 overflow-y-auto">
+                        {customers.map(c => (
+                          <button key={c.id} className="w-full p-2 text-left hover:bg-accent flex justify-between text-sm border-b last:border-0" onClick={() => { setSelectedCustomer(c); setSearched(false); }}>
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-muted-foreground">{c.mobile}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-3 space-y-2">
+                        <p className="text-sm text-muted-foreground">No customers found</p>
+                        <Button variant="outline" size="sm" onClick={() => { setShowAddCustomer(true); setNewPhone(/^\d+$/.test(customerSearch.trim()) ? customerSearch.trim() : ''); setSearched(false); }}>
+                          <UserPlus className="w-4 h-4 mr-2" /> Add New Customer
+                        </Button>
+                      </div>
+                    )
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Payment Method */}
-        <div className="space-y-3">
-          <Label className="text-sm font-semibold">Payment Method</Label>
-
-          {paymentStep === 'select' && (
-            <div className="grid grid-cols-3 gap-2">
-              {paymentMethods.map(pm => (
-                <button
-                  key={pm.id}
-                  onClick={() => handlePaymentClick(pm.id)}
-                  disabled={processing}
-                  className={`p-3 rounded-lg border-2 text-center transition-all ${pm.color} ${processing ? 'opacity-50' : ''}`}
-                >
-                  <pm.icon className="w-6 h-6 mx-auto mb-1" />
-                  <div className="text-xs font-semibold">{pm.label}</div>
-                  <div className="text-[10px] text-muted-foreground">{pm.desc}</div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {paymentStep === 'upi' && (
+            {/* Payment Method */}
             <div className="space-y-3">
-              <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center bg-primary/5">
-                {defaultUpiId ? (
-                  <>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${defaultUpiId}&pn=${encodeURIComponent(sellerName)}&am=${totalAmount.toFixed(2)}&cu=INR`)}`}
-                      alt="UPI QR Code"
-                      className="w-48 h-48 mx-auto mb-3 rounded-lg"
-                    />
-                    <p className="text-sm font-semibold">Scan QR to Pay</p>
-                    <p className="text-2xl font-bold text-primary mt-1">₹{totalAmount.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">UPI: {defaultUpiId}</p>
-                  </>
-                ) : (
-                  <>
-                    <QrCode className="w-16 h-16 mx-auto mb-2 text-primary" />
-                    <p className="text-sm font-semibold">No UPI ID configured</p>
-                    <p className="text-xs text-muted-foreground mt-1">Go to POS Settings → Payment Settings to add a UPI ID</p>
-                  </>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setPaymentStep('select')}>Back</Button>
-                <Button className="flex-1" onClick={() => handleCompletePayment('upi')} disabled={processing}>
-                  {processing ? 'Processing...' : 'Complete Payment'}
-                </Button>
-              </div>
-            </div>
-          )}
+              <Label className="text-sm font-semibold">Payment Method</Label>
 
-          {paymentStep === 'card' && (
-            <div className="space-y-3">
-              <div className="p-4 border border-border rounded-lg space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <CreditCard className="w-5 h-5 text-purple-500" />
-                  <span className="font-semibold text-sm">Card Payment</span>
+              {paymentStep === 'select' && (
+                <div className="grid grid-cols-3 gap-2">
+                  {paymentMethods.map(pm => (
+                    <button
+                      key={pm.id}
+                      onClick={() => handlePaymentClick(pm.id)}
+                      disabled={processing}
+                      className={`p-3 rounded-lg border-2 text-center transition-all ${pm.color} ${processing ? 'opacity-50' : ''}`}
+                    >
+                      <pm.icon className="w-6 h-6 mx-auto mb-1" />
+                      <div className="text-xs font-semibold">{pm.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{pm.desc}</div>
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <Label className="text-xs">Transaction ID *</Label>
-                  <Input
-                    value={cardTransactionId}
-                    onChange={e => setCardTransactionId(e.target.value)}
-                    placeholder="Enter transaction ID..."
-                    autoFocus
-                  />
+              )}
+
+              {paymentStep === 'upi' && (
+                <div className="space-y-3">
+                  <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center bg-primary/5">
+                    {defaultUpiId ? (
+                      <>
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${defaultUpiId}&pn=${encodeURIComponent(sellerName)}&am=${totalAmount.toFixed(2)}&cu=INR`)}`}
+                          alt="UPI QR Code"
+                          className="w-48 h-48 mx-auto mb-3 rounded-lg"
+                        />
+                        <p className="text-sm font-semibold">Scan QR to Pay</p>
+                        <p className="text-2xl font-bold text-primary mt-1">₹{totalAmount.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">UPI: {defaultUpiId}</p>
+                      </>
+                    ) : (
+                      <>
+                        <QrCode className="w-16 h-16 mx-auto mb-2 text-primary" />
+                        <p className="text-sm font-semibold">No UPI ID configured</p>
+                        <p className="text-xs text-muted-foreground mt-1">Go to POS Settings → Payment Settings to add a UPI ID</p>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setPaymentStep('select')}>Back</Button>
+                    <Button className="flex-1" onClick={() => handleCompletePayment('upi')} disabled={processing}>
+                      {processing ? 'Processing...' : 'Complete Payment'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setPaymentStep('select'); setCardTransactionId(''); }}>Back</Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => handleCompletePayment('card')}
-                  disabled={processing || !cardTransactionId.trim()}
-                >
-                  {processing ? 'Processing...' : 'Complete Payment'}
-                </Button>
-              </div>
+              )}
+
+              {paymentStep === 'card' && (
+                <div className="space-y-3">
+                  <div className="p-4 border border-border rounded-lg space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="w-5 h-5 text-purple-500" />
+                      <span className="font-semibold text-sm">Card Payment</span>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Transaction ID *</Label>
+                      <Input
+                        value={cardTransactionId}
+                        onChange={e => setCardTransactionId(e.target.value)}
+                        placeholder="Enter transaction ID..."
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => { setPaymentStep('select'); setCardTransactionId(''); }}>Back</Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleCompletePayment('card')}
+                      disabled={processing || !cardTransactionId.trim()}
+                    >
+                      {processing ? 'Processing...' : 'Complete Payment'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Cancel button only in select mode */}
-        {paymentStep === 'select' && (
-          <div className="pt-2">
-            <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-          </div>
-        )}
+            {/* Cancel button only in select mode */}
+            {paymentStep === 'select' && (
+              <div className="pt-2">
+                <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Cancel</Button>
+              </div>
+            )}
 
-        {processing && paymentStep === 'select' && (
-          <div className="text-center text-sm text-muted-foreground">Processing cash payment...</div>
+            {processing && paymentStep === 'select' && (
+              <div className="text-center text-sm text-muted-foreground">Processing cash payment...</div>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>

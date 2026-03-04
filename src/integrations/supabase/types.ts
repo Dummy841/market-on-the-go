@@ -235,6 +235,7 @@ export type Database = {
           show_in_quick_add: boolean
           stock_quantity: number
           subcategory_id: string | null
+          telugu_name: string | null
           updated_at: string
         }
         Insert: {
@@ -255,6 +256,7 @@ export type Database = {
           show_in_quick_add?: boolean
           stock_quantity?: number
           subcategory_id?: string | null
+          telugu_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -275,6 +277,7 @@ export type Database = {
           show_in_quick_add?: boolean
           stock_quantity?: number
           subcategory_id?: string | null
+          telugu_name?: string | null
           updated_at?: string
         }
         Relationships: [
