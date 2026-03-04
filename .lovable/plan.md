@@ -1,65 +1,60 @@
 
-## Plan: Fix Multiple Seller App Issues
 
-### 1. POS Page Fixed Layout (Header & Footer Pinned)
-The POS page already uses `h-screen overflow-hidden flex flex-col`, but on Android the safe-area padding on `body` adds extra height causing overflow. Fix by making the POS page account for safe-area insets explicitly, ensuring only the cart area scrolls.
+## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
 
-**Files:** `src/pages/SellerPOS.tsx`
-- Change root container to use `fixed inset-0` with flex column layout so it fills exactly the viewport regardless of safe-area padding on body.
+### 1. Fix POS Header Under Status Bar
+The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
 
-### 2. Seller OTP Auto-Submit on 4 Digits
-Currently the OTP form requires clicking "Verify & Login". Add auto-submit: when `otp.length === 4`, automatically trigger verification.
+**File:** `src/pages/SellerPOS.tsx` (line 237)
 
-**Files:** `src/pages/SellerLogin.tsx`
-- Add `useEffect` watching `otp` state; when length reaches 4, call `handleVerifyOtp` automatically.
+### 2. Show All Cart Columns on Mobile (Reorder)
+Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
 
-### 3. Receipt: Show Tax Per Item + Fix Status Bar Overlap
-The receipt HTML opens in a new window without safe-area meta tag. Add viewport meta and safe-area padding. Also add GST line per item (like the reference image showing "GST (2%) ₹5.00").
+Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
 
-**Files:** `src/components/POSCheckoutModal.tsx`, `src/pages/POSTransactions.tsx`
-- In the receipt HTML `<head>`, add `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">` and `padding-top: env(safe-area-inset-top)` on body.
-- For each item with `gst_percentage > 0`, add a line showing `GST ({gst_percentage}%) ₹{amount}`.
+**File:** `src/pages/SellerPOS.tsx`
 
-### 4. Android Back Button from Receipt Page
-The receipt opens via `window.open` in a new tab/window, so back button behavior from there is outside app control. However, the `/seller-pos` route needs to be added to the exit pages list OR ensure back navigation works properly. Currently `/seller-pos` is not an exit page and `window.history.back()` should work. The issue is likely that the receipt triggers navigation. Will verify the back button hook includes seller-pos sub-routes properly.
+### 3. Persist Cart in localStorage Instead of sessionStorage
+Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
 
-**Files:** `src/hooks/useAndroidBackButton.ts`
-- Add `/seller-pos` to exit pages so back from POS goes to exit (or keep it navigating back). The real fix: ensure receipt doesn't push to history. Since receipt uses `window.open`, this should be fine. The issue might be that after checkout completes, there's no history to go back to. Will ensure POS page stays in history.
+**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
 
-### 5. Daily Wallet Credits: Exclude POS Orders
-The database function `compute_seller_daily_net_earnings` includes ALL delivered orders. Must add filter `AND o.delivery_address != 'POS - In Store'` to exclude POS transactions.
+### 4. Faster UPI QR Code Generation
+Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
 
-**Database Migration:**
-```sql
-CREATE OR REPLACE FUNCTION public.compute_seller_daily_net_earnings(
-  p_seller_id uuid, p_date date
-) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
--- Same logic but with added filter:
--- AND o.delivery_address != 'POS - In Store'
--- in both the delivered items query and rejected orders query
-$$;
-```
+**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
 
-### 6. POS Transactions: Single Date Filter + All/Today Buttons + Total Amount
-Replace the dual date range with a single date picker, "All" and "Today" quick buttons, and show total amount in the top-right corner.
+Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
 
-**Files:** `src/pages/POSTransactions.tsx`
-- Replace `dateFrom`/`dateTo` with single `selectedDate` state and an `filterMode` (`'date' | 'all'`).
-- Add "Today" button (sets date to today) and "All" button (fetches all).
-- Show total amount badge in the header area.
+### 5. Add Telugu Name Fields to Seller Items
+**Database migration:** Add `telugu_name` column to the `items` table.
 
-### 7. Hamburger Menu: Fix "My Earnings" to "Online Earnings" and "Transactions" to "POS Transactions"
-The `SellerHamburgerMenu` still shows old labels.
+**Files:**
+- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
+- `src/components/EditItemModal.tsx` — Same fields for editing.
+- Save `telugu_name` to the items table.
 
-**Files:** `src/components/SellerHamburgerMenu.tsx`
-- Change `label: 'My Earnings'` to `'Online Earnings'`
-- Change `label: 'Transactions'` to `'POS Transactions'`
+For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
 
-### Summary of Files to Modify
-1. `src/pages/SellerPOS.tsx` - Fixed layout for Android
-2. `src/pages/SellerLogin.tsx` - Auto-submit OTP on 4 digits
-3. `src/components/POSCheckoutModal.tsx` - Receipt: safe-area + tax per item
-4. `src/pages/POSTransactions.tsx` - Receipt fix + single date filter + total amount
-5. `src/hooks/useAndroidBackButton.ts` - Back button fix for POS flow
-6. `src/components/SellerHamburgerMenu.tsx` - Label fixes
-7. **Database migration** - Exclude POS orders from daily wallet earnings function
+### 6. Bilingual Receipt Printing (Telugu / English)
+Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
+
+- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
+- "Print in English" prints current receipt as-is.
+- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
+
+**Files:**
+- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
+- Update CartItem interface to include `telugu_name`.
+- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
+
+### Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
+| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
+| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
+| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
+| **Database migration** | Add `telugu_name text` column to `items` table |
+
