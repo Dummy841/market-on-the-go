@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, X, ScanBarcode, Keyboard } from 'lucide-react';
+import { Upload, X, ScanBarcode, Keyboard, Languages } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
@@ -25,6 +25,7 @@ interface SellerItemsFormProps {
 const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps) => {
   const [form, setForm] = useState({
     item_name: '',
+    telugu_name: '',
     barcode: '',
     purchase_price: '0',
     mrp: '0',
@@ -40,6 +41,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [scanning, setScanning] = useState(false);
   const [manualBarcodeEntry, setManualBarcodeEntry] = useState(false);
@@ -67,6 +69,27 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
     }
   };
 
+  const autoTranslateToTelugu = async () => {
+    if (!form.item_name.trim()) {
+      toast({ variant: 'destructive', title: 'Enter item name first' });
+      return;
+    }
+    setTranslating(true);
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=${encodeURIComponent(form.item_name)}`);
+      const data = await res.json();
+      const translated = data?.[0]?.[0]?.[0] || '';
+      if (translated) {
+        setForm(f => ({ ...f, telugu_name: translated }));
+        toast({ title: 'Translated', description: translated });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Translation failed' });
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const fetchSubcategories = async () => {
     if (!seller) return;
     try {
@@ -91,7 +114,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
     }
   };
 
-  // Look up existing product by barcode and prefill form
   const lookupExistingProduct = async (barcode: string) => {
     if (!seller) return;
     const { data } = await supabase
@@ -107,6 +129,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
         ...f,
         barcode: barcode,
         item_name: data.item_name || '',
+        telugu_name: (data as any).telugu_name || '',
         purchase_price: String(data.purchase_price || 0),
         mrp: String(data.mrp || 0),
         seller_price: String(data.seller_price || 0),
@@ -153,7 +176,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
               setForm(f => ({ ...f, barcode: scannedBarcode }));
               stopScanner();
               toast({ title: '✅ Barcode Scanned', description: `Barcode: ${scannedBarcode}` });
-              // Check if product already exists
               await lookupExistingProduct(scannedBarcode);
               return;
             }
@@ -162,7 +184,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
         };
         detect();
       } else {
-        // No BarcodeDetector - show manual entry option
         toast({ 
           title: 'Scanner Not Available', 
           description: 'Camera is on but auto-detection not supported. Enter barcode manually below.' 
@@ -236,7 +257,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
     if (!seller) return;
     setLoading(true);
     try {
-      // Upload first image as main item_photo_url
       let mainImageUrl = null;
       if (imageFiles.length > 0) {
         mainImageUrl = await uploadImage(imageFiles[0]);
@@ -246,6 +266,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
       const { data: insertedItem, error } = await supabase.from('items').insert({
         seller_id: seller.id,
         item_name: form.item_name,
+        telugu_name: form.telugu_name || null,
         barcode: form.barcode || null,
         item_photo_url: mainImageUrl,
         purchase_price: parseFloat(form.purchase_price) || 0,
@@ -263,7 +284,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
 
       if (error) throw error;
 
-      // Upload additional images to seller_item_images table
       if (insertedItem && imageFiles.length > 0) {
         const imageUploads = await Promise.all(
           imageFiles.map(async (file, index) => {
@@ -280,7 +300,7 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
       toast({ title: 'Success', description: 'Item added successfully!' });
 
       setForm({
-        item_name: '', barcode: '', purchase_price: '0', mrp: '0', seller_price: '0',
+        item_name: '', telugu_name: '', barcode: '', purchase_price: '0', mrp: '0', seller_price: '0',
         stock_quantity: '0', low_stock_alert: '10', gst_percentage: '0',
         show_in_quick_add: false, is_active: true, item_info: '', subcategory_id: ''
       });
@@ -307,6 +327,30 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
           <div>
             <Label>Item Name *</Label>
             <Input value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} />
+          </div>
+
+          {/* Telugu Name + Auto Translate */}
+          <div>
+            <Label>Telugu Name (తెలుగు పేరు)</Label>
+            <div className="flex gap-2">
+              <Input 
+                value={form.telugu_name} 
+                onChange={e => setForm(f => ({ ...f, telugu_name: e.target.value }))} 
+                placeholder="తెలుగులో పేరు"
+                className="flex-1"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={autoTranslateToTelugu}
+                disabled={translating || !form.item_name.trim()}
+                className="whitespace-nowrap"
+              >
+                <Languages className="w-4 h-4 mr-1" />
+                {translating ? 'Translating...' : 'Auto Translate'}
+              </Button>
+            </div>
           </div>
 
           <div>
@@ -401,7 +445,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
             <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
           </div>
 
-          {/* Item Photos (up to 4) */}
           <div>
             <Label>Item Photos (up to 4)</Label>
             <div className="mt-2 flex gap-2 flex-wrap">
@@ -422,7 +465,6 @@ const SellerItemsForm = ({ open, onOpenChange, onSuccess }: SellerItemsFormProps
             </div>
           </div>
 
-          {/* Item Info */}
           <div>
             <Label>Item Info (Optional)</Label>
             <textarea

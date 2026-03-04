@@ -14,12 +14,10 @@ import POSCheckoutModal from '@/components/POSCheckoutModal';
 import POSBarcodeScannerModal from '@/components/POSBarcodeScannerModal';
 import POSSettingsModal from '@/components/POSSettingsModal';
 
-// No longer used - settings is now a separate page
-
-
 interface Item {
   id: string;
   item_name: string;
+  telugu_name: string | null;
   barcode: string | null;
   mrp: number;
   seller_price: number;
@@ -42,7 +40,7 @@ const SellerPOS = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [cart, setCartState] = useState<CartItem[]>(() => {
     try {
-      const saved = sessionStorage.getItem(`pos_cart_${seller?.id}`);
+      const saved = localStorage.getItem(`pos_cart_${seller?.id}`);
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
@@ -50,7 +48,7 @@ const SellerPOS = () => {
   const setCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
     setCartState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      try { sessionStorage.setItem(`pos_cart_${seller?.id}`, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(`pos_cart_${seller?.id}`, JSON.stringify(next)); } catch {}
       return next;
     });
   };
@@ -75,6 +73,16 @@ const SellerPOS = () => {
     if (!loading && !seller) navigate('/seller-login');
   }, [seller, loading, navigate]);
 
+  // Load cart from localStorage when seller changes
+  useEffect(() => {
+    if (seller) {
+      try {
+        const saved = localStorage.getItem(`pos_cart_${seller.id}`);
+        if (saved) setCartState(JSON.parse(saved));
+      } catch {}
+    }
+  }, [seller]);
+
   const fetchAllProducts = useCallback(async () => {
     if (!seller) return;
     const { data } = await supabase
@@ -83,7 +91,8 @@ const SellerPOS = () => {
       .eq('seller_id', seller.id)
       .eq('is_active', true)
       .order('item_name');
-    setAllProducts(data || []);
+    // Cast to include telugu_name which may come from DB
+    setAllProducts((data as any[])?.map(d => ({ ...d, telugu_name: d.telugu_name || null })) || []);
   }, [seller]);
 
   useEffect(() => {
@@ -190,7 +199,7 @@ const SellerPOS = () => {
       .eq('barcode', barcodeInput.trim())
       .eq('is_active', true)
       .maybeSingle();
-    if (data) { addToCart(data); setBarcodeInput(''); setBarcodeDropdownOpen(false); }
+    if (data) { addToCart({ ...(data as any), telugu_name: (data as any).telugu_name || null }); setBarcodeInput(''); setBarcodeDropdownOpen(false); }
     else toast({ variant: 'destructive', title: 'Not Found', description: `No product with barcode "${barcodeInput}"` });
     setBarcodeInput('');
     setBarcodeDropdownOpen(false);
@@ -234,7 +243,7 @@ const SellerPOS = () => {
   if (loading || !seller) return <div className="min-h-screen flex items-center justify-center"><div>Loading...</div></div>;
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3">
         <SellerHamburgerMenu />
@@ -306,7 +315,7 @@ const SellerPOS = () => {
       </div>
 
       {/* Cart Table */}
-      <div className="flex-1 overflow-y-auto min-h-0 p-3">
+      <div className="flex-1 overflow-y-auto min-h-0 p-2">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-20">
             <Search className="w-12 h-12" />
@@ -314,45 +323,45 @@ const SellerPOS = () => {
             <p className="text-sm">Search or scan products to add them</p>
           </div>
         ) : (
-          <div className="overflow-hidden">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10">#</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="hidden md:table-cell">Barcode</TableHead>
-                  <TableHead className="text-center w-24 md:w-32">Qty</TableHead>
-                  <TableHead className="hidden md:table-cell text-right">Disc%</TableHead>
-                  <TableHead className="hidden md:table-cell text-right">Tax</TableHead>
-                  <TableHead className="hidden md:table-cell text-right">MRP</TableHead>
-                  <TableHead className="text-right">Net</TableHead>
-                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="w-8 text-xs sticky left-0 bg-card z-10">#</TableHead>
+                  <TableHead className="text-xs min-w-[100px]">Product</TableHead>
+                  <TableHead className="text-center w-24 text-xs">Qty</TableHead>
+                  <TableHead className="text-right text-xs">Net</TableHead>
+                  <TableHead className="text-right text-xs">MRP</TableHead>
+                  <TableHead className="text-right text-xs">Disc%</TableHead>
+                  <TableHead className="text-right text-xs">Tax</TableHead>
+                  <TableHead className="text-xs">Barcode</TableHead>
+                  <TableHead className="w-8"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cart.map((item, idx) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{idx + 1}</TableCell>
-                    <TableCell className="font-medium max-w-[150px] truncate">{item.item_name}</TableCell>
-                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{item.barcode || '-'}</TableCell>
+                    <TableCell className="font-medium text-xs sticky left-0 bg-background z-10">{idx + 1}</TableCell>
+                    <TableCell className="font-medium text-xs max-w-[120px] truncate">{item.item_name}</TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center gap-0.5 md:gap-1">
-                        <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={() => updateQty(item.id, -1)}>
+                      <div className="flex items-center justify-center gap-0.5">
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(item.id, -1)}>
                           <Minus className="w-3 h-3" />
                         </Button>
-                        <span className="w-6 md:w-8 text-center font-semibold text-sm">{item.quantity}</span>
-                        <Button variant="outline" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={() => updateQty(item.id, 1)}>
+                        <span className="w-6 text-center font-semibold text-xs">{item.quantity}</span>
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQty(item.id, 1)}>
                           <Plus className="w-3 h-3" />
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-right">{getDisc(item).toFixed(1)}%</TableCell>
-                    <TableCell className="hidden md:table-cell text-right">₹{getTax(item).toFixed(2)}</TableCell>
-                    <TableCell className="hidden md:table-cell text-right">₹{(item.mrp * item.quantity).toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-semibold">₹{getNet(item).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-semibold text-xs">₹{getNet(item).toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">₹{(item.mrp * item.quantity).toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">{getDisc(item).toFixed(1)}%</TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground">₹{getTax(item).toFixed(2)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{item.barcode || '-'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeItem(item.id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeItem(item.id)}>
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -365,7 +374,7 @@ const SellerPOS = () => {
 
       {/* Bottom Summary */}
       {cart.length > 0 && (
-        <div className="bg-card border-t border-border p-3">
+        <div className="bg-card border-t border-border p-3" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}>
           <div className="flex flex-wrap gap-4 text-sm mb-3 justify-between">
             <div><span className="text-muted-foreground">Items:</span> <span className="font-semibold">{totals.items}</span></div>
             <div><span className="text-muted-foreground">Qty:</span> <span className="font-semibold">{totals.qty}</span></div>
@@ -411,7 +420,6 @@ const SellerPOS = () => {
           mode="external"
         />
       )}
-
 
       {/* Search Products Dialog */}
       <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>

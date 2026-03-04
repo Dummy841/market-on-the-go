@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, X, ScanBarcode } from 'lucide-react';
+import { Upload, X, ScanBarcode, Languages } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
@@ -25,6 +25,7 @@ interface Item {
   is_active?: boolean;
   item_info?: string | null;
   subcategory_id?: string | null;
+  telugu_name?: string | null;
 }
 
 interface Subcategory {
@@ -43,6 +44,7 @@ interface EditItemModalProps {
 const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalProps) => {
   const [form, setForm] = useState({
     item_name: '',
+    telugu_name: '',
     barcode: '',
     purchase_price: '0',
     mrp: '0',
@@ -58,6 +60,7 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [scanning, setScanning] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -73,6 +76,7 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
     if (item && open) {
       setForm({
         item_name: item.item_name,
+        telugu_name: (item as any).telugu_name || '',
         barcode: (item as any).barcode || '',
         purchase_price: ((item as any).purchase_price || 0).toString(),
         mrp: (item.mrp || 0).toString(),
@@ -86,7 +90,6 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
         subcategory_id: item.subcategory_id || ''
       });
       setImageFiles([]);
-      // Fetch existing images from seller_item_images
       fetchItemImages(item.id);
     }
   }, [item, open]);
@@ -104,6 +107,27 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
       setImagePreviews([item.item_photo_url]);
     } else {
       setImagePreviews([]);
+    }
+  };
+
+  const autoTranslateToTelugu = async () => {
+    if (!form.item_name.trim()) {
+      toast({ variant: 'destructive', title: 'Enter item name first' });
+      return;
+    }
+    setTranslating(true);
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=${encodeURIComponent(form.item_name)}`);
+      const data = await res.json();
+      const translated = data?.[0]?.[0]?.[0] || '';
+      if (translated) {
+        setForm(f => ({ ...f, telugu_name: translated }));
+        toast({ title: 'Translated', description: translated });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Translation failed' });
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -207,13 +231,11 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
     }
     setLoading(true);
     try {
-      // Upload any new files and build final image list
       const finalImageUrls: string[] = [];
       let newFileIndex = 0;
       
       for (const preview of imagePreviews) {
         if (preview.startsWith('data:')) {
-          // This is a new file that needs uploading
           const file = imageFiles[newFileIndex];
           newFileIndex++;
           if (file) {
@@ -221,7 +243,6 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
             if (url) finalImageUrls.push(url);
           }
         } else {
-          // Existing URL
           finalImageUrls.push(preview);
         }
       }
@@ -230,6 +251,7 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
 
       const { error } = await supabase.from('items').update({
         item_name: form.item_name,
+        telugu_name: form.telugu_name || null,
         barcode: form.barcode || null,
         item_photo_url: mainImageUrl,
         purchase_price: parseFloat(form.purchase_price) || 0,
@@ -247,7 +269,6 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
 
       if (error) throw error;
 
-      // Update seller_item_images: delete old, insert new
       await supabase.from('seller_item_images' as any).delete().eq('item_id', item.id);
       if (finalImageUrls.length > 0) {
         const imageRows = finalImageUrls.map((url, idx) => ({
@@ -280,6 +301,30 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
           <div>
             <Label>Item Name *</Label>
             <Input value={form.item_name} onChange={e => setForm(f => ({ ...f, item_name: e.target.value }))} />
+          </div>
+
+          {/* Telugu Name + Auto Translate */}
+          <div>
+            <Label>Telugu Name (తెలుగు పేరు)</Label>
+            <div className="flex gap-2">
+              <Input 
+                value={form.telugu_name} 
+                onChange={e => setForm(f => ({ ...f, telugu_name: e.target.value }))} 
+                placeholder="తెలుగులో పేరు"
+                className="flex-1"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={autoTranslateToTelugu}
+                disabled={translating || !form.item_name.trim()}
+                className="whitespace-nowrap"
+              >
+                <Languages className="w-4 h-4 mr-1" />
+                {translating ? 'Translating...' : 'Auto Translate'}
+              </Button>
+            </div>
           </div>
 
           <div>
@@ -354,7 +399,6 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
             <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
           </div>
 
-          {/* Item Photos (up to 4) */}
           <div>
             <Label>Item Photos (up to 4)</Label>
             <div className="mt-2 flex gap-2 flex-wrap">
@@ -375,7 +419,6 @@ const EditItemModal = ({ open, onOpenChange, item, onSuccess }: EditItemModalPro
             </div>
           </div>
 
-          {/* Item Info */}
           <div>
             <Label>Item Info (Optional)</Label>
             <textarea
