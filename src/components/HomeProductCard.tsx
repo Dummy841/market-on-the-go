@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Plus, Minus, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
+import { toast } from '@/hooks/use-toast';
 import ItemImageCarousel from '@/components/ItemImageCarousel';
 import {
   Dialog,
