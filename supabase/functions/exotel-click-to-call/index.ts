@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -14,7 +14,6 @@ serve(async (req) => {
   try {
     const { from, to, orderId, callerType } = await req.json();
 
-    // Validate both numbers
     const mobileRegex = /^[6-9]\d{9}$/;
     if (!from || !mobileRegex.test(from)) {
       return new Response(
@@ -41,7 +40,6 @@ serve(async (req) => {
       );
     }
 
-    // Call Exotel Connect API
     const authHeader = btoa(`${exotelApiKey}:${exotelApiToken}`);
     const exotelUrl = `https://api.exotel.com/v1/Accounts/${exotelSid}/Calls/connect`;
 
@@ -66,15 +64,12 @@ serve(async (req) => {
     const resultText = await response.text();
     console.log('Exotel response:', response.status, resultText);
 
-    // Store call record
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Try to parse Exotel response for call SID
     let callSid = '';
     try {
-      // Exotel returns XML, extract Sid
       const sidMatch = resultText.match(/<Sid>(.*?)<\/Sid>/);
       if (sidMatch) callSid = sidMatch[1];
     } catch (e) {
@@ -94,6 +89,14 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: true, callSid, message: 'Call initiated. You will receive a call shortly.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check for KYC error
+    if (response.status === 403 && resultText.includes('KYC')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Exotel account KYC verification is pending. Please complete KYC on the Exotel dashboard to enable outbound calls.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

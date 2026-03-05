@@ -17,7 +17,7 @@ const ItemImageCarousel = ({ images, alt, className = '' }: ItemImageCarouselPro
     if (images.length <= 1) return;
     intervalRef.current = setInterval(() => {
       setCurrentIndex(prev => (prev + 1) % images.length);
-    }, 3000);
+    }, 2000);
   }, [images.length]);
 
   const stopAutoScroll = () => {
@@ -109,7 +109,6 @@ const ItemImageCarousel = ({ images, alt, className = '' }: ItemImageCarouselPro
           />
         ))}
       </div>
-      {/* Dot indicators */}
       <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
         {images.map((_, idx) => (
           <button

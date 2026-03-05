@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Plus, Info } from 'lucide-react';
+import { Plus, Minus, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
+import ItemImageCarousel from '@/components/ItemImageCarousel';
 import {
   Dialog,
   DialogContent,
@@ -16,28 +16,37 @@ interface HomeProductCardProps {
     id: string;
     item_name: string;
     seller_price: number;
+    mrp?: number;
     item_photo_url: string | null;
     item_info?: string | null;
     is_active: boolean;
     seller_id: string;
     seller_name: string;
     seller_is_online: boolean;
+    images?: string[];
   };
 }
 
 export const HomeProductCard = ({ item }: HomeProductCardProps) => {
-  const { addToCart, cartItems, cartRestaurant } = useCart();
+  const { addToCart, cartItems, cartRestaurant, removeFromCart, updateQuantity } = useCart();
   const [showInfo, setShowInfo] = useState(false);
 
   const isAvailable = item.is_active && item.seller_is_online;
-  const isInCart = cartItems.some(cartItem => cartItem.id === item.id);
+  const cartItem = cartItems.find(ci => ci.id === item.id);
+  const quantity = cartItem?.quantity || 0;
+  const mrp = item.mrp || 0;
+  const discountPercent = mrp > item.seller_price ? Math.round(((mrp - item.seller_price) / mrp) * 100) : 0;
+
+  // Build images array
+  const images = item.images && item.images.length > 0 
+    ? item.images 
+    : item.item_photo_url ? [item.item_photo_url] : [];
 
   const handleAddToCart = () => {
-    // Check if adding item from different seller
     if (cartRestaurant && cartRestaurant !== item.seller_id) {
       toast({
         title: "Different Seller",
-        description: "You can order from a single seller at a time. You are trying to add items from a different seller.",
+        description: "You can order from a single seller at a time.",
         variant: "destructive",
       });
       return;
@@ -51,28 +60,49 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
       seller_id: item.seller_id,
       seller_name: item.seller_name,
     });
+  };
 
-    toast({
-      title: "Added to cart",
-      description: `${item.item_name} added to cart`,
-    });
+  const handleIncrement = () => {
+    if (cartItem) {
+      updateQuantity(item.id, quantity + 1);
+    } else {
+      handleAddToCart();
+    }
+  };
+
+  const handleDecrement = () => {
+    if (quantity > 1) {
+      updateQuantity(item.id, quantity - 1);
+    } else {
+      removeFromCart(item.id);
+    }
   };
 
   return (
     <>
       <div className="bg-card rounded-xl overflow-hidden shadow-sm border">
-        {/* Product Image */}
+        {/* Product Image with Carousel */}
         <div className="relative aspect-square">
-          <img
-            src={item.item_photo_url || '/placeholder.svg'}
-            alt={item.item_name}
-            className={`w-full h-full object-cover ${!isAvailable ? 'grayscale opacity-60' : ''}`}
-          />
+          {images.length > 0 ? (
+            <div className={`w-full h-full ${!isAvailable ? 'grayscale opacity-60' : ''}`}>
+              <ItemImageCarousel images={images} alt={item.item_name} />
+            </div>
+          ) : (
+            <div className={`w-full h-full bg-muted flex items-center justify-center ${!isAvailable ? 'grayscale opacity-60' : ''}`}>
+              <span className="text-muted-foreground text-xs">No image</span>
+            </div>
+          )}
           {!isAvailable && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="text-white text-xs font-medium px-2 py-1 bg-destructive rounded">
                 Unavailable
               </span>
+            </div>
+          )}
+          {/* Discount Badge */}
+          {discountPercent > 0 && (
+            <div className="absolute top-1.5 left-1.5 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+              {discountPercent}% OFF
             </div>
           )}
           {item.item_info && (
@@ -86,29 +116,50 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
         </div>
 
         {/* Product Details */}
-        <div className="p-3">
-          <h3 className="font-medium text-sm line-clamp-2 min-h-[2.5rem]">
+        <div className="p-2.5">
+          <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem] leading-tight">
             {item.item_name}
           </h3>
-          <p className="text-xs text-muted-foreground truncate mb-2">
+          <p className="text-[10px] text-muted-foreground truncate mb-1.5">
             {item.seller_name}
           </p>
           
           <div className="flex items-center justify-between">
-            <Badge variant="secondary" className="bg-accent text-accent-foreground hover:bg-accent">
-              ₹{item.seller_price}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-primary">₹{item.seller_price}</span>
+              {mrp > item.seller_price && (
+                <span className="text-[10px] text-muted-foreground line-through">₹{mrp}</span>
+              )}
+            </div>
             
-            <Button
-              size="sm"
-              variant={isInCart ? "secondary" : "default"}
-              className={`h-8 px-3 ${!isInCart ? 'bg-primary hover:bg-primary/90' : ''}`}
-              onClick={handleAddToCart}
-              disabled={!isAvailable}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {isInCart ? 'Added' : 'ADD'}
-            </Button>
+            {quantity > 0 ? (
+              <div className="flex items-center gap-0 border rounded-md overflow-hidden">
+                <button
+                  onClick={handleDecrement}
+                  className="h-7 w-7 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
+                  disabled={!isAvailable}
+                >
+                  <Minus className="h-3 w-3 text-primary" />
+                </button>
+                <span className="h-7 w-7 flex items-center justify-center text-xs font-bold">{quantity}</span>
+                <button
+                  onClick={handleIncrement}
+                  className="h-7 w-7 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
+                  disabled={!isAvailable}
+                >
+                  <Plus className="h-3 w-3 text-primary" />
+                </button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
+                onClick={handleAddToCart}
+                disabled={!isAvailable}
+              >
+                ADD
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -120,16 +171,19 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
             <DialogTitle>{item.item_name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <img
-              src={item.item_photo_url || '/placeholder.svg'}
-              alt={item.item_name}
-              className="w-full h-48 object-cover rounded-lg"
-            />
+            {images.length > 0 && (
+              <div className="w-full h-48 rounded-lg overflow-hidden">
+                <ItemImageCarousel images={images} alt={item.item_name} />
+              </div>
+            )}
             <p className="text-muted-foreground text-sm">{item.item_info}</p>
             <div className="flex items-center justify-between">
-              <Badge variant="secondary" className="bg-accent text-accent-foreground">
-                ₹{item.seller_price}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-primary">₹{item.seller_price}</span>
+                {mrp > item.seller_price && (
+                  <span className="text-sm text-muted-foreground line-through">₹{mrp}</span>
+                )}
+              </div>
               <Button
                 className="bg-primary hover:bg-primary/90"
                 onClick={() => {

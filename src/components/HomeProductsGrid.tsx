@@ -11,6 +11,7 @@ interface Item {
   id: string;
   item_name: string;
   seller_price: number;
+  mrp: number;
   item_photo_url: string | null;
   item_info: string | null;
   is_active: boolean;
@@ -23,6 +24,7 @@ interface Item {
   subcategory_id: string | null;
   subcategory_name: string | null;
   distance?: number;
+  images: string[];
 }
 
 interface Seller {
@@ -58,7 +60,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     try {
       setLoading(true);
 
-      // Fetch active modules
       const { data: modules, error: modulesError } = await supabase
         .from('service_modules')
         .select('slug')
@@ -77,7 +78,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
         return;
       }
 
-      // Fetch subcategories for grouping
       const { data: subcategoriesData } = await supabase
         .from('subcategories')
         .select('id, name, category')
@@ -91,18 +91,19 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
       });
       setSubcategories(subcatList);
 
-      // Build query for items
       let itemsQuery = supabase
         .from('items')
         .select(`
           id,
           item_name,
           seller_price,
+          mrp,
           item_photo_url,
           item_info,
           is_active,
           seller_id,
           subcategory_id,
+          seller_item_images(image_url, display_order),
           sellers!inner(
             seller_name,
             is_online,
@@ -117,32 +118,42 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
         .eq('sellers.status', 'approved')
         .in('sellers.seller_type', ['online', 'both']);
 
-      // Apply search filter if query exists
+      // Apply search filter - split into words for fuzzy matching
       if (searchQuery) {
-        itemsQuery = itemsQuery.or(`item_name.ilike.%${searchQuery}%,item_info.ilike.%${searchQuery}%`);
+        const words = searchQuery.trim().split(/\s+/).filter(w => w.length >= 2);
+        if (words.length > 0) {
+          const orFilter = words.map(w => `item_name.ilike.%${w}%,item_info.ilike.%${w}%`).join(',');
+          itemsQuery = itemsQuery.or(orFilter);
+        } else {
+          itemsQuery = itemsQuery.or(`item_name.ilike.%${searchQuery}%,item_info.ilike.%${searchQuery}%`);
+        }
       }
 
       const { data: itemsData, error: itemsError } = await itemsQuery;
 
       if (itemsError) throw itemsError;
 
-      // Transform and filter items
       let formattedItems: Item[] = (itemsData || [])
         .filter(item => {
           const seller = item.sellers as any;
-          // Check if seller belongs to any active category
           const sellerCategory = seller.category;
           const sellerCategories = seller.categories ? seller.categories.split(',').map((c: string) => c.trim()) : [];
-          return activeCats.includes(sellerCategory) || 
-                 sellerCategories.some((c: string) => activeCats.includes(c));
+          return activeCats.includes(sellerCategory) || sellerCategories.some((c: string) => activeCats.includes(c));
         })
         .map(item => {
           const seller = item.sellers as any;
           const subcatInfo = item.subcategory_id ? subcategoryMap.get(item.subcategory_id) : null;
+          const extraImages = (item.seller_item_images as any[] || [])
+            .sort((a: any, b: any) => a.display_order - b.display_order)
+            .map((img: any) => img.image_url);
+          const allImages = item.item_photo_url 
+            ? [item.item_photo_url, ...extraImages.filter((url: string) => url !== item.item_photo_url)]
+            : extraImages;
           return {
             id: item.id,
             item_name: item.item_name,
             seller_price: item.seller_price,
+            mrp: item.mrp || 0,
             item_photo_url: item.item_photo_url,
             item_info: item.item_info,
             is_active: item.is_active,
@@ -154,78 +165,61 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             category: seller.category,
             subcategory_id: item.subcategory_id,
             subcategory_name: subcatInfo?.name || null,
+            images: allImages,
           };
         });
 
-      // Calculate distance and sort if user location available (no filtering)
       if (userLocation) {
         formattedItems = formattedItems
           .map(item => {
             if (item.seller_latitude && item.seller_longitude) {
-              const distance = calculateDistance(
-                userLocation.lat,
-                userLocation.lng,
-                item.seller_latitude,
-                item.seller_longitude
-              );
+              const distance = calculateDistance(userLocation.lat, userLocation.lng, item.seller_latitude, item.seller_longitude);
               return { ...item, distance };
             }
             return { ...item, distance: Infinity };
           })
           .sort((a, b) => {
-            // Sort by online status first, then by distance
-            if (a.seller_is_online !== b.seller_is_online) {
-              return a.seller_is_online ? -1 : 1;
-            }
+            if (a.seller_is_online !== b.seller_is_online) return a.seller_is_online ? -1 : 1;
             return (a.distance || 0) - (b.distance || 0);
           });
       }
 
-      // Save all items before subcategory filtering
       setAllItems(formattedItems);
 
-      // Filter by selected subcategory if any
       if (selectedSubcategory) {
         formattedItems = formattedItems.filter(item => item.subcategory_id === selectedSubcategory);
       }
 
-
       if (searchQuery) {
+        // Also search sellers by word-split
+        const words = searchQuery.trim().split(/\s+/).filter(w => w.length >= 2);
+        const sellerSearchTerm = words.length > 0 ? words[0] : searchQuery;
+        
         const { data: sellersData } = await supabase
           .from('sellers')
           .select('id, seller_name, owner_name, profile_photo_url, is_online, category, categories')
           .eq('status', 'approved')
           .in('seller_type', ['online', 'both'])
-          .ilike('seller_name', `%${searchQuery}%`)
+          .ilike('seller_name', `%${sellerSearchTerm}%`)
           .limit(10);
 
-        // Filter sellers to only show those from active categories
         const filteredSellers = (sellersData || []).filter(seller => {
           const sellerCategory = seller.category;
           const sellerCategories = seller.categories ? seller.categories.split(',').map((c: string) => c.trim()) : [];
-          return activeCats.includes(sellerCategory) || 
-                 sellerCategories.some((c: string) => activeCats.includes(c));
+          return activeCats.includes(sellerCategory) || sellerCategories.some((c: string) => activeCats.includes(c));
         }).slice(0, 5);
 
         setSearchSellers(filteredSellers);
-
-        // When searching, don't group by subcategory
         setGroupedItems({});
         setItems(formattedItems);
       } else {
         setSearchSellers([]);
-        
-        // Group items by subcategory name (not category)
         const grouped: Record<string, Item[]> = {};
         formattedItems.forEach(item => {
-          // Use subcategory name if available, otherwise use "Other"
           const groupKey = item.subcategory_name || 'Other';
-          if (!grouped[groupKey]) {
-            grouped[groupKey] = [];
-          }
+          if (!grouped[groupKey]) grouped[groupKey] = [];
           grouped[groupKey].push(item);
         });
-
         setItems(formattedItems);
         setGroupedItems(grouped);
       }
@@ -258,23 +252,18 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
-  // Searching mode - show flat results with sellers
   if (searchQuery) {
     const hasResults = items.length > 0 || searchSellers.length > 0;
-
     if (!hasResults) {
       return (
         <div className="px-4 py-8 text-center">
-          <p className="text-muted-foreground">
-            No results found for "{searchQuery}"
-          </p>
+          <p className="text-muted-foreground">No results found for "{searchQuery}"</p>
         </div>
       );
     }
 
     return (
       <div className="px-4 py-4 space-y-6">
-        {/* Sellers Section */}
         {searchSellers.length > 0 && (
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -288,8 +277,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             </div>
           </div>
         )}
-
-        {/* Products Section */}
         {items.length > 0 && (
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -307,7 +294,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   }
 
-  // Filter subcategories to only those that have products (use allItems to persist when filtered)
   const subcategoriesWithProducts = subcategories.filter(sub =>
     allItems.some(item => item.subcategory_id === sub.id)
   );
@@ -320,9 +306,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           <button
             onClick={() => setSelectedSubcategory(null)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
-              selectedSubcategory === null
-                ? 'bg-orange-500 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-accent'
+              selectedSubcategory === null ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             All
@@ -332,9 +316,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
               key={sub.id}
               onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
-                selectedSubcategory === sub.id
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-muted text-muted-foreground hover:bg-accent'
+                selectedSubcategory === sub.id ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               {sub.name}
@@ -345,21 +327,17 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     );
   };
 
-  // No products available
   if (items.length === 0) {
     return (
       <div>
         <SubcategoryBar />
         <div className="px-4 py-8 text-center">
-          <p className="text-muted-foreground">
-            No products available in your area
-          </p>
+          <p className="text-muted-foreground">No products available in your area</p>
         </div>
       </div>
     );
   }
 
-  // Default: grouped by subcategory
   return (
     <div className="space-y-2">
       <SubcategoryBar />

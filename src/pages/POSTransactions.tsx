@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Eye, Printer } from 'lucide-react';
+import { MoreVertical, Eye, Printer, Languages } from 'lucide-react';
 import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,11 +13,13 @@ import { format } from 'date-fns';
 
 interface OrderItem {
   item_name: string;
+  telugu_name?: string | null;
   barcode?: string | null;
   quantity: number;
   seller_price: number;
   mrp: number;
   gst_percentage: number;
+  id?: string;
 }
 
 interface PosOrder {
@@ -43,6 +45,7 @@ const POSTransactions = () => {
   const [viewOrder, setViewOrder] = useState<PosOrder | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const [printOrder, setPrintOrder] = useState<PosOrder | null>(null);
+  const [printLanguage, setPrintLanguage] = useState<'english' | 'telugu'>('english');
 
   useEffect(() => {
     if (!loading && !seller) navigate('/seller-login');
@@ -99,8 +102,25 @@ const POSTransactions = () => {
     return method.toUpperCase();
   };
 
-  const handlePrint = (order: PosOrder) => {
-    setPrintOrder(order);
+  const fetchTeluguNames = async (items: OrderItem[]): Promise<Record<string, string>> => {
+    const itemIds = items.map(i => i.id).filter(Boolean) as string[];
+    if (itemIds.length === 0) return {};
+    const { data } = await supabase
+      .from('items')
+      .select('id, telugu_name')
+      .in('id', itemIds);
+    const map: Record<string, string> = {};
+    data?.forEach(d => { if (d.telugu_name) map[d.id] = d.telugu_name; });
+    return map;
+  };
+
+  const handlePrint = async (order: PosOrder, language: 'english' | 'telugu' = 'english') => {
+    let teluguMap: Record<string, string> = {};
+    if (language === 'telugu') {
+      teluguMap = await fetchTeluguNames(order.items);
+    }
+    setPrintLanguage(language);
+    setPrintOrder({ ...order, items: order.items.map(i => ({ ...i, telugu_name: i.id ? teluguMap[i.id] : undefined })) });
     setTimeout(() => {
       const content = printRef.current;
       if (!content) return;
@@ -134,7 +154,7 @@ const POSTransactions = () => {
     }, 100);
   };
 
-  const renderReceipt = (order: PosOrder) => {
+  const renderReceipt = (order: PosOrder, language: 'english' | 'telugu') => {
     const items = order.items;
     const subtotal = items.reduce((s, i) => s + (i.seller_price * i.quantity), 0);
     const totalMrp = items.reduce((s, i) => s + (i.mrp * i.quantity), 0);
@@ -153,24 +173,27 @@ const POSTransactions = () => {
           </>
         )}
         <div className="line"></div>
-        {items.map((item, idx) => (
-          <div key={idx} style={{ marginBottom: 6 }}>
-            <div className="item-name">{item.item_name}</div>
-            {item.mrp > item.seller_price && (
-              <div className="item-mrp">&nbsp;&nbsp;MRP: ₹{Number(item.mrp).toFixed(2)}</div>
-            )}
-            <div className="row">
-              <span>&nbsp;&nbsp;₹{Number(item.seller_price).toFixed(2)} × {item.quantity}</span>
-              <span>₹{(item.seller_price * item.quantity).toFixed(2)}</span>
-            </div>
-            {item.gst_percentage > 0 && (
-              <div className="row muted">
-                <span>&nbsp;&nbsp;GST ({item.gst_percentage}%)</span>
-                <span>₹{(item.seller_price * item.quantity * item.gst_percentage / 100).toFixed(2)}</span>
+        {items.map((item, idx) => {
+          const displayName = language === 'telugu' && item.telugu_name ? item.telugu_name : item.item_name;
+          return (
+            <div key={idx} style={{ marginBottom: 6 }}>
+              <div className="item-name">{displayName}</div>
+              {item.mrp > item.seller_price && (
+                <div className="item-mrp">&nbsp;&nbsp;MRP: ₹{Number(item.mrp).toFixed(2)}</div>
+              )}
+              <div className="row">
+                <span>&nbsp;&nbsp;₹{Number(item.seller_price).toFixed(2)} × {item.quantity}</span>
+                <span>₹{(item.seller_price * item.quantity).toFixed(2)}</span>
               </div>
-            )}
-          </div>
-        ))}
+              {item.gst_percentage > 0 && (
+                <div className="row muted">
+                  <span>&nbsp;&nbsp;GST ({item.gst_percentage}%)</span>
+                  <span>₹{(item.seller_price * item.quantity * item.gst_percentage / 100).toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
         <div className="line"></div>
         <div className="row"><span>Subtotal:</span><span>₹{subtotal.toFixed(2)}</span></div>
         <div className="row"><span>GST:</span><span>₹{Number(order.gst_charges).toFixed(2)}</span></div>
@@ -194,7 +217,7 @@ const POSTransactions = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border p-3 flex items-center gap-3">
+      <header className="bg-card border-b border-border p-3 flex items-center gap-3" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
         <SellerHamburgerMenu />
         <h1 className="text-lg font-bold flex-1">POS Transactions</h1>
         <div className="text-right">
@@ -265,8 +288,11 @@ const POSTransactions = () => {
                           <DropdownMenuItem onClick={() => setViewOrder(order)}>
                             <Eye className="w-4 h-4 mr-2" /> View
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handlePrint(order)}>
-                            <Printer className="w-4 h-4 mr-2" /> Print
+                          <DropdownMenuItem onClick={() => handlePrint(order, 'english')}>
+                            <Printer className="w-4 h-4 mr-2" /> Print in English
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePrint(order, 'telugu')}>
+                            <Languages className="w-4 h-4 mr-2" /> Print in Telugu
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -310,9 +336,14 @@ const POSTransactions = () => {
               <hr className="border-border" />
               <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span>₹{Number(viewOrder.gst_charges).toFixed(2)}</span></div>
               <div className="flex justify-between font-bold text-base"><span>Total</span><span>₹{Number(viewOrder.total_amount).toFixed(2)}</span></div>
-              <Button className="w-full" onClick={() => { setViewOrder(null); handlePrint(viewOrder); }}>
-                <Printer className="w-4 h-4 mr-2" /> Print Receipt
-              </Button>
+              <div className="flex gap-2">
+                <Button className="flex-1" variant="outline" onClick={() => { setViewOrder(null); handlePrint(viewOrder, 'english'); }}>
+                  <Printer className="w-4 h-4 mr-1" /> English
+                </Button>
+                <Button className="flex-1" onClick={() => { setViewOrder(null); handlePrint(viewOrder, 'telugu'); }}>
+                  <Languages className="w-4 h-4 mr-1" /> Telugu
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
@@ -321,7 +352,7 @@ const POSTransactions = () => {
       {/* Hidden print content */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <div ref={printRef}>
-          {printOrder && renderReceipt(printOrder)}
+          {printOrder && renderReceipt(printOrder, printLanguage)}
         </div>
       </div>
     </div>

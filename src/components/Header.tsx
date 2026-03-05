@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, User, LogOut, FileText, ChevronDown, Crown, Wallet, HelpCircle, Bell } from "lucide-react";
+import { MapPin, User, LogOut, FileText, ChevronDown, Crown, Wallet, HelpCircle, Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -8,6 +8,7 @@ import { SearchResults } from "@/components/SearchResults";
 import AddressSelector from "@/components/AddressSelector";
 import NotificationsModal from "@/components/NotificationsModal";
 import { supabase } from "@/integrations/supabase/client";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -15,7 +16,6 @@ import { useZippyPass } from "@/hooks/useZippyPass";
 import { useUserWallet } from "@/hooks/useUserWallet";
 import { useUserNotifications } from "@/hooks/useUserNotifications";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -35,10 +35,9 @@ export const Header = () => {
     longitude?: number;
   } | null>(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showProfileSidebar, setShowProfileSidebar] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Prevent rapid re-dispatch of the same device location (causes re-fetch loops)
   const lastDispatchedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const {
@@ -67,38 +66,24 @@ export const Header = () => {
 
     const dispatchAddressChanged = (latitude?: number, longitude?: number) => {
       if (latitude == null || longitude == null) return;
-
       const last = lastDispatchedLocationRef.current;
       const next = { lat: latitude, lng: longitude };
-      const changed =
-        !last ||
-        Math.abs(last.lat - next.lat) > 0.0001 ||
-        Math.abs(last.lng - next.lng) > 0.0001;
-
+      const changed = !last || Math.abs(last.lat - next.lat) > 0.0001 || Math.abs(last.lng - next.lng) > 0.0001;
       if (changed) {
         lastDispatchedLocationRef.current = next;
-        window.dispatchEvent(
-          new CustomEvent('addressChanged', {
-            detail: { latitude, longitude },
-          })
-        );
+        window.dispatchEvent(new CustomEvent('addressChanged', { detail: { latitude, longitude } }));
       }
     };
 
-    // First check localStorage for selected address (preferred; includes coordinates)
-    // Note: older stored values may miss latitude/longitude; in that case we fall back to DB.
     const storedAddress = localStorage.getItem('selectedAddress');
     if (storedAddress) {
       try {
         const parsed = JSON.parse(storedAddress);
         setSelectedAddress(parsed);
-
         if (parsed?.latitude != null && parsed?.longitude != null) {
           dispatchAddressChanged(parsed.latitude, parsed.longitude);
           return;
         }
-
-        // Stored address without coordinates can't be used for filtering; refresh from DB.
         localStorage.removeItem('selectedAddress');
       } catch (error) {
         console.error('Error parsing stored address:', error);
@@ -106,7 +91,6 @@ export const Header = () => {
       }
     }
 
-    // Fallback to loading from database
     try {
       const { data, error } = await supabase
         .from('user_addresses')
@@ -147,19 +131,14 @@ export const Header = () => {
   const requestLocationPermission = async () => {
     if ('geolocation' in navigator) {
       try {
-        const permission = await navigator.permissions.query({
-          name: 'geolocation'
-        });
-        if (permission.state === 'granted') {
-          getCurrentLocation();
-        } else if (permission.state === 'prompt') {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission.state === 'granted' || permission.state === 'prompt') {
           getCurrentLocation();
         } else {
           setCurrentLocation("Enable location");
         }
       } catch (error) {
-        console.error('Error requesting location:', error);
-        getCurrentLocation(); // Try anyway on error
+        getCurrentLocation();
       }
     } else {
       setCurrentLocation("Select Location");
@@ -171,77 +150,46 @@ export const Header = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocationGranted(true);
-        const { latitude, longitude, accuracy } = position.coords;
-        console.log(`Location acquired: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
-
-        // Update listings only when device location actually changes (prevents blinking loops)
+        const { latitude, longitude } = position.coords;
         const last = lastDispatchedLocationRef.current;
         const next = { lat: latitude, lng: longitude };
         const changed = !last || Math.abs(last.lat - next.lat) > 0.0001 || Math.abs(last.lng - next.lng) > 0.0001;
-
         if (changed) {
           lastDispatchedLocationRef.current = next;
-          window.dispatchEvent(
-            new CustomEvent('addressChanged', {
-              detail: { latitude, longitude },
-            })
-          );
+          window.dispatchEvent(new CustomEvent('addressChanged', { detail: { latitude, longitude } }));
         }
-
         reverseGeocode(latitude, longitude);
       },
       (error) => {
-        console.error('Error getting location:', error);
         if (error.code === error.PERMISSION_DENIED) {
           setCurrentLocation("Enable location");
-          toast({
-            title: "Location Access",
-            description: "Please enable location access to see nearby restaurants",
-            variant: "destructive"
-          });
+          toast({ title: "Location Access", description: "Please enable location access to see nearby restaurants", variant: "destructive" });
         } else {
           setCurrentLocation("Select Location");
         }
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0 // Always get fresh location
-      }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
       setCurrentLocation("Detecting...");
-      
-      // First try Google Maps Geocoding API for more accurate results
       try {
         const { data: keyData } = await supabase.functions.invoke('get-google-maps-key');
         if (keyData?.apiKey) {
-          const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${keyData.apiKey}`
-          );
-          
+          const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${keyData.apiKey}`);
           if (response.ok) {
             const data = await response.json();
             if (data.results && data.results.length > 0) {
-              // Find the locality/sublocality from address components
               const addressComponents = data.results[0].address_components;
-              const locality = addressComponents?.find((c: any) => 
-                c.types.includes('locality') || c.types.includes('sublocality') || c.types.includes('sublocality_level_1')
-              );
-              const area = addressComponents?.find((c: any) => 
-                c.types.includes('neighborhood') || c.types.includes('sublocality_level_2')
-              );
+              const locality = addressComponents?.find((c: any) => c.types.includes('locality') || c.types.includes('sublocality') || c.types.includes('sublocality_level_1'));
+              const area = addressComponents?.find((c: any) => c.types.includes('neighborhood') || c.types.includes('sublocality_level_2'));
               const state = addressComponents?.find((c: any) => c.types.includes('administrative_area_level_1'));
               const country = addressComponents?.find((c: any) => c.types.includes('country'));
               const postalCode = addressComponents?.find((c: any) => c.types.includes('postal_code'));
-              
-              // Get detailed formatted address
               const areaName = area?.long_name || locality?.long_name || "Current Location";
               const fullLocation = `${areaName}, ${state?.short_name || ''} ${postalCode?.long_name || ''}, ${country?.long_name || ''}`.replace(/,\s*,/g, ',').trim();
-              
               setCurrentLocation(areaName);
               localStorage.setItem('currentLocationName', areaName);
               localStorage.setItem('currentFullLocation', fullLocation);
@@ -255,42 +203,18 @@ export const Header = () => {
         console.log('Google Maps geocoding failed, falling back to Nominatim:', gmError);
       }
       
-      // Fallback to Nominatim API with better address formatting
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { 'Accept-Language': 'en' } }
-      );
-      
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, { headers: { 'Accept-Language': 'en' } });
       if (response.ok) {
         const data = await response.json();
         const address = data.address;
-        
-        // Priority order: hamlet > village > locality > neighbourhood > suburb > town > city
-        // This matches Swiggy-style location naming for accurate village/hamlet detection
-        const areaName = address?.hamlet || 
-                         address?.village || 
-                         address?.locality ||
-                         address?.neighbourhood ||
-                         address?.suburb || 
-                         address?.town ||
-                         address?.city ||
-                         address?.state_district ||
-                         "Select Location";
-        
+        const areaName = address?.hamlet || address?.village || address?.locality || address?.neighbourhood || address?.suburb || address?.town || address?.city || address?.state_district || "Select Location";
         const stateName = address?.state || '';
         const postcode = address?.postcode || '';
         const countryName = address?.country || '';
-        
-        // Format full location like Swiggy: "Dudyala, Andhra Pradesh 518422, India"
         const fullLocationParts = [areaName];
-        if (stateName || postcode) {
-          fullLocationParts.push(`${stateName} ${postcode}`.trim());
-        }
-        if (countryName) {
-          fullLocationParts.push(countryName);
-        }
+        if (stateName || postcode) fullLocationParts.push(`${stateName} ${postcode}`.trim());
+        if (countryName) fullLocationParts.push(countryName);
         const fullLocation = fullLocationParts.filter(Boolean).join(', ');
-        
         setCurrentLocation(areaName);
         localStorage.setItem('currentLocationName', areaName);
         localStorage.setItem('currentFullLocation', fullLocation);
@@ -314,29 +238,25 @@ export const Header = () => {
   };
 
   const handleLogout = () => {
-    // Clear saved address so logged-out users fall back to device/current location
     localStorage.removeItem('selectedAddress');
     setSelectedAddress(null);
-
     const lat = localStorage.getItem('currentLat');
     const lng = localStorage.getItem('currentLng');
     if (lat && lng) {
-      window.dispatchEvent(
-        new CustomEvent('addressChanged', {
-          detail: { latitude: parseFloat(lat), longitude: parseFloat(lng) },
-        })
-      );
+      window.dispatchEvent(new CustomEvent('addressChanged', { detail: { latitude: parseFloat(lat), longitude: parseFloat(lng) } }));
     }
-
+    setShowProfileSidebar(false);
     logout();
+  };
+
+  const handleSidebarNav = (path: string) => {
+    setShowProfileSidebar(false);
+    navigateToPage(path);
   };
 
   return <header className="sticky top-0 z-[100] w-full border-b bg-background pt-[env(safe-area-inset-top)]">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          
-
           {/* Location */}
           <button 
             className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors"
@@ -360,7 +280,6 @@ export const Header = () => {
 
           {/* Search Bar */}
           <div className="flex-1 max-w-md mx-4" ref={searchRef}>
-            
           </div>
 
           {/* User Actions */}
@@ -375,82 +294,30 @@ export const Header = () => {
               >
                 <Bell className="h-5 w-5" />
                 {notificationCount > 0 && (
-                  <Badge 
-                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive"
-                  >
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive">
                     {notificationCount > 9 ? '9+' : notificationCount}
                   </Badge>
                 )}
               </Button>
             )}
             
-            {isAuthenticated ? <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2 h-10 px-2 md:px-3 rounded-full">
-                    <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
-                      <Avatar className={`h-8 w-8 ${hasActivePass ? 'border-2 border-background' : ''}`}>
-                        <AvatarImage src={user?.profile_photo_url || ''} alt={user?.name} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                          {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <div className="hidden md:flex flex-col items-start">
-                      <span className="text-sm font-medium">{user?.name}</span>
-                      <span className="text-xs text-muted-foreground">{user?.mobile}</span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64" align="end" sideOffset={8}>
-                  <DropdownMenuLabel className="pb-2">
-                    <div className="flex flex-col space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{user?.name}</span>
-                        {hasActivePass && (
-                          <Badge className="bg-gradient-to-r from-orange-400 to-pink-500 text-white text-xs px-1.5 py-0">
-                            <Crown className="h-3 w-3 mr-1" />
-                            Zippy
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-xs text-muted-foreground">{user?.mobile}</span>
-                      {hasActivePass && (
-                        <span className="text-xs text-orange-500">{getDaysRemaining()} days remaining</span>
-                      )}
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2" onClick={() => navigateToPage('/profile')}>
-                    <User className="h-4 w-4" />
-                    <span>My Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2" onClick={() => navigateToPage('/my-orders')}>
-                    <FileText className="h-4 w-4" />
-                    <span>My Orders</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center justify-between py-2" onClick={() => navigateToPage('/my-wallet')}>
-                    <div className="flex items-center space-x-2">
-                      <Wallet className="h-4 w-4" />
-                      <span>My Wallet</span>
-                    </div>
-                    {walletBalance > 0 && (
-                      <Badge className="bg-green-500 text-white text-xs px-1.5 py-0">
-                        ₹{walletBalance}
-                      </Badge>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2" onClick={() => navigateToPage('/help')}>
-                    <HelpCircle className="h-4 w-4" />
-                    <span>Help</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="flex items-center space-x-2 py-2 text-destructive focus:text-destructive" onClick={handleLogout}>
-                    <LogOut className="h-4 w-4" />
-                    <span>Logout</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu> : <>
+            {isAuthenticated ? (
+              <Button variant="ghost" className="flex items-center space-x-2 h-10 px-2 md:px-3 rounded-full" onClick={() => setShowProfileSidebar(true)}>
+                <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
+                  <Avatar className={`h-8 w-8 ${hasActivePass ? 'border-2 border-background' : ''}`}>
+                    <AvatarImage src={user?.profile_photo_url || ''} alt={user?.name} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="hidden md:flex flex-col items-start">
+                  <span className="text-sm font-medium">{user?.name}</span>
+                  <span className="text-xs text-muted-foreground">{user?.mobile}</span>
+                </div>
+              </Button>
+            ) : (
+              <>
                 <Button variant="ghost" size="sm" onClick={() => setShowRegister(true)} className="hidden md:flex">
                   Register
                 </Button>
@@ -458,25 +325,16 @@ export const Header = () => {
                   <User className="h-4 w-4 mr-2" />
                   Login
                 </Button>
-              </>}
+              </>
+            )}
             
             {/* Mobile Auth Buttons */}
             {!isAuthenticated && (
               <div className="flex items-center gap-1 md:hidden">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 px-2 text-xs"
-                  onClick={() => setShowRegister(true)}
-                >
+                <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => setShowRegister(true)}>
                   Register
                 </Button>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  className="h-8 px-2 text-xs"
-                  onClick={() => setShowLogin(true)}
-                >
+                <Button variant="default" size="sm" className="h-8 px-2 text-xs" onClick={() => setShowLogin(true)}>
                   Login
                 </Button>
               </div>
@@ -485,8 +343,76 @@ export const Header = () => {
         </div>
       </div>
 
+      {/* Profile Sidebar */}
+      <Sheet open={showProfileSidebar} onOpenChange={setShowProfileSidebar}>
+        <SheetContent side="right" className="w-[300px] p-0">
+          <div className="flex flex-col h-full">
+            {/* Profile Header */}
+            <div className="p-5 bg-primary/5 border-b">
+              <div className="flex items-center gap-3">
+                <div className={`relative ${hasActivePass ? 'p-0.5 rounded-full bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500' : ''}`}>
+                  <Avatar className={`h-12 w-12 ${hasActivePass ? 'border-2 border-background' : ''}`}>
+                    <AvatarImage src={user?.profile_photo_url || ''} alt={user?.name} />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm truncate">{user?.name}</p>
+                    {hasActivePass && (
+                      <Badge className="bg-gradient-to-r from-orange-400 to-pink-500 text-white text-xs px-1.5 py-0 shrink-0">
+                        <Crown className="h-3 w-3 mr-1" />
+                        Zippy
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{user?.mobile}</p>
+                  {hasActivePass && (
+                    <p className="text-xs text-orange-500">{getDaysRemaining()} days remaining</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Menu Items */}
+            <div className="flex-1 py-2">
+              <button onClick={() => handleSidebarNav('/profile')} className="flex items-center gap-3 w-full px-5 py-3 hover:bg-muted/50 transition-colors text-left">
+                <User className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">My Profile</span>
+              </button>
+              <button onClick={() => handleSidebarNav('/my-orders')} className="flex items-center gap-3 w-full px-5 py-3 hover:bg-muted/50 transition-colors text-left">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">My Orders</span>
+              </button>
+              <button onClick={() => handleSidebarNav('/my-wallet')} className="flex items-center justify-between w-full px-5 py-3 hover:bg-muted/50 transition-colors text-left">
+                <div className="flex items-center gap-3">
+                  <Wallet className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium">My Wallet</span>
+                </div>
+                {walletBalance > 0 && (
+                  <Badge className="bg-green-500 text-white text-xs px-1.5 py-0">₹{walletBalance}</Badge>
+                )}
+              </button>
+              <button onClick={() => handleSidebarNav('/help')} className="flex items-center gap-3 w-full px-5 py-3 hover:bg-muted/50 transition-colors text-left">
+                <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Help</span>
+              </button>
+            </div>
+
+            {/* Logout */}
+            <div className="border-t p-4">
+              <button onClick={handleLogout} className="flex items-center gap-3 w-full px-2 py-2 text-destructive hover:bg-destructive/10 rounded-md transition-colors">
+                <LogOut className="h-5 w-5" />
+                <span className="text-sm font-medium">Logout</span>
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <RegisterForm isOpen={showRegister} onClose={() => setShowRegister(false)} onSuccess={handleAuthSuccess} />
-      
       <LoginForm isOpen={showLogin} onClose={() => setShowLogin(false)} onSuccess={handleAuthSuccess} onRegisterRequired={handleRegisterRequired} />
       
       {isAuthenticated && (
@@ -494,31 +420,16 @@ export const Header = () => {
           open={showAddressSelector}
           onOpenChange={setShowAddressSelector}
           onAddressSelect={(address) => {
-            const addressData = {
-              label: address.label,
-              address: address.address,
-              latitude: address.latitude,
-              longitude: address.longitude
-            };
+            const addressData = { label: address.label, address: address.address, latitude: address.latitude, longitude: address.longitude };
             setSelectedAddress(addressData);
-            // Note: localStorage and event dispatch are handled by AddressSelector
             setShowAddressSelector(false);
           }}
-          selectedAddress={selectedAddress ? {
-            id: '',
-            label: selectedAddress.label,
-            address: selectedAddress.address
-          } : undefined}
+          selectedAddress={selectedAddress ? { id: '', label: selectedAddress.label, address: selectedAddress.address } : undefined}
         />
       )}
 
-      {/* Notifications Modal */}
       {isAuthenticated && user && (
-        <NotificationsModal
-          open={showNotifications}
-          onOpenChange={setShowNotifications}
-          userId={user.id}
-        />
+        <NotificationsModal open={showNotifications} onOpenChange={setShowNotifications} userId={user.id} />
       )}
     </header>;
 };
