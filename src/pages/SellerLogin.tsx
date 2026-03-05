@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { supabase } from '@/integrations/supabase/client';
+import zippyLogo from '@/assets/zippy-logo.png';
 
 const SellerLogin = () => {
   const [mobile, setMobile] = useState('');
@@ -179,6 +180,9 @@ const SellerLogin = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-3">
+            <img src={zippyLogo} alt="Zippy" className="h-20 w-auto object-contain" />
+          </div>
           <CardTitle className="text-2xl text-center">Seller Login</CardTitle>
         </CardHeader>
         <CardContent>

@@ -36,8 +36,12 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a product search assistant for a food and grocery delivery app. 
+            content: `You are a product search assistant for a food and grocery delivery app in India. 
 Given a user's spoken request, extract the product keywords and categories they might be looking for.
+
+IMPORTANT: Always preserve the original spoken words as keywords, especially regional/local names like "bellam" (jaggery), "pappu" (dal), "biyyam" (rice), etc. Include both the regional name AND the English equivalent if you know it.
+
+Also split multi-word queries into individual searchable keywords. For example "bellam 1kg" should produce keywords ["bellam", "jaggery", "1kg"].
 
 Categories available:
 - food_delivery: restaurants, food items, meals
@@ -63,7 +67,7 @@ Return structured data using the provided tool.`
                   keywords: {
                     type: "array",
                     items: { type: "string" },
-                    description: "List of product keywords to search for (e.g., ['milk', 'bread'])"
+                    description: "List of product keywords to search for including original spoken words and English equivalents"
                   },
                   category: {
                     type: "string",
@@ -101,14 +105,16 @@ Return structured data using the provided tool.`
 
     const data = await response.json();
     
-    // Extract tool call result
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall && toolCall.function?.arguments) {
       try {
         const args = JSON.parse(toolCall.function.arguments);
+        // Also add original query words as keywords for fuzzy matching
+        const originalWords = query.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 2);
+        const allKeywords = [...new Set([...(args.keywords || []), ...originalWords])];
         return new Response(
           JSON.stringify({
-            keywords: args.keywords || [],
+            keywords: allKeywords,
             category: args.category || null,
             originalQuery: query
           }),
@@ -119,11 +125,10 @@ Return structured data using the provided tool.`
       }
     }
 
-    // Fallback: extract keywords from query directly
     const keywords = query
       .toLowerCase()
       .split(/\s+/)
-      .filter((word: string) => word.length > 2);
+      .filter((word: string) => word.length >= 2);
 
     return new Response(
       JSON.stringify({
