@@ -44,7 +44,6 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
 
   const handleAddToCart = () => {
     if (cartRestaurant && cartRestaurant !== item.seller_id) {
-      const { toast } = require('@/hooks/use-toast');
       toast({
         title: "Different Seller",
         description: "You can order from a single seller at a time.",
