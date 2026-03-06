@@ -5,7 +5,6 @@ import { HomeSellerCard } from './HomeSellerCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { calculateDistance } from '@/lib/distanceUtils';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface Item {
   id: string;
@@ -49,7 +48,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   const [groupedItems, setGroupedItems] = useState<Record<string, Item[]>>({});
   const [searchSellers, setSearchSellers] = useState<Seller[]>([]);
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
-  const [subcategories, setSubcategories] = useState<{ id: string; name: string }[]>([]);
+  const [subcategories, setSubcategories] = useState<{ id: string; name: string; image_url: string | null }[]>([]);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,14 +79,15 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
 
       const { data: subcategoriesData } = await supabase
         .from('subcategories')
-        .select('id, name, category')
-        .eq('is_active', true);
+        .select('id, name, category, image_url')
+        .eq('is_active', true)
+        .order('display_order');
 
       const subcategoryMap = new Map<string, { name: string; category: string }>();
-      const subcatList: { id: string; name: string }[] = [];
+      const subcatList: { id: string; name: string; image_url: string | null }[] = [];
       subcategoriesData?.forEach(sub => {
         subcategoryMap.set(sub.id, { name: sub.name, category: sub.category });
-        subcatList.push({ id: sub.id, name: sub.name });
+        subcatList.push({ id: sub.id, name: sub.name, image_url: (sub as any).image_url || null });
       });
       setSubcategories(subcatList);
 
@@ -191,7 +191,6 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
       }
 
       if (searchQuery) {
-        // Also search sellers by word-split
         const words = searchQuery.trim().split(/\s+/).filter(w => w.length >= 2);
         const sellerSearchTerm = words.length > 0 ? words[0] : searchQuery;
         
@@ -232,18 +231,14 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
 
   if (loading) {
     return (
-      <div className="px-4 py-4">
-        <div className="grid grid-cols-2 gap-3">
+      <div className="px-3 py-3">
+        <div className="grid grid-cols-3 gap-2">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="rounded-xl overflow-hidden">
               <Skeleton className="aspect-square w-full" />
-              <div className="p-3 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
+              <div className="p-2 space-y-1">
+                <Skeleton className="h-3 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
-                <div className="flex justify-between">
-                  <Skeleton className="h-6 w-16" />
-                  <Skeleton className="h-8 w-16" />
-                </div>
               </div>
             </div>
           ))}
@@ -263,14 +258,14 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     }
 
     return (
-      <div className="px-4 py-4 space-y-6">
+      <div className="px-3 py-3 space-y-4">
         {searchSellers.length > 0 && (
           <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
               Sellers
-              <Badge variant="secondary">{searchSellers.length}</Badge>
+              <Badge variant="secondary" className="text-[10px]">{searchSellers.length}</Badge>
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {searchSellers.map(seller => (
                 <HomeSellerCard key={seller.id} seller={seller} />
               ))}
@@ -279,11 +274,11 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
         )}
         {items.length > 0 && (
           <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
               Products
-              <Badge variant="secondary">{items.length}</Badge>
+              <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {items.map(item => (
                 <HomeProductCard key={item.id} item={item} />
               ))}
@@ -301,25 +296,41 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   const SubcategoryBar = () => {
     if (subcategoriesWithProducts.length === 0 || items.length === 0) return null;
     return (
-      <div className="sticky z-[97] bg-background px-4 pt-2 pb-1" style={{ top: 'calc(3.5rem + 2.75rem + env(safe-area-inset-top))' }}>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+      <div className="sticky z-[97] bg-background px-3 pt-1.5 pb-1" style={{ top: 'calc(3.5rem + env(safe-area-inset-top))' }}>
+        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
           <button
             onClick={() => setSelectedSubcategory(null)}
-            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-colors ${
-              selectedSubcategory === null ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent'
-            }`}
+            className="flex flex-col items-center gap-1 shrink-0"
           >
-            All
+            <div className={`w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center ${
+              selectedSubcategory === null ? 'border-orange-500' : 'border-muted'
+            }`}>
+              <span className="text-lg">🏠</span>
+            </div>
+            <span className={`text-[10px] font-medium leading-tight text-center max-w-[60px] truncate ${
+              selectedSubcategory === null ? 'text-orange-600' : 'text-muted-foreground'
+            }`}>All</span>
           </button>
           {subcategoriesWithProducts.map(sub => (
             <button
               key={sub.id}
               onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
-              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-colors ${
-                selectedSubcategory === sub.id ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent'
-              }`}
+              className="flex flex-col items-center gap-1 shrink-0"
             >
-              {sub.name}
+              <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${
+                selectedSubcategory === sub.id ? 'border-orange-500' : 'border-muted'
+              }`}>
+                {sub.image_url ? (
+                  <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <span className="text-lg">🍽️</span>
+                  </div>
+                )}
+              </div>
+              <span className={`text-[10px] font-medium leading-tight text-center max-w-[60px] truncate ${
+                selectedSubcategory === sub.id ? 'text-orange-600' : 'text-muted-foreground'
+              }`}>{sub.name}</span>
             </button>
           ))}
         </div>
@@ -339,11 +350,11 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <SubcategoryBar />
-      <div className="px-4 py-2 space-y-6">
+      <div className="px-3 py-1 space-y-4">
         {selectedSubcategory ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {items.map(item => (
               <HomeProductCard key={item.id} item={item} />
             ))}
@@ -351,8 +362,8 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
         ) : (
           Object.entries(groupedItems).map(([subcategoryName, subcategoryItems]) => (
             <div key={subcategoryName}>
-              <h2 className="text-lg font-semibold mb-3">{subcategoryName}</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <h2 className="text-sm font-semibold mb-2">{subcategoryName}</h2>
+              <div className="grid grid-cols-3 gap-2">
                 {subcategoryItems.map(item => (
                   <HomeProductCard key={item.id} item={item} />
                 ))}
