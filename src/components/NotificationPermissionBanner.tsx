@@ -35,7 +35,7 @@ const NotificationPermissionBanner = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground p-3 shadow-lg animate-in slide-in-from-top duration-300">
+    <div className="fixed top-0 left-0 right-0 z-[200] bg-primary text-primary-foreground p-2 shadow-lg animate-in slide-in-from-top duration-300" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="flex items-center justify-between gap-3 max-w-screen-lg mx-auto">
         <div className="flex items-center gap-3">
           <Bell className="h-5 w-5 flex-shrink-0" />

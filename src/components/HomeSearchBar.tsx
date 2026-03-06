@@ -60,17 +60,17 @@ export const HomeSearchBar = ({ onSearch }: HomeSearchBarProps) => {
   };
 
   return (
-    <div className="sticky top-0 z-[99] bg-background border-b px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <div className="sticky top-14 z-[98] bg-background border-b px-4 py-2" style={{ top: 'calc(3.5rem + env(safe-area-inset-top))' }}>
       <div className="relative">
         {/* Search Input */}
         <div className="relative flex items-center">
-          <Search className="absolute left-3 h-5 w-5 text-muted-foreground" />
+          <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search items, products, sellers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-20 h-12 rounded-full border-2"
+            className="pl-9 pr-16 h-10 rounded-full border text-sm"
           />
           
           {/* Clear and Voice buttons */}
