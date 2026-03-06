@@ -116,44 +116,44 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
         </div>
 
         {/* Product Details */}
-        <div className="p-2.5">
-          <h3 className="font-medium text-xs line-clamp-2 min-h-[2rem] leading-tight">
+        <div className="p-1.5">
+          <h3 className="font-medium text-[10px] line-clamp-2 min-h-[1.5rem] leading-tight">
             {item.item_name}
           </h3>
-          <p className="text-[10px] text-muted-foreground truncate mb-1.5">
+          <p className="text-[9px] text-muted-foreground truncate mb-1">
             {item.seller_name}
           </p>
           
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-primary">₹{item.seller_price}</span>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-primary">₹{item.seller_price}</span>
               {mrp > item.seller_price && (
-                <span className="text-[10px] text-muted-foreground line-through">₹{mrp}</span>
+                <span className="text-[9px] text-muted-foreground line-through">₹{mrp}</span>
               )}
             </div>
             
             {quantity > 0 ? (
-              <div className="flex items-center gap-0 border rounded-md overflow-hidden">
+              <div className="flex items-center gap-0 border rounded overflow-hidden">
                 <button
                   onClick={handleDecrement}
-                  className="h-7 w-7 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
+                  className="h-6 w-6 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
                   disabled={!isAvailable}
                 >
-                  <Minus className="h-3 w-3 text-primary" />
+                  <Minus className="h-2.5 w-2.5 text-primary" />
                 </button>
-                <span className="h-7 w-7 flex items-center justify-center text-xs font-bold">{quantity}</span>
+                <span className="h-6 w-5 flex items-center justify-center text-[10px] font-bold">{quantity}</span>
                 <button
                   onClick={handleIncrement}
-                  className="h-7 w-7 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
+                  className="h-6 w-6 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
                   disabled={!isAvailable}
                 >
-                  <Plus className="h-3 w-3 text-primary" />
+                  <Plus className="h-2.5 w-2.5 text-primary" />
                 </button>
               </div>
             ) : (
               <Button
                 size="sm"
-                className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
+                className="h-6 px-2 text-[10px] bg-primary hover:bg-primary/90"
                 onClick={handleAddToCart}
                 disabled={!isAvailable}
               >
