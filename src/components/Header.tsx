@@ -254,9 +254,9 @@ export const Header = () => {
     navigateToPage(path);
   };
 
-  return <header className="sticky top-0 z-[100] w-full border-b bg-background pt-[env(safe-area-inset-top)]">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
+  return <header className="sticky top-0 z-[100] w-full border-b bg-background pt-[env(safe-area-inset-top)]" id="main-header">
+      <div className="container mx-auto px-3">
+        <div className="flex h-14 items-center justify-between">
           {/* Location */}
           <button 
             className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors"
