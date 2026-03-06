@@ -345,7 +345,7 @@ export const Header = () => {
 
       {/* Profile Sidebar */}
       <Sheet open={showProfileSidebar} onOpenChange={setShowProfileSidebar}>
-        <SheetContent side="right" className="w-[300px] p-0">
+        <SheetContent side="right" className="w-[300px] p-0 z-[200]">
           <div className="flex flex-col h-full">
             {/* Profile Header */}
             <div className="p-5 bg-primary/5 border-b">

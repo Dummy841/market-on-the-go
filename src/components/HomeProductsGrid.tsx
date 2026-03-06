@@ -301,11 +301,11 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
   const SubcategoryBar = () => {
     if (subcategoriesWithProducts.length === 0 || items.length === 0) return null;
     return (
-      <div className="px-4 pt-3 pb-1">
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="sticky z-[97] bg-background px-4 pt-2 pb-1" style={{ top: 'calc(3.5rem + 2.75rem + env(safe-area-inset-top))' }}>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setSelectedSubcategory(null)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-colors ${
               selectedSubcategory === null ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
@@ -315,7 +315,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             <button
               key={sub.id}
               onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium shrink-0 transition-colors ${
+              className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-colors ${
                 selectedSubcategory === sub.id ? 'bg-orange-500 text-white' : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
