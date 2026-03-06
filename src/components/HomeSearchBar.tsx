@@ -70,7 +70,7 @@ export const HomeSearchBar = ({ onSearch }: HomeSearchBarProps) => {
             placeholder="Search items, products, sellers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-16 h-10 rounded-full border text-sm"
+            className="pl-9 pr-16 h-8 rounded-full border text-xs"
           />
           
           {/* Clear and Voice buttons */}
