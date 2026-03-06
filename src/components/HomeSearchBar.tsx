@@ -60,7 +60,7 @@ export const HomeSearchBar = ({ onSearch }: HomeSearchBarProps) => {
   };
 
   return (
-    <div className="sticky top-14 z-[98] bg-background border-b px-4 py-2" style={{ top: 'calc(3.5rem + env(safe-area-inset-top))' }}>
+    <div className="bg-background border-b px-4 py-1.5">
       <div className="relative">
         {/* Search Input */}
         <div className="relative flex items-center">
