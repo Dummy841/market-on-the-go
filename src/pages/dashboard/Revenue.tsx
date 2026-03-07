@@ -49,7 +49,7 @@ const Revenue = () => {
       setLoading(true);
       
       // Build date filter for orders
-      let ordersQuery = supabase.from("orders").select("total_amount, delivery_fee, platform_fee, gst_charges, items, created_at, seller_id").eq("status", "delivered");
+      let ordersQuery = supabase.from("orders").select("total_amount, delivery_fee, platform_fee, gst_charges, items, created_at, seller_id").eq("status", "delivered").neq("delivery_address", "POS - In Store");
       
       if (startDate) {
         ordersQuery = ordersQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));
@@ -113,7 +113,7 @@ const Revenue = () => {
       const settledToSellers = (settlements || []).reduce((sum, s) => sum + Math.abs(s.amount), 0);
 
       // Fetch refunded amounts
-      let refundedQuery = supabase.from("orders").select("total_amount, created_at").eq("status", "refunded");
+      let refundedQuery = supabase.from("orders").select("total_amount, created_at").eq("status", "refunded").neq("delivery_address", "POS - In Store");
       
       if (startDate) {
         refundedQuery = refundedQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));
@@ -127,7 +127,7 @@ const Revenue = () => {
       const refundedToUsers = (refundedOrders || []).reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
       // Calculate penalties (₹10 per rejected/refunded order)
-      let penaltyQuery = supabase.from("orders").select("id, created_at").in("status", ["rejected", "refunded"]);
+      let penaltyQuery = supabase.from("orders").select("id, created_at").in("status", ["rejected", "refunded"]).neq("delivery_address", "POS - In Store");
       
       if (startDate) {
         penaltyQuery = penaltyQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));

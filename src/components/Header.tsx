@@ -146,29 +146,60 @@ export const Header = () => {
   };
 
   const getCurrentLocation = () => {
-    setCurrentLocation("Detecting...");
+    // Try loading cached location first for instant display
+    const cachedName = localStorage.getItem('currentLocationName');
+    const cachedLat = localStorage.getItem('currentLat');
+    const cachedLng = localStorage.getItem('currentLng');
+    if (cachedName && cachedLat && cachedLng) {
+      setCurrentLocation(cachedName);
+      setLocationGranted(true);
+      const lat = parseFloat(cachedLat);
+      const lng = parseFloat(cachedLng);
+      const last = lastDispatchedLocationRef.current;
+      if (!last || Math.abs(last.lat - lat) > 0.0001 || Math.abs(last.lng - lng) > 0.0001) {
+        lastDispatchedLocationRef.current = { lat, lng };
+        window.dispatchEvent(new CustomEvent('addressChanged', { detail: { latitude: lat, longitude: lng } }));
+      }
+    } else {
+      setCurrentLocation("Detecting...");
+    }
+
+    const onSuccess = (position: GeolocationPosition) => {
+      setLocationGranted(true);
+      const { latitude, longitude } = position.coords;
+      const last = lastDispatchedLocationRef.current;
+      const next = { lat: latitude, lng: longitude };
+      const changed = !last || Math.abs(last.lat - next.lat) > 0.0001 || Math.abs(last.lng - next.lng) > 0.0001;
+      if (changed) {
+        lastDispatchedLocationRef.current = next;
+        window.dispatchEvent(new CustomEvent('addressChanged', { detail: { latitude, longitude } }));
+      }
+      reverseGeocode(latitude, longitude);
+    };
+
+    const onError = (error: GeolocationPositionError) => {
+      if (error.code === error.PERMISSION_DENIED) {
+        if (!cachedName) setCurrentLocation("Enable location");
+        toast({ title: "Location Access", description: "Please enable location access to see nearby restaurants", variant: "destructive" });
+      } else {
+        if (!cachedName) setCurrentLocation("Select Location");
+      }
+    };
+
+    // Try high accuracy first, fallback to low accuracy
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationGranted(true);
-        const { latitude, longitude } = position.coords;
-        const last = lastDispatchedLocationRef.current;
-        const next = { lat: latitude, lng: longitude };
-        const changed = !last || Math.abs(last.lat - next.lat) > 0.0001 || Math.abs(last.lng - next.lng) > 0.0001;
-        if (changed) {
-          lastDispatchedLocationRef.current = next;
-          window.dispatchEvent(new CustomEvent('addressChanged', { detail: { latitude, longitude } }));
-        }
-        reverseGeocode(latitude, longitude);
-      },
+      onSuccess,
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
-          setCurrentLocation("Enable location");
-          toast({ title: "Location Access", description: "Please enable location access to see nearby restaurants", variant: "destructive" });
+          onError(error);
         } else {
-          setCurrentLocation("Select Location");
+          // Retry without high accuracy
+          navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+            enableHighAccuracy: false, timeout: 10000, maximumAge: 60000
+          });
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
 

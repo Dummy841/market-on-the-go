@@ -100,9 +100,9 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
             </div>
           )}
           {/* Discount Badge */}
-          {discountPercent > 0 && (
-            <div className="absolute top-1.5 left-1.5 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-              {discountPercent}% OFF
+          {mrp > item.seller_price && (
+            <div className="absolute top-1.5 left-1.5 bg-green-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded">
+              ₹{Math.round(mrp - item.seller_price)} OFF
             </div>
           )}
           {item.item_info && (
@@ -117,18 +117,22 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
 
         {/* Product Details */}
         <div className="p-1.5">
-          <h3 className="font-medium text-[10px] line-clamp-2 min-h-[1.5rem] leading-tight">
+          <h3 className="font-medium text-[11px] line-clamp-2 min-h-[1.5rem] leading-tight">
             {item.item_name}
           </h3>
-          <p className="text-[9px] text-muted-foreground truncate mb-1">
+          <p className="text-[10px] text-muted-foreground truncate mb-1">
             {item.seller_name}
           </p>
           
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-primary">₹{item.seller_price}</span>
+              <span className="text-xs font-bold text-primary">
+                <span className="text-[9px] font-normal">Sale </span>₹{item.seller_price}
+              </span>
               {mrp > item.seller_price && (
-                <span className="text-[9px] text-muted-foreground line-through">₹{mrp}</span>
+                <span className="text-[10px] text-muted-foreground line-through">
+                  MRP ₹{mrp}
+                </span>
               )}
             </div>
             
@@ -141,7 +145,7 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
                 >
                   <Minus className="h-2.5 w-2.5 text-primary" />
                 </button>
-                <span className="h-6 w-5 flex items-center justify-center text-[10px] font-bold">{quantity}</span>
+                <span className="h-6 w-5 flex items-center justify-center text-[11px] font-bold">{quantity}</span>
                 <button
                   onClick={handleIncrement}
                   className="h-6 w-6 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
@@ -153,7 +157,7 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
             ) : (
               <Button
                 size="sm"
-                className="h-6 px-2 text-[10px] bg-primary hover:bg-primary/90"
+                className="h-6 px-2 text-[11px] bg-primary hover:bg-primary/90"
                 onClick={handleAddToCart}
                 disabled={!isAvailable}
               >
