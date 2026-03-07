@@ -360,16 +360,30 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             ))}
           </div>
         ) : (
-          Object.entries(groupedItems).map(([subcategoryName, subcategoryItems]) => (
-            <div key={subcategoryName}>
-              <h2 className="text-sm font-semibold mb-2">{subcategoryName}</h2>
-              <div className="grid grid-cols-3 gap-2">
-                {subcategoryItems.map(item => (
-                  <HomeProductCard key={item.id} item={item} />
-                ))}
+          subcategories
+            .filter(sub => groupedItems[sub.name])
+            .map(sub => (
+              <div key={sub.id}>
+                <h2 className="text-sm font-semibold mb-2">{sub.name}</h2>
+                <div className="grid grid-cols-3 gap-2">
+                  {groupedItems[sub.name].map(item => (
+                    <HomeProductCard key={item.id} item={item} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            ))
+            .concat(
+              groupedItems['Other'] ? [
+                <div key="other">
+                  <h2 className="text-sm font-semibold mb-2">Other</h2>
+                  <div className="grid grid-cols-3 gap-2">
+                    {groupedItems['Other'].map(item => (
+                      <HomeProductCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ] : []
+            )
         )}
       </div>
     </div>

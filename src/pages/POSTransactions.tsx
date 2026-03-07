@@ -120,7 +120,7 @@ const POSTransactions = () => {
       teluguMap = await fetchTeluguNames(order.items);
     }
     setPrintLanguage(language);
-    setPrintOrder({ ...order, items: order.items.map(i => ({ ...i, telugu_name: i.id ? teluguMap[i.id] : undefined })) });
+    setPrintOrder({ ...order, items: order.items.map(i => ({ ...i, telugu_name: ((i as any).item_id || i.id) ? teluguMap[(i as any).item_id || i.id] : undefined })) });
     setTimeout(() => {
       const content = printRef.current;
       if (!content) return;

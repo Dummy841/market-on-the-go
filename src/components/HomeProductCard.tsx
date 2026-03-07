@@ -157,7 +157,7 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
             ) : (
               <Button
                 size="sm"
-                className="h-6 px-2 text-[10px] bg-primary hover:bg-primary/90"
+                className="h-6 px-2 text-[11px] bg-primary hover:bg-primary/90"
                 onClick={handleAddToCart}
                 disabled={!isAvailable}
               >

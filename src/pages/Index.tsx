@@ -146,7 +146,6 @@ const Index = () => {
   
   return (
     <div className="min-h-screen bg-background pb-4">
-      <NotificationPermissionBanner />
       <Header />
       <main>
         {/* Banner hidden per request */}

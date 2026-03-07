@@ -127,7 +127,7 @@ const Revenue = () => {
       const refundedToUsers = (refundedOrders || []).reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
       // Calculate penalties (₹10 per rejected/refunded order)
-      let penaltyQuery = supabase.from("orders").select("id, created_at").in("status", ["rejected", "refunded"]);
+      let penaltyQuery = supabase.from("orders").select("id, created_at").in("status", ["rejected", "refunded"]).neq("delivery_address", "POS - In Store");
       
       if (startDate) {
         penaltyQuery = penaltyQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));
