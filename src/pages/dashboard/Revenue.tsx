@@ -113,7 +113,7 @@ const Revenue = () => {
       const settledToSellers = (settlements || []).reduce((sum, s) => sum + Math.abs(s.amount), 0);
 
       // Fetch refunded amounts
-      let refundedQuery = supabase.from("orders").select("total_amount, created_at").eq("status", "refunded");
+      let refundedQuery = supabase.from("orders").select("total_amount, created_at").eq("status", "refunded").neq("delivery_address", "POS - In Store");
       
       if (startDate) {
         refundedQuery = refundedQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));
