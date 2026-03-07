@@ -145,7 +145,7 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
                 >
                   <Minus className="h-2.5 w-2.5 text-primary" />
                 </button>
-                <span className="h-6 w-5 flex items-center justify-center text-[10px] font-bold">{quantity}</span>
+                <span className="h-6 w-5 flex items-center justify-center text-[11px] font-bold">{quantity}</span>
                 <button
                   onClick={handleIncrement}
                   className="h-6 w-6 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
