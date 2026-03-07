@@ -302,12 +302,12 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             onClick={() => setSelectedSubcategory(null)}
             className="flex flex-col items-center gap-1 shrink-0"
           >
-            <div className={`w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center ${
+            <div className={`w-16 h-16 rounded-full overflow-hidden border-2 flex items-center justify-center ${
               selectedSubcategory === null ? 'border-orange-500' : 'border-muted'
             }`}>
-              <span className="text-lg">🏠</span>
+              <span className="text-xl">🏠</span>
             </div>
-            <span className={`text-[10px] font-medium leading-tight text-center max-w-[60px] truncate ${
+            <span className={`text-[11px] font-medium leading-tight text-center max-w-[70px] truncate ${
               selectedSubcategory === null ? 'text-orange-600' : 'text-muted-foreground'
             }`}>All</span>
           </button>
@@ -317,18 +317,18 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
               onClick={() => setSelectedSubcategory(sub.id === selectedSubcategory ? null : sub.id)}
               className="flex flex-col items-center gap-1 shrink-0"
             >
-              <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${
+              <div className={`w-16 h-16 rounded-full overflow-hidden border-2 ${
                 selectedSubcategory === sub.id ? 'border-orange-500' : 'border-muted'
               }`}>
                 {sub.image_url ? (
                   <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-muted flex items-center justify-center">
-                    <span className="text-lg">🍽️</span>
+                    <span className="text-xl">🍽️</span>
                   </div>
                 )}
               </div>
-              <span className={`text-[10px] font-medium leading-tight text-center max-w-[60px] truncate ${
+              <span className={`text-[11px] font-medium leading-tight text-center max-w-[70px] truncate ${
                 selectedSubcategory === sub.id ? 'text-orange-600' : 'text-muted-foreground'
               }`}>{sub.name}</span>
             </button>
