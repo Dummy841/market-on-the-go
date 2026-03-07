@@ -117,18 +117,22 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
 
         {/* Product Details */}
         <div className="p-1.5">
-          <h3 className="font-medium text-[10px] line-clamp-2 min-h-[1.5rem] leading-tight">
+          <h3 className="font-medium text-[11px] line-clamp-2 min-h-[1.5rem] leading-tight">
             {item.item_name}
           </h3>
-          <p className="text-[9px] text-muted-foreground truncate mb-1">
+          <p className="text-[10px] text-muted-foreground truncate mb-1">
             {item.seller_name}
           </p>
           
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-primary">₹{item.seller_price}</span>
+              <span className="text-xs font-bold text-primary">
+                <span className="text-[9px] font-normal">Sale </span>₹{item.seller_price}
+              </span>
               {mrp > item.seller_price && (
-                <span className="text-[9px] text-muted-foreground line-through">₹{mrp}</span>
+                <span className="text-[10px] text-muted-foreground line-through">
+                  MRP ₹{mrp}
+                </span>
               )}
             </div>
             
