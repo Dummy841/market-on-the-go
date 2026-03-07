@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
 import OrderTrackingButton from "@/components/OrderTrackingButton";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
-import NotificationPermissionBanner from "@/components/NotificationPermissionBanner";
+
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserAuth } from "@/contexts/UserAuthContext";
