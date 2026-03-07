@@ -1,60 +1,66 @@
 
 
-## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
+## Plan: Product Ordering, Card Redesign, UI Fixes, Telugu Print Fix, Revenue Fix
 
-### 1. Fix POS Header Under Status Bar
-The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
+### 1. Products ordered by subcategory display_order
+**File:** `src/components/HomeProductsGrid.tsx`
+- Currently `groupedItems` is built using `Record<string, Item[]>` keyed by subcategory name — order is not guaranteed to match `display_order`
+- Add `subcategory_display_order` to Item interface and populate from the subcategory query
+- When building grouped items, use the subcategories list (already ordered by `display_order`) to iterate and build groups in correct order, instead of using `Object.entries(groupedItems)`
+- Render groups by iterating `subcategories` array (which is pre-sorted) and showing items for each
 
-**File:** `src/pages/SellerPOS.tsx` (line 237)
+### 2. Product card: "₹X OFF" instead of "X% OFF", add MRP/Sale labels, increase text sizes
+**File:** `src/components/HomeProductCard.tsx`
+- Change discount badge from `{discountPercent}% OFF` to `₹{mrp - seller_price} OFF`
+- Add "MRP" label before the strikethrough price: `MRP ₹{mrp}`
+- Add "Sale" label before the selling price: `Sale ₹{seller_price}`
+- Increase all text sizes by ~1 point: `text-[10px]` → `text-[11px]`, `text-[9px]` → `text-[10px]`, `text-xs` → `text-sm`
 
-### 2. Show All Cart Columns on Mobile (Reorder)
-Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
+### 3. Increase subcategory filter sizes
+**File:** `src/components/HomeProductsGrid.tsx`
+- Increase circle from `w-14 h-14` → `w-16 h-16`
+- Increase label from `text-[10px]` → `text-[11px]`
+- Increase max-width from `max-w-[60px]` → `max-w-[70px]`
 
-Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
+### 4. Fix Android header spacing & remove notification banner
+**File:** `src/pages/Index.tsx`
+- Remove `<NotificationPermissionBanner />` component entirely from the Index page
+- The notification banner was causing overlap and pushing content down on different devices
 
-**File:** `src/pages/SellerPOS.tsx`
+**File:** `src/components/Header.tsx`
+- Remove any extra padding/spacing. The `pt-[env(safe-area-inset-top)]` on the sticky header should handle the status bar offset. Ensure no double-padding.
 
-### 3. Persist Cart in localStorage Instead of sessionStorage
-Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
+### 5. Fix location detection
+**File:** `src/components/Header.tsx`
+- The `getCurrentLocation` function uses `enableHighAccuracy: true, timeout: 15000` which can fail on some devices
+- Add a fallback: if high accuracy fails, retry with `enableHighAccuracy: false` and shorter timeout
+- Also try loading cached coordinates from localStorage on initial load for instant display
 
-**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
+### 6. Fix Telugu printing — POSTransactions & POSCheckoutModal
+The root cause: when orders are stored, items have `item_id` field (not `id`). But `fetchTeluguNames` in POSTransactions looks for `i.id`.
 
-### 4. Faster UPI QR Code Generation
-Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
+**File:** `src/pages/POSTransactions.tsx`
+- In `fetchTeluguNames`, change `items.map(i => i.id)` to `items.map(i => (i as any).item_id || i.id)`
+- In `handlePrint`, when mapping items with Telugu names, use `(i as any).item_id || i.id` as the key
 
-**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
+**File:** `src/components/POSCheckoutModal.tsx`  
+- The checkout modal print works correctly since it uses `cart` items which have proper `id` fields
+- But verify `teluguNames` map is populated — the `fetchTeluguNames` runs on modal open, should be fine
 
-Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
+### 7. Dashboard Revenue — exclude POS transactions
+**File:** `src/pages/dashboard/Revenue.tsx`
+- Add `.neq('delivery_address', 'POS - In Store')` to the orders query (line 52)
+- This ensures only online delivery orders are counted in revenue calculations
+- Also add the same filter to refunded orders query (line 116) and penalty query (line 130)
 
-### 5. Add Telugu Name Fields to Seller Items
-**Database migration:** Add `telugu_name` column to the `items` table.
+### Summary of Files
 
-**Files:**
-- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
-- `src/components/EditItemModal.tsx` — Same fields for editing.
-- Save `telugu_name` to the items table.
-
-For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
-
-### 6. Bilingual Receipt Printing (Telugu / English)
-Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
-
-- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
-- "Print in English" prints current receipt as-is.
-- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
-
-**Files:**
-- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
-- Update CartItem interface to include `telugu_name`.
-- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
-
-### Summary of Changes
-
-| File | Change |
-|------|--------|
-| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
-| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
-| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
-| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
-| **Database migration** | Add `telugu_name text` column to `items` table |
+| File | Changes |
+|------|---------|
+| `src/components/HomeProductsGrid.tsx` | Order groups by subcategory display_order, increase filter sizes |
+| `src/components/HomeProductCard.tsx` | ₹X OFF badge, MRP/Sale labels, increase text sizes |
+| `src/pages/Index.tsx` | Remove NotificationPermissionBanner |
+| `src/components/Header.tsx` | Fix location fallback for different devices |
+| `src/pages/POSTransactions.tsx` | Fix Telugu print item_id mapping |
+| `src/pages/dashboard/Revenue.tsx` | Exclude POS orders from revenue calculations |
 
