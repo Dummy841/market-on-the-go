@@ -100,9 +100,9 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
             </div>
           )}
           {/* Discount Badge */}
-          {discountPercent > 0 && (
-            <div className="absolute top-1.5 left-1.5 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-              {discountPercent}% OFF
+          {mrp > item.seller_price && (
+            <div className="absolute top-1.5 left-1.5 bg-green-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded">
+              ₹{Math.round(mrp - item.seller_price)} OFF
             </div>
           )}
           {item.item_info && (
