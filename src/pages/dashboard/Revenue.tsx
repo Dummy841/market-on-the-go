@@ -49,7 +49,7 @@ const Revenue = () => {
       setLoading(true);
       
       // Build date filter for orders
-      let ordersQuery = supabase.from("orders").select("total_amount, delivery_fee, platform_fee, gst_charges, items, created_at, seller_id").eq("status", "delivered");
+      let ordersQuery = supabase.from("orders").select("total_amount, delivery_fee, platform_fee, gst_charges, items, created_at, seller_id").eq("status", "delivered").neq("delivery_address", "POS - In Store");
       
       if (startDate) {
         ordersQuery = ordersQuery.gte("created_at", format(startDate, "yyyy-MM-dd"));
