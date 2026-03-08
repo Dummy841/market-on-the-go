@@ -89,6 +89,7 @@ const AppContent = () => {
       <Route path="/seller-pos/transactions" element={<POSTransactions />} />
       <Route path="/seller-pos/settings" element={<POSSettings />} />
       <Route path="/delivery-login" element={<DeliveryPartnerLogin />} />
+      <Route path="/admin-login" element={<AdminLogin />} />
       <Route path="/delivery-dashboard" element={<DeliveryPartnerDashboard />} />
       <Route path="/dashboard" element={<Dashboard />}>
         <Route index element={<DashboardHome />} />
