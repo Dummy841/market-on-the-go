@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Store, Truck, ChevronDown, BarChart3, Settings, FileText, Image, RotateCcw, Wallet, MessageCircle, Grid3X3, IndianRupee, Layers } from "lucide-react";
+import { Users, Store, Truck, ChevronDown, BarChart3, Settings, FileText, Image, RotateCcw, Wallet, MessageCircle, Grid3X3, IndianRupee, Layers, Factory } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,6 +46,7 @@ const menuItems = [
       { title: "Support Chats", url: "/dashboard/support-chats", icon: MessageCircle },
       { title: "Wholesale Inventory", url: "/dashboard/wholesale-inventory", icon: Store },
       { title: "Wholesale Orders", url: "/dashboard/wholesale-orders", icon: FileText, badgeKey: "wholesaleOrders" },
+      { title: "Production", url: "/dashboard/production", icon: Factory },
     ]
   }
 ];
