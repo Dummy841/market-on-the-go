@@ -307,6 +307,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             gst_percentage: form.gst_percentage,
             show_in_quick_add: form.show_in_quick_add,
             is_active: form.is_active,
+            description: form.description || null,
           } as any)
           .select()
           .single();
