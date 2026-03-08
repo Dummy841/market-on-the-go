@@ -97,7 +97,7 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
           {!isAvailable && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="text-white text-xs font-medium px-2 py-1 bg-destructive rounded">
-                Unavailable
+                {isOutOfStock ? 'Out of Stock' : 'Unavailable'}
               </span>
             </div>
           )}
