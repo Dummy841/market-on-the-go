@@ -24,6 +24,7 @@ import Revenue from "./pages/dashboard/Revenue";
 import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
 import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
 import ProductionManagement from "./pages/dashboard/ProductionManagement";
+import WholesaleRevenue from "./pages/dashboard/WholesaleRevenue";
 import SellerWholesale from "./pages/SellerWholesale";
 import Help from "./pages/Help";
 import SellerLogin from "./pages/SellerLogin";
@@ -103,6 +104,7 @@ const AppContent = () => {
         <Route path="wholesale-inventory" element={<WholesaleInventory />} />
         <Route path="wholesale-orders" element={<WholesaleOrders />} />
         <Route path="production" element={<ProductionManagement />} />
+        <Route path="wholesale-revenue" element={<WholesaleRevenue />} />
       </Route>
       <Route path="/seller-wholesale" element={<SellerWholesale />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
