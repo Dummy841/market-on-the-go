@@ -34,6 +34,7 @@ interface Banner {
 }
 
 const Banners = () => {
+  const { hasPermission } = useAdminAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
