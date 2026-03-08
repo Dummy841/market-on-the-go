@@ -258,7 +258,7 @@ export const Checkout = () => {
   // Calculate fees using distance-based tiers
   const deliveryFeeBase = getDeliveryFee(deliveryDistance, itemTotal);
   const deliveryFee = hasActivePass && deliveryDistance <= 10 ? 0 : deliveryFeeBase;
-  const smallOrderFee = deliveryFeeBase > 0 && itemTotal < 2000 && deliveryDistance <= 20 ? Math.round(deliveryFeeBase * 0.5) : 0;
+  const smallOrderFee = deliveryFeeBase > 0 && itemTotal < 100 && deliveryDistance <= 20 ? Math.round(deliveryFeeBase * 0.5) : 0;
   const platformFee = itemTotal >= 1000 ? 0 : Math.round(itemTotal * 0.05);
   const grossTotal = itemTotal + deliveryFee + platformFee + smallOrderFee;
   
