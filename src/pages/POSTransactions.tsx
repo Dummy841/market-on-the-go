@@ -57,12 +57,12 @@ const POSTransactions = () => {
     if (!seller) return;
     setFetching(true);
 
-    let query = supabase
-      .from('orders')
-      .select('*')
-      .eq('seller_id', seller.id)
-      .eq('delivery_address', 'POS - In Store')
-      .order('created_at', { ascending: false });
+    let query = supabase.
+    from('orders').
+    select('*').
+    eq('seller_id', seller.id).
+    eq('delivery_address', 'POS - In Store').
+    order('created_at', { ascending: false });
 
     if (filterMode === 'date') {
       const fromDate = new Date(selectedDate);
@@ -75,16 +75,16 @@ const POSTransactions = () => {
     const { data } = await query;
 
     if (data) {
-      const userIds = [...new Set(data.map(o => o.user_id).filter(id => id !== '00000000-0000-0000-0000-000000000000'))];
-      let usersMap: Record<string, { name: string; mobile: string }> = {};
+      const userIds = [...new Set(data.map((o) => o.user_id).filter((id) => id !== '00000000-0000-0000-0000-000000000000'))];
+      let usersMap: Record<string, {name: string;mobile: string;}> = {};
       if (userIds.length > 0) {
         const { data: users } = await supabase.from('users').select('id, name, mobile').in('id', userIds);
-        if (users) users.forEach(u => { usersMap[u.id] = { name: u.name, mobile: u.mobile }; });
+        if (users) users.forEach((u) => {usersMap[u.id] = { name: u.name, mobile: u.mobile };});
       }
 
       // Collect all item IDs to fetch purchase prices
       const allItemIds = new Set<string>();
-      data.forEach(o => {
+      data.forEach((o) => {
         const items = Array.isArray(o.items) ? o.items : [];
         items.forEach((i: any) => {
           const itemId = i.item_id || i.id;
@@ -95,23 +95,23 @@ const POSTransactions = () => {
       let purchasePriceMap: Record<string, number> = {};
       if (allItemIds.size > 0) {
         const ids = Array.from(allItemIds);
-        const { data: itemsData } = await supabase
-          .from('items')
-          .select('id, purchase_price')
-          .in('id', ids);
+        const { data: itemsData } = await supabase.
+        from('items').
+        select('id, purchase_price').
+        in('id', ids);
         if (itemsData) {
-          itemsData.forEach(item => { purchasePriceMap[item.id] = Number(item.purchase_price); });
+          itemsData.forEach((item) => {purchasePriceMap[item.id] = Number(item.purchase_price);});
         }
       }
 
-      setOrders(data.map(o => ({
+      setOrders(data.map((o) => ({
         ...o,
         items: (Array.isArray(o.items) ? o.items : []).map((i: any) => ({
           ...i,
-          purchase_price: purchasePriceMap[i.item_id || i.id] || 0,
+          purchase_price: purchasePriceMap[i.item_id || i.id] || 0
         })) as unknown as OrderItem[],
         customer_name: usersMap[o.user_id]?.name || (o.user_id === '00000000-0000-0000-0000-000000000000' ? 'Walk-in' : '-'),
-        customer_mobile: usersMap[o.user_id]?.mobile || '',
+        customer_mobile: usersMap[o.user_id]?.mobile || ''
       })));
     }
     setFetching(false);
@@ -123,7 +123,7 @@ const POSTransactions = () => {
 
   const totalSale = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
   const totalPurchase = orders.reduce((sum, o) => {
-    return sum + o.items.reduce((s, i) => s + ((i.purchase_price || 0) * i.quantity), 0);
+    return sum + o.items.reduce((s, i) => s + (i.purchase_price || 0) * i.quantity, 0);
   }, 0);
   const totalProfit = totalSale - totalPurchase;
 
@@ -135,14 +135,14 @@ const POSTransactions = () => {
   };
 
   const fetchTeluguNames = async (items: OrderItem[]): Promise<Record<string, string>> => {
-    const itemIds = items.map(i => (i as any).item_id || i.id).filter(Boolean) as string[];
+    const itemIds = items.map((i) => (i as any).item_id || i.id).filter(Boolean) as string[];
     if (itemIds.length === 0) return {};
-    const { data } = await supabase
-      .from('items')
-      .select('id, telugu_name')
-      .in('id', itemIds);
+    const { data } = await supabase.
+    from('items').
+    select('id, telugu_name').
+    in('id', itemIds);
     const map: Record<string, string> = {};
-    data?.forEach(d => { if (d.telugu_name) map[d.id] = d.telugu_name; });
+    data?.forEach((d) => {if (d.telugu_name) map[d.id] = d.telugu_name;});
     return map;
   };
 
@@ -152,7 +152,7 @@ const POSTransactions = () => {
       teluguMap = await fetchTeluguNames(order.items);
     }
     setPrintLanguage(language);
-    setPrintOrder({ ...order, items: order.items.map(i => ({ ...i, telugu_name: ((i as any).item_id || i.id) ? teluguMap[(i as any).item_id || i.id] : undefined })) });
+    setPrintOrder({ ...order, items: order.items.map((i) => ({ ...i, telugu_name: (i as any).item_id || i.id ? teluguMap[(i as any).item_id || i.id] : undefined })) });
     setTimeout(() => {
       const content = printRef.current;
       if (!content) return;
@@ -188,8 +188,8 @@ const POSTransactions = () => {
 
   const renderReceipt = (order: PosOrder, language: 'english' | 'telugu') => {
     const items = order.items;
-    const subtotal = items.reduce((s, i) => s + (i.seller_price * i.quantity), 0);
-    const totalMrp = items.reduce((s, i) => s + (i.mrp * i.quantity), 0);
+    const subtotal = items.reduce((s, i) => s + i.seller_price * i.quantity, 0);
+    const totalMrp = items.reduce((s, i) => s + i.mrp * i.quantity, 0);
     const saved = totalMrp - subtotal;
 
     return (
@@ -198,50 +198,50 @@ const POSTransactions = () => {
         <div className="line"></div>
         <div className="row"><span style={{ color: '#d97706' }}>Order #:</span><span>{order.id}</span></div>
         <div className="row"><span style={{ color: '#d97706' }}>Date:</span><span>{format(new Date(order.created_at), 'dd/MM/yyyy HH:mm')}</span></div>
-        {order.customer_name && order.customer_name !== 'Walk-in' && (
-          <>
+        {order.customer_name && order.customer_name !== 'Walk-in' &&
+        <>
             <div className="row"><span style={{ color: '#d97706' }}>Customer:</span><span>{order.customer_name}</span></div>
             {order.customer_mobile && <div className="row"><span style={{ color: '#d97706' }}>Phone:</span><span>{order.customer_mobile}</span></div>}
           </>
-        )}
+        }
         <div className="line"></div>
         {items.map((item, idx) => {
           const displayName = language === 'telugu' && item.telugu_name ? item.telugu_name : item.item_name;
           return (
             <div key={idx} style={{ marginBottom: 6 }}>
               <div className="item-name">{displayName}</div>
-              {item.mrp > item.seller_price && (
-                <div className="item-mrp">&nbsp;&nbsp;MRP: ₹{Number(item.mrp).toFixed(2)}</div>
-              )}
+              {item.mrp > item.seller_price &&
+              <div className="item-mrp">&nbsp;&nbsp;MRP: ₹{Number(item.mrp).toFixed(2)}</div>
+              }
               <div className="row">
                 <span>&nbsp;&nbsp;₹{Number(item.seller_price).toFixed(2)} × {item.quantity}</span>
                 <span>₹{(item.seller_price * item.quantity).toFixed(2)}</span>
               </div>
-              {item.gst_percentage > 0 && (
-                <div className="row muted">
+              {item.gst_percentage > 0 &&
+              <div className="row muted">
                   <span>&nbsp;&nbsp;GST ({item.gst_percentage}%)</span>
                   <span>₹{(item.seller_price * item.quantity * item.gst_percentage / 100).toFixed(2)}</span>
                 </div>
-              )}
-            </div>
-          );
+              }
+            </div>);
+
         })}
         <div className="line"></div>
         <div className="row"><span>Subtotal:</span><span>₹{subtotal.toFixed(2)}</span></div>
         <div className="row"><span>GST:</span><span>₹{Number(order.gst_charges).toFixed(2)}</span></div>
         <div className="line"></div>
         <div className="row bold"><span>TOTAL:</span><span style={{ fontSize: 16 }}>₹{Number(order.total_amount).toFixed(2)}</span></div>
-        {saved > 0 && (
-          <div className="saved-box">
+        {saved > 0 &&
+        <div className="saved-box">
             <div>🎉 YOU SAVED</div>
             <div className="saved-amount">₹{saved.toFixed(2)}</div>
           </div>
-        )}
+        }
         <div className="center muted" style={{ marginTop: 10 }}>{getPaymentLabel(order.payment_method)} - COMPLETED</div>
         <div className="line"></div>
-        <div className="footer">Thank you for your purchase!<br/>Visit again</div>
-      </div>
-    );
+        <div className="footer">Thank you for your purchase!<br />Visit again</div>
+      </div>);
+
   };
 
   if (loading || !seller) return <div className="min-h-screen flex items-center justify-center"><div>Loading...</div></div>;
@@ -252,7 +252,7 @@ const POSTransactions = () => {
       <header className="bg-card border-b border-border p-3" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
         <div className="flex items-center gap-3">
           <SellerHamburgerMenu />
-          <h1 className="text-lg font-bold flex-1 md:flex-none">POS Transactions</h1>
+          
         </div>
       </header>
 
@@ -261,21 +261,21 @@ const POSTransactions = () => {
         <Input
           type="date"
           value={selectedDate}
-          onChange={e => { setSelectedDate(e.target.value); setFilterMode('date'); }}
-          className="w-auto"
-        />
+          onChange={(e) => {setSelectedDate(e.target.value);setFilterMode('date');}}
+          className="w-auto" />
+        
         <Button
           variant={filterMode === 'date' && selectedDate === format(new Date(), 'yyyy-MM-dd') ? 'default' : 'outline'}
           size="sm"
-          onClick={() => { setSelectedDate(format(new Date(), 'yyyy-MM-dd')); setFilterMode('date'); }}
-        >
+          onClick={() => {setSelectedDate(format(new Date(), 'yyyy-MM-dd'));setFilterMode('date');}}>
+          
           Today
         </Button>
         <Button
           variant={filterMode === 'all' ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setFilterMode('all')}
-        >
+          onClick={() => setFilterMode('all')}>
+          
           All
         </Button>
         <div className="flex items-center gap-4 ml-auto">
@@ -296,12 +296,12 @@ const POSTransactions = () => {
 
       {/* Table */}
       <div className="flex-1 overflow-auto p-3">
-        {fetching ? (
-          <p className="text-center py-8 text-muted-foreground">Loading...</p>
-        ) : orders.length === 0 ? (
-          <p className="text-center py-8 text-muted-foreground">No transactions found</p>
-        ) : (
-          <div className="overflow-x-auto">
+        {fetching ?
+        <p className="text-center py-8 text-muted-foreground">Loading...</p> :
+        orders.length === 0 ?
+        <p className="text-center py-8 text-muted-foreground">No transactions found</p> :
+
+        <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -314,8 +314,8 @@ const POSTransactions = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map(order => (
-                  <TableRow key={order.id}>
+                {orders.map((order) =>
+              <TableRow key={order.id}>
                     <TableCell className="font-mono text-xs">{order.id}</TableCell>
                     <TableCell className="text-xs">{format(new Date(order.created_at), 'dd/MM/yy HH:mm')}</TableCell>
                     <TableCell className="text-sm">{order.customer_name}</TableCell>
@@ -342,11 +342,11 @@ const POSTransactions = () => {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+              )}
               </TableBody>
             </Table>
           </div>
-        )}
+        }
       </div>
 
       {/* View Order Dialog */}
@@ -355,41 +355,41 @@ const POSTransactions = () => {
           <DialogHeader>
             <DialogTitle>Order Details</DialogTitle>
           </DialogHeader>
-          {viewOrder && (
-            <div className="space-y-3 text-sm">
+          {viewOrder &&
+          <div className="space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-mono">{viewOrder.id}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{format(new Date(viewOrder.created_at), 'dd/MM/yyyy HH:mm')}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span>{viewOrder.customer_name}</span></div>
               {viewOrder.customer_mobile && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{viewOrder.customer_mobile}</span></div>}
               <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span>{getPaymentLabel(viewOrder.payment_method)}</span></div>
               <hr className="border-border" />
-              {viewOrder.items.map((item, idx) => (
-                <div key={idx}>
+              {viewOrder.items.map((item, idx) =>
+            <div key={idx}>
                   <div className="flex justify-between">
                     <span>{item.item_name} × {item.quantity}</span>
                     <span className="font-semibold">₹{(item.seller_price * item.quantity).toFixed(2)}</span>
                   </div>
-                  {item.gst_percentage > 0 && (
-                    <div className="flex justify-between text-xs text-muted-foreground">
+                  {item.gst_percentage > 0 &&
+              <div className="flex justify-between text-xs text-muted-foreground">
                       <span>&nbsp;&nbsp;GST ({item.gst_percentage}%)</span>
                       <span>₹{(item.seller_price * item.quantity * item.gst_percentage / 100).toFixed(2)}</span>
                     </div>
-                  )}
+              }
                 </div>
-              ))}
+            )}
               <hr className="border-border" />
               <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span>₹{Number(viewOrder.gst_charges).toFixed(2)}</span></div>
               <div className="flex justify-between font-bold text-base"><span>Total</span><span>₹{Number(viewOrder.total_amount).toFixed(2)}</span></div>
               <div className="flex gap-2">
-                <Button className="flex-1" variant="outline" onClick={() => { setViewOrder(null); handlePrint(viewOrder, 'english'); }}>
+                <Button className="flex-1" variant="outline" onClick={() => {setViewOrder(null);handlePrint(viewOrder, 'english');}}>
                   <Printer className="w-4 h-4 mr-1" /> English
                 </Button>
-                <Button className="flex-1" onClick={() => { setViewOrder(null); handlePrint(viewOrder, 'telugu'); }}>
+                <Button className="flex-1" onClick={() => {setViewOrder(null);handlePrint(viewOrder, 'telugu');}}>
                   <Languages className="w-4 h-4 mr-1" /> Telugu
                 </Button>
               </div>
             </div>
-          )}
+          }
         </DialogContent>
       </Dialog>
 
@@ -399,8 +399,8 @@ const POSTransactions = () => {
           {printOrder && renderReceipt(printOrder, printLanguage)}
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default POSTransactions;
