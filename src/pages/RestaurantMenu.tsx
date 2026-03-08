@@ -398,9 +398,7 @@ const RestaurantMenu = () => {
                 <img
                   src={restaurant.profile_photo_url || restaurant1}
                   alt={restaurant.seller_name}
-                  className={`w-16 h-16 rounded-lg object-cover flex-shrink-0 ${
-                    restaurant.is_online === false ? 'grayscale' : ''
-                  }`}
+                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
