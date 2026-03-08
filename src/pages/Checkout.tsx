@@ -132,6 +132,16 @@ export const Checkout = () => {
 
   const ALLOWED_STATES = ['andhra pradesh', 'telangana', 'karnataka', 'tamil nadu'];
 
+  // Check if current IST time is past 10 PM
+  const getIsAfter10PM = () => {
+    const now = new Date();
+    const istHour = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours();
+    return istHour >= 22;
+  };
+
+  const isAfter10PM = getIsAfter10PM();
+  const isDistanceTooFar = deliveryDistance > 10 && selectedAddress != null && selectedAddress.latitude != null;
+
   // Validate selected address whenever it changes or seller coordinates change
   useEffect(() => {
     if (selectedAddress?.latitude && selectedAddress?.longitude && sellerCoordinates) {
@@ -142,7 +152,13 @@ export const Checkout = () => {
         sellerCoordinates.longitude
       );
       setDeliveryDistance(distance);
-      setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
+      
+      // Override delivery time if after 10 PM
+      if (getIsAfter10PM()) {
+        setDeliveryTimeEstimate('Delivery Tomorrow');
+      } else {
+        setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
+      }
     } else {
       setDeliveryDistance(0);
       setDeliveryTimeEstimate(null);
