@@ -96,9 +96,11 @@ const POSSettings = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border p-3 flex items-center gap-3">
-        <SellerHamburgerMenu />
-        <h1 className="text-lg font-bold flex-1">POS Settings</h1>
+      <header className="bg-card border-b border-border p-3">
+        <div className="flex items-center gap-3">
+          <SellerHamburgerMenu />
+          <h1 className="text-lg font-bold flex-1">POS Settings</h1>
+        </div>
       </header>
 
       <div className="flex-1 p-4 max-w-lg mx-auto w-full">
