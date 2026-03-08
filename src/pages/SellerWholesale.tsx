@@ -211,6 +211,7 @@ const SellerWholesale = () => {
           product_id: c.id,
           product_name: c.product_name,
           barcode: c.barcode,
+          batch_number: c.batch_number || null,
           selling_price: c.selling_price,
           mrp: c.mrp,
           quantity: c.quantity
