@@ -23,13 +23,24 @@ const menuItems = [
     icon: BarChart3,
     type: "single"
   },
+  { 
+    title: "Users", 
+    url: "/dashboard/users", 
+    icon: Users,
+    type: "single"
+  },
+  { 
+    title: "Sellers", 
+    url: "/dashboard/sellers", 
+    icon: Store,
+    type: "single"
+  },
   {
     title: "Online Management",
     icon: Settings,
     type: "group",
     items: [
       { title: "Revenue", url: "/dashboard/revenue", icon: IndianRupee },
-      { title: "Users", url: "/dashboard/users", icon: Users },
       { title: "Orders", url: "/dashboard/orders", icon: FileText },
       { title: "Settlements", url: "/dashboard/settlements", icon: Wallet },
       { title: "Refunds", url: "/dashboard/refunds", icon: RotateCcw },
@@ -45,7 +56,6 @@ const menuItems = [
     icon: Store,
     type: "group",
     items: [
-      { title: "Sellers", url: "/dashboard/sellers", icon: Store },
       { title: "Wholesale Inventory", url: "/dashboard/wholesale-inventory", icon: Store },
       { title: "Wholesale Orders", url: "/dashboard/wholesale-orders", icon: FileText, badgeKey: "wholesaleOrders" },
       { title: "Production", url: "/dashboard/production", icon: Factory },
