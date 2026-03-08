@@ -255,18 +255,24 @@ const Users = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewProfile(user)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleViewOrders(user)}>
-                          <FileText className="h-4 w-4 mr-2" />
-                          View Orders
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleWalletTopUp(user)}>
-                          <Wallet className="h-4 w-4 mr-2" />
-                          Wallet Top Up
-                        </DropdownMenuItem>
+                        {hasPermission("users", "view_profile") && (
+                          <DropdownMenuItem onClick={() => handleViewProfile(user)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Profile
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission("users", "view_orders") && (
+                          <DropdownMenuItem onClick={() => handleViewOrders(user)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            View Orders
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission("users", "wallet_topup") && (
+                          <DropdownMenuItem onClick={() => handleWalletTopUp(user)}>
+                            <Wallet className="h-4 w-4 mr-2" />
+                            Wallet Top Up
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
