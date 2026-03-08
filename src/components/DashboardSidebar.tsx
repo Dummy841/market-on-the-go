@@ -24,7 +24,6 @@ const menuItems = [
     permissionKey: "employees",
     items: [
       { title: "Employees", url: "/dashboard/employees", icon: Users },
-      { title: "Roles", url: "/dashboard/roles", icon: ShieldCheck },
     ],
   },
   {
