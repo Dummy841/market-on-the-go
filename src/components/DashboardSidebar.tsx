@@ -158,7 +158,7 @@ export function DashboardSidebar() {
                             <NavLink
                               to={subItem.url}
                               className={({ isActive }) =>
-                                `flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs ${
+                                `flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
                                   isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"
                                 }`
                               }
