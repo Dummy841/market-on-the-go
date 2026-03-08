@@ -21,6 +21,7 @@ interface AdminAuthContextType {
   logout: () => void;
   isSuperAdmin: () => boolean;
   hasPermission: (section: string, action?: string) => boolean;
+  updateProfilePhoto: (url: string) => void;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -101,8 +102,16 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
     setAdmin(null);
   };
 
+  const updateProfilePhoto = (url: string) => {
+    if (admin) {
+      const updated = { ...admin, profile_photo_url: url };
+      setAdmin(updated);
+      localStorage.setItem("adminEmployee", JSON.stringify(updated));
+    }
+  };
+
   return (
-    <AdminAuthContext.Provider value={{ admin, loading, login, logout, isSuperAdmin, hasPermission }}>
+    <AdminAuthContext.Provider value={{ admin, loading, login, logout, isSuperAdmin, hasPermission, updateProfilePhoto }}>
       {children}
     </AdminAuthContext.Provider>
   );
