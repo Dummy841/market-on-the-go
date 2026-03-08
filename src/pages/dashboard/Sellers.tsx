@@ -181,31 +181,39 @@ const Sellers = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowDetailsModal(true);
-                    }}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowEditModal(true);
-                    }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Seller
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/dashboard/sellers/${seller.id}/sales`)}>
-                            <DollarSign className="mr-2 h-4 w-4" />
-                            View Sales
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                      setSelectedSeller(seller);
-                      setShowSettlementsModal(true);
-                    }}>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Settlements
-                          </DropdownMenuItem>
+                          {hasPermission("sellers", "view_details") && (
+                            <DropdownMenuItem onClick={() => {
+                        setSelectedSeller(seller);
+                        setShowDetailsModal(true);
+                      }}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
+                          )}
+                          {hasPermission("sellers", "edit") && (
+                            <DropdownMenuItem onClick={() => {
+                        setSelectedSeller(seller);
+                        setShowEditModal(true);
+                      }}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Seller
+                            </DropdownMenuItem>
+                          )}
+                          {hasPermission("sellers", "view_sales") && (
+                            <DropdownMenuItem onClick={() => navigate(`/dashboard/sellers/${seller.id}/sales`)}>
+                              <DollarSign className="mr-2 h-4 w-4" />
+                              View Sales
+                            </DropdownMenuItem>
+                          )}
+                          {hasPermission("sellers", "view_settlements") && (
+                            <DropdownMenuItem onClick={() => {
+                        setSelectedSeller(seller);
+                        setShowSettlementsModal(true);
+                      }}>
+                              <CreditCard className="mr-2 h-4 w-4" />
+                              Settlements
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
