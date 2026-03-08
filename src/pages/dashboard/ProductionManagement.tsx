@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Factory, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProductionEntry {
@@ -18,6 +19,7 @@ interface ProductionEntry {
 }
 
 const ProductionManagement = () => {
+  const { hasPermission } = useAdminAuth();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -108,13 +110,14 @@ const ProductionManagement = () => {
           <h2 className="text-xl font-semibold text-foreground">Production Management</h2>
           <p className="text-muted-foreground text-sm">Manage production entries and batches</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditEntry(null); }}>
-          <DialogTrigger asChild>
-            <Button onClick={openAdd}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Entry
-            </Button>
-          </DialogTrigger>
+        {hasPermission("production", "create") && (
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditEntry(null); }}>
+            <DialogTrigger asChild>
+              <Button onClick={openAdd}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Entry
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editEntry ? "Edit Production Entry" : "New Production Entry"}</DialogTitle>
@@ -155,6 +158,7 @@ const ProductionManagement = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="border-border">
@@ -192,9 +196,11 @@ const ProductionManagement = () => {
                     <TableCell>{entry.stock_quantity}</TableCell>
                     <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(entry)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      {hasPermission("production", "edit") && (
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(entry)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

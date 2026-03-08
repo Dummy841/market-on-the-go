@@ -17,6 +17,7 @@ import { WalletTopUpModal } from "@/components/WalletTopUpModal";
 import { formatDistanceToNow } from "date-fns";
 import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown, MoreVertical, Wallet, IndianRupee, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface User {
   id: string;
@@ -30,6 +31,7 @@ interface User {
 }
 
 const Users = () => {
+  const { hasPermission } = useAdminAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -253,18 +255,24 @@ const Users = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewProfile(user)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleViewOrders(user)}>
-                          <FileText className="h-4 w-4 mr-2" />
-                          View Orders
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleWalletTopUp(user)}>
-                          <Wallet className="h-4 w-4 mr-2" />
-                          Wallet Top Up
-                        </DropdownMenuItem>
+                        {hasPermission("users", "view_profile") && (
+                          <DropdownMenuItem onClick={() => handleViewProfile(user)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Profile
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission("users", "view_orders") && (
+                          <DropdownMenuItem onClick={() => handleViewOrders(user)}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            View Orders
+                          </DropdownMenuItem>
+                        )}
+                        {hasPermission("users", "wallet_topup") && (
+                          <DropdownMenuItem onClick={() => handleWalletTopUp(user)}>
+                            <Wallet className="h-4 w-4 mr-2" />
+                            Wallet Top Up
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, GripVertical, ImageIcon } from 'lucide-react';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ interface Banner {
 }
 
 const Banners = () => {
+  const { hasPermission } = useAdminAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -249,84 +251,86 @@ const Banners = () => {
           <h2 className="text-2xl font-bold text-foreground">Banner Management</h2>
           <p className="text-muted-foreground">Manage home screen banners</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Banner
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingBanner ? 'Edit Banner' : 'Add New Banner'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Welcome to Zippy"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="subtitle">Subtitle</Label>
-                <Input
-                  id="subtitle"
-                  value={formData.subtitle}
-                  onChange={(e) => setFormData(prev => ({ ...prev, subtitle: e.target.value }))}
-                  placeholder="Fast delivery at your doorstep"
-                />
-              </div>
+        {hasPermission("banners", "create") && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Banner
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingBanner ? 'Edit Banner' : 'Add New Banner'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Welcome to Zippy"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="subtitle">Subtitle</Label>
+                  <Input
+                    id="subtitle"
+                    value={formData.subtitle}
+                    onChange={(e) => setFormData(prev => ({ ...prev, subtitle: e.target.value }))}
+                    placeholder="Fast delivery at your doorstep"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="image">Banner Image</Label>
-                <div className="flex items-center gap-4">
-                  {formData.image_url && (
-                    <img
-                      src={formData.image_url}
-                      alt="Banner preview"
-                      className="h-20 w-32 object-cover rounded-md"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <Input
-                      id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={uploading}
-                    />
-                    {uploading && <p className="text-sm text-muted-foreground mt-1">Uploading...</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="image">Banner Image</Label>
+                  <div className="flex items-center gap-4">
+                    {formData.image_url && (
+                      <img
+                        src={formData.image_url}
+                        alt="Banner preview"
+                        className="h-20 w-32 object-cover rounded-md"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <Input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                      />
+                      {uploading && <p className="text-sm text-muted-foreground mt-1">Uploading...</p>}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
-                />
-                <Label htmlFor="active">Active</Label>
-              </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="active"
+                    checked={formData.is_active}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
+                  />
+                  <Label htmlFor="active">Active</Label>
+                </div>
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingBanner ? 'Update' : 'Create'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingBanner ? 'Update' : 'Create'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>
@@ -387,20 +391,24 @@ const Banners = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => openEditDialog(banner)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleDelete(banner.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasPermission("banners", "edit") && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openEditDialog(banner)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission("banners", "delete") && (
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDelete(banner.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

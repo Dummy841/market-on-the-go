@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { CheckCircle, Clock, Loader2, Upload, FileText, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface Settlement {
   id: string;
@@ -31,6 +32,7 @@ interface Settlement {
 }
 
 const Settlements = () => {
+  const { hasPermission } = useAdminAuth();
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "settled">("pending");
@@ -288,7 +290,7 @@ const Settlements = () => {
               )}
               {filter === "pending" ? "Pending Withdrawals" : "Settled Withdrawals"}
             </CardTitle>
-            {filter === "pending" && selectedIds.length > 0 && (
+            {filter === "pending" && selectedIds.length > 0 && hasPermission("settlements", "update") && (
               <Button 
                 onClick={handleSettleAll} 
                 disabled={settlingAll}

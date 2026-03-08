@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Search, Eye, Pencil, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import WholesaleProductModal from '@/components/WholesaleProductModal';
 import WholesaleProductViewModal from '@/components/WholesaleProductViewModal';
 import JsBarcode from 'jsbarcode';
@@ -29,6 +30,7 @@ interface WholesaleProduct {
 }
 
 const WholesaleInventory = () => {
+  const { hasPermission } = useAdminAuth();
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -168,9 +170,11 @@ const WholesaleInventory = () => {
               <Printer className="w-4 h-4 mr-2" /> Print Barcodes ({selectedIds.size})
             </Button>
           )}
-          <Button onClick={() => { setEditProduct(null); setShowAddModal(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Add Product
-          </Button>
+          {hasPermission("wholesale_inventory", "create") && (
+            <Button onClick={() => { setEditProduct(null); setShowAddModal(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Add Product
+            </Button>
+          )}
         </div>
       </div>
 
@@ -257,9 +261,11 @@ const WholesaleInventory = () => {
                         <Button size="icon" variant="ghost" onClick={() => setViewProduct(product)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { setEditProduct(product); setShowAddModal(true); }}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        {hasPermission("wholesale_inventory", "edit") && (
+                          <Button size="icon" variant="ghost" onClick={() => { setEditProduct(product); setShowAddModal(true); }}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

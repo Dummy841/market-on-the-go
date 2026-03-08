@@ -10,6 +10,7 @@ import CreateDeliveryPartnerForm from "@/components/CreateDeliveryPartnerForm";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface DeliveryPartner {
   id: string;
@@ -22,6 +23,7 @@ interface DeliveryPartner {
 }
 
 const DeliveryPartners = () => {
+  const { hasPermission } = useAdminAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingPartner, setEditingPartner] = useState<DeliveryPartner | null>(null);
   const [partners, setPartners] = useState<DeliveryPartner[]>([]);
@@ -122,10 +124,12 @@ const DeliveryPartners = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-foreground">Delivery Partners Management</h2>
-        <Button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add Partner
-        </Button>
+        {hasPermission("delivery_partners", "create") && (
+          <Button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add Partner
+          </Button>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -233,16 +237,20 @@ const DeliveryPartners = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(partner)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => togglePartnerActive(partner.id, partner.is_active)}
-                          >
-                            <Power className="mr-2 h-4 w-4" />
-                            {partner.is_active ? 'Deactivate' : 'Activate'}
-                          </DropdownMenuItem>
+                          {hasPermission("delivery_partners", "edit") && (
+                            <DropdownMenuItem onClick={() => handleEdit(partner)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {hasPermission("delivery_partners", "update") && (
+                            <DropdownMenuItem 
+                              onClick={() => togglePartnerActive(partner.id, partner.is_active)}
+                            >
+                              <Power className="mr-2 h-4 w-4" />
+                              {partner.is_active ? 'Deactivate' : 'Activate'}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

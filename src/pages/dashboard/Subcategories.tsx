@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Upload, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface Subcategory {
   id: string;
@@ -28,6 +29,7 @@ interface ServiceModule {
 }
 
 const Subcategories = () => {
+  const { hasPermission } = useAdminAuth();
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [modules, setModules] = useState<ServiceModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,13 +286,14 @@ const Subcategories = () => {
           <p className="text-muted-foreground text-sm">Manage subcategories for each category</p>
         </div>
 
-        <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setImageFile(null); setImagePreview(null); } }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Subcategory
-            </Button>
-          </DialogTrigger>
+        {hasPermission("subcategories", "create") && (
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setImageFile(null); setImagePreview(null); } }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Subcategory
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Subcategory</DialogTitle>
@@ -352,6 +355,7 @@ const Subcategories = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
@@ -396,12 +400,16 @@ const Subcategories = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(subcategory)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(subcategory.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasPermission("subcategories", "edit") && (
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(subcategory)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission("subcategories", "delete") && (
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(subcategory.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, UserX, UserCheck } from "lucide-react";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 const SUPERADMIN_MOBILE = "9502395261";
 
@@ -24,6 +25,7 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { hasPermission } = useAdminAuth();
 
   const fetchEmployees = async () => {
     const { data, error } = await supabase.from("admin_employees").select("*").order("created_at", { ascending: false });
@@ -45,7 +47,9 @@ const Employees = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Employee Management</h2>
-        <Button onClick={() => navigate("/dashboard/employees/add")}><Plus className="h-4 w-4 mr-2" /> Add Employee</Button>
+        {hasPermission("employees", "create") && (
+          <Button onClick={() => navigate("/dashboard/employees/add")}><Plus className="h-4 w-4 mr-2" /> Add Employee</Button>
+        )}
       </div>
 
       {loading ? (
@@ -82,12 +86,16 @@ const Employees = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/employees/${emp.id}/edit`)}>
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant={emp.is_active ? "destructive" : "default"} onClick={() => toggleActive(emp)}>
-                        {emp.is_active ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
-                      </Button>
+                      {hasPermission("employees", "edit") && (
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/employees/${emp.id}/edit`)}>
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {hasPermission("employees", "edit") && (
+                        <Button size="sm" variant={emp.is_active ? "destructive" : "default"} onClick={() => toggleActive(emp)}>
+                          {emp.is_active ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface ServiceModule {
   id: string;
@@ -22,6 +23,7 @@ interface ServiceModule {
 }
 
 const Modules = () => {
+  const { hasPermission } = useAdminAuth();
   const [modules, setModules] = useState<ServiceModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -290,12 +292,14 @@ const Modules = () => {
           setIsDialogOpen(open);
           if (!open) resetForm();
         }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Module
-            </Button>
-          </DialogTrigger>
+          {hasPermission("modules", "create") && (
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Module
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{editingModule ? 'Edit Module' : 'Create New Module'}</DialogTitle>
@@ -429,12 +433,16 @@ const Modules = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(module)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(module.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {hasPermission("modules", "edit") && (
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(module)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasPermission("modules", "delete") && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(module.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
