@@ -253,25 +253,11 @@ const POSTransactions = () => {
         <div className="flex items-center gap-3">
           <SellerHamburgerMenu />
           <h1 className="text-lg font-bold flex-1 md:flex-none">POS Transactions</h1>
-          <div className="flex items-center justify-end gap-3 text-right md:ml-auto">
-            <div>
-              <div className="text-[10px] text-muted-foreground">Purchase</div>
-              <div className="text-xs font-bold text-muted-foreground">₹{totalPurchase.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-muted-foreground">Sale</div>
-              <div className="text-xs font-bold text-primary">₹{totalSale.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] text-muted-foreground">Profit</div>
-              <div className={`text-xs font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>₹{totalProfit.toFixed(2)}</div>
-            </div>
-          </div>
         </div>
       </header>
 
-      {/* Date Filters */}
-      <div className="bg-card border-b border-border p-3 flex gap-2 items-center flex-wrap">
+      {/* Date Filters + Stats */}
+      <div className="bg-card border-b border-border p-3 flex gap-3 items-center flex-wrap">
         <Input
           type="date"
           value={selectedDate}
@@ -292,6 +278,20 @@ const POSTransactions = () => {
         >
           All
         </Button>
+        <div className="flex items-center gap-4 ml-auto">
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Purchase</div>
+            <div className="text-base font-bold text-muted-foreground">₹{totalPurchase.toFixed(2)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Sale</div>
+            <div className="text-base font-bold text-primary">₹{totalSale.toFixed(2)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">Profit</div>
+            <div className={`text-base font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>₹{totalProfit.toFixed(2)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Table */}
