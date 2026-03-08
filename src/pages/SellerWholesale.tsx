@@ -17,6 +17,7 @@ interface WholesaleProduct {
   product_name: string;
   barcode: string;
   category: string | null;
+  batch_number: string | null;
   mrp: number;
   selling_price: number;
   stock_quantity: number;
