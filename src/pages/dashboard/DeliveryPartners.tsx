@@ -237,16 +237,20 @@ const DeliveryPartners = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(partner)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => togglePartnerActive(partner.id, partner.is_active)}
-                          >
-                            <Power className="mr-2 h-4 w-4" />
-                            {partner.is_active ? 'Deactivate' : 'Activate'}
-                          </DropdownMenuItem>
+                          {hasPermission("delivery_partners", "edit") && (
+                            <DropdownMenuItem onClick={() => handleEdit(partner)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {hasPermission("delivery_partners", "update") && (
+                            <DropdownMenuItem 
+                              onClick={() => togglePartnerActive(partner.id, partner.is_active)}
+                            >
+                              <Power className="mr-2 h-4 w-4" />
+                              {partner.is_active ? 'Deactivate' : 'Activate'}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
