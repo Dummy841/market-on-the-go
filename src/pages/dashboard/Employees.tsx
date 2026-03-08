@@ -86,12 +86,16 @@ const Employees = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/employees/${emp.id}/edit`)}>
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant={emp.is_active ? "destructive" : "default"} onClick={() => toggleActive(emp)}>
-                        {emp.is_active ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
-                      </Button>
+                      {hasPermission("employees", "edit") && (
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/employees/${emp.id}/edit`)}>
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {hasPermission("employees", "edit") && (
+                        <Button size="sm" variant={emp.is_active ? "destructive" : "default"} onClick={() => toggleActive(emp)}>
+                          {emp.is_active ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
