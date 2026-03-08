@@ -19,7 +19,9 @@ interface OrderItem {
   seller_price: number;
   mrp: number;
   gst_percentage: number;
+  purchase_price?: number;
   id?: string;
+  item_id?: string;
 }
 
 interface PosOrder {
@@ -79,9 +81,35 @@ const POSTransactions = () => {
         const { data: users } = await supabase.from('users').select('id, name, mobile').in('id', userIds);
         if (users) users.forEach(u => { usersMap[u.id] = { name: u.name, mobile: u.mobile }; });
       }
+
+      // Collect all item IDs to fetch purchase prices
+      const allItemIds = new Set<string>();
+      data.forEach(o => {
+        const items = Array.isArray(o.items) ? o.items : [];
+        items.forEach((i: any) => {
+          const itemId = i.item_id || i.id;
+          if (itemId) allItemIds.add(itemId);
+        });
+      });
+
+      let purchasePriceMap: Record<string, number> = {};
+      if (allItemIds.size > 0) {
+        const ids = Array.from(allItemIds);
+        const { data: itemsData } = await supabase
+          .from('items')
+          .select('id, purchase_price')
+          .in('id', ids);
+        if (itemsData) {
+          itemsData.forEach(item => { purchasePriceMap[item.id] = Number(item.purchase_price); });
+        }
+      }
+
       setOrders(data.map(o => ({
         ...o,
-        items: (Array.isArray(o.items) ? o.items : []) as unknown as OrderItem[],
+        items: (Array.isArray(o.items) ? o.items : []).map((i: any) => ({
+          ...i,
+          purchase_price: purchasePriceMap[i.item_id || i.id] || 0,
+        })) as unknown as OrderItem[],
         customer_name: usersMap[o.user_id]?.name || (o.user_id === '00000000-0000-0000-0000-000000000000' ? 'Walk-in' : '-'),
         customer_mobile: usersMap[o.user_id]?.mobile || '',
       })));
@@ -93,7 +121,11 @@ const POSTransactions = () => {
     if (seller) fetchOrders();
   }, [seller, selectedDate, filterMode]);
 
-  const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  const totalSale = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  const totalPurchase = orders.reduce((sum, o) => {
+    return sum + o.items.reduce((s, i) => s + ((i.purchase_price || 0) * i.quantity), 0);
+  }, 0);
+  const totalProfit = totalSale - totalPurchase;
 
   const getPaymentLabel = (method: string) => {
     if (method === 'cash') return 'CASH';
@@ -219,10 +251,20 @@ const POSTransactions = () => {
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
         <SellerHamburgerMenu />
-        <h1 className="text-lg font-bold flex-1">POS Transactions</h1>
-        <div className="text-right">
-          <div className="text-xs text-muted-foreground">Total</div>
-          <div className="text-sm font-bold text-primary">₹{totalAmount.toFixed(2)}</div>
+        <h1 className="text-lg font-bold">POS Transactions</h1>
+        <div className="flex-1 flex items-center justify-end gap-3 text-right">
+          <div>
+            <div className="text-[10px] text-muted-foreground">Purchase</div>
+            <div className="text-xs font-bold text-muted-foreground">₹{totalPurchase.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground">Sale</div>
+            <div className="text-xs font-bold text-primary">₹{totalSale.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground">Profit</div>
+            <div className={`text-xs font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>₹{totalProfit.toFixed(2)}</div>
+          </div>
         </div>
       </header>
 
