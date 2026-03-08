@@ -419,9 +419,7 @@ const RestaurantMenu = () => {
                     <div className="flex items-center gap-0.5">
                       <Clock className="h-3 w-3 flex-shrink-0" />
                       <span>
-                        {restaurant.is_online !== false
-                          ? restaurant.deliveryTime || '25-35 min'
-                          : 'Offline'}
+                        {restaurant.deliveryTime || '25-35 min'}
                       </span>
                     </div>
                     <div className="flex items-center gap-0.5">
