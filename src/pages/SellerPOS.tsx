@@ -42,13 +42,13 @@ const SellerPOS = () => {
     try {
       const saved = localStorage.getItem(`pos_cart_${seller?.id}`);
       return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+    } catch {return [];}
   });
 
   const setCart = (updater: CartItem[] | ((prev: CartItem[]) => CartItem[])) => {
-    setCartState(prev => {
+    setCartState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      try { localStorage.setItem(`pos_cart_${seller?.id}`, JSON.stringify(next)); } catch {}
+      try {localStorage.setItem(`pos_cart_${seller?.id}`, JSON.stringify(next));} catch {}
       return next;
     });
   };
@@ -57,14 +57,14 @@ const SellerPOS = () => {
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'external' | null>(null);
   const [onlinePendingCount, setOnlinePendingCount] = useState(0);
-  
+
   const [dialogSearchQuery, setDialogSearchQuery] = useState('');
   const [allProducts, setAllProducts] = useState<Item[]>([]);
   const [barcodeDropdownOpen, setBarcodeDropdownOpen] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const barcodeFilteredProducts = allProducts.filter(item => {
+  const barcodeFilteredProducts = allProducts.filter((item) => {
     if (!barcodeInput.trim()) return false;
     return item.barcode?.toLowerCase().includes(barcodeInput.toLowerCase());
   });
@@ -85,14 +85,14 @@ const SellerPOS = () => {
 
   const fetchAllProducts = useCallback(async () => {
     if (!seller) return;
-    const { data } = await supabase
-      .from('items')
-      .select('id, item_name, barcode, mrp, seller_price, gst_percentage, stock_quantity, item_photo_url')
-      .eq('seller_id', seller.id)
-      .eq('is_active', true)
-      .order('item_name');
+    const { data } = await supabase.
+    from('items').
+    select('id, item_name, barcode, mrp, seller_price, gst_percentage, stock_quantity, item_photo_url').
+    eq('seller_id', seller.id).
+    eq('is_active', true).
+    order('item_name');
     // Cast to include telugu_name which may come from DB
-    setAllProducts((data as any[])?.map(d => ({ ...d, telugu_name: d.telugu_name || null })) || []);
+    setAllProducts((data as any[])?.map((d) => ({ ...d, telugu_name: d.telugu_name || null })) || []);
   }, [seller]);
 
   useEffect(() => {
@@ -104,12 +104,12 @@ const SellerPOS = () => {
 
   const fetchOnlinePendingCount = useCallback(async () => {
     if (!seller) return;
-    const { data } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('seller_id', seller.id)
-      .neq('delivery_address', 'POS - In Store')
-      .in('seller_status', ['pending', 'accepted']);
+    const { data } = await supabase.
+    from('orders').
+    select('id').
+    eq('seller_id', seller.id).
+    neq('delivery_address', 'POS - In Store').
+    in('seller_status', ['pending', 'accepted']);
     setOnlinePendingCount(data?.length || 0);
   }, [seller]);
 
@@ -118,47 +118,47 @@ const SellerPOS = () => {
       const audio = new Audio('/ringtone.mp3');
       orderSoundRef.current = audio;
       audio.play();
-      setTimeout(() => { audio.pause(); audio.currentTime = 0; orderSoundRef.current = null; }, 2000);
-    } catch (e) { console.error('Sound error:', e); }
+      setTimeout(() => {audio.pause();audio.currentTime = 0;orderSoundRef.current = null;}, 2000);
+    } catch (e) {console.error('Sound error:', e);}
   }, []);
 
   useEffect(() => {
     if (!seller) return;
     fetchOnlinePendingCount();
 
-    const channel = supabase
-      .channel('pos-online-orders')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'orders',
-        filter: `seller_id=eq.${seller.id}`
-      }, payload => {
-        const newOrder = payload.new as any;
-        if (newOrder.delivery_address === 'POS - In Store') return;
-        setOnlinePendingCount(prev => prev + 1);
-        playOrderSound();
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders',
-        filter: `seller_id=eq.${seller.id}`
-      }, () => {
-        fetchOnlinePendingCount();
-      })
-      .subscribe();
+    const channel = supabase.
+    channel('pos-online-orders').
+    on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'orders',
+      filter: `seller_id=eq.${seller.id}`
+    }, (payload) => {
+      const newOrder = payload.new as any;
+      if (newOrder.delivery_address === 'POS - In Store') return;
+      setOnlinePendingCount((prev) => prev + 1);
+      playOrderSound();
+    }).
+    on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'orders',
+      filter: `seller_id=eq.${seller.id}`
+    }, () => {
+      fetchOnlinePendingCount();
+    }).
+    subscribe();
 
     return () => {
       supabase.removeChannel(channel);
-      if (orderSoundRef.current) { orderSoundRef.current.pause(); orderSoundRef.current = null; }
+      if (orderSoundRef.current) {orderSoundRef.current.pause();orderSoundRef.current = null;}
     };
   }, [seller, fetchOnlinePendingCount, playOrderSound]);
 
-  const filteredProducts = allProducts.filter(item => {
+  const filteredProducts = allProducts.filter((item) => {
     if (!dialogSearchQuery.trim()) return true;
     const q = dialogSearchQuery.toLowerCase();
-    return item.item_name.toLowerCase().includes(q) || (item.barcode && item.barcode.toLowerCase().includes(q));
+    return item.item_name.toLowerCase().includes(q) || item.barcode && item.barcode.toLowerCase().includes(q);
   });
 
   const playBeep = useCallback(() => {
@@ -175,14 +175,14 @@ const SellerPOS = () => {
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.15);
-    } catch { /* ignore */ }
+    } catch {/* ignore */}
   }, []);
 
   const addToCart = (item: Item) => {
     playBeep();
-    setCart(prev => {
-      const existing = prev.find(c => c.id === item.id);
-      if (existing) return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+    setCart((prev) => {
+      const existing = prev.find((c) => c.id === item.id);
+      if (existing) return prev.map((c) => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       return [...prev, { ...item, quantity: 1 }];
     });
     setShowSearchDialog(false);
@@ -192,43 +192,43 @@ const SellerPOS = () => {
   const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!seller || !barcodeInput.trim()) return;
-    const { data } = await supabase
-      .from('items')
-      .select('id, item_name, barcode, mrp, seller_price, gst_percentage, stock_quantity, item_photo_url')
-      .eq('seller_id', seller.id)
-      .eq('barcode', barcodeInput.trim())
-      .eq('is_active', true)
-      .maybeSingle();
-    if (data) { addToCart({ ...(data as any), telugu_name: (data as any).telugu_name || null }); setBarcodeInput(''); setBarcodeDropdownOpen(false); }
-    else toast({ variant: 'destructive', title: 'Not Found', description: `No product with barcode "${barcodeInput}"` });
+    const { data } = await supabase.
+    from('items').
+    select('id, item_name, barcode, mrp, seller_price, gst_percentage, stock_quantity, item_photo_url').
+    eq('seller_id', seller.id).
+    eq('barcode', barcodeInput.trim()).
+    eq('is_active', true).
+    maybeSingle();
+    if (data) {addToCart({ ...(data as any), telugu_name: (data as any).telugu_name || null });setBarcodeInput('');setBarcodeDropdownOpen(false);} else
+    toast({ variant: 'destructive', title: 'Not Found', description: `No product with barcode "${barcodeInput}"` });
     setBarcodeInput('');
     setBarcodeDropdownOpen(false);
   };
 
   const updateQty = (id: string, delta: number) => {
-    setCart(prev => prev.map(c => c.id === id ? { ...c, quantity: Math.max(1, c.quantity + delta) } : c));
+    setCart((prev) => prev.map((c) => c.id === id ? { ...c, quantity: Math.max(1, c.quantity + delta) } : c));
   };
 
-  const removeItem = (id: string) => setCart(prev => prev.filter(c => c.id !== id));
+  const removeItem = (id: string) => setCart((prev) => prev.filter((c) => c.id !== id));
 
-  const getDisc = (item: CartItem) => item.mrp > 0 ? ((item.mrp - item.seller_price) / item.mrp * 100) : 0;
-  const getTax = (item: CartItem) => (item.seller_price * item.quantity * item.gst_percentage) / 100;
+  const getDisc = (item: CartItem) => item.mrp > 0 ? (item.mrp - item.seller_price) / item.mrp * 100 : 0;
+  const getTax = (item: CartItem) => item.seller_price * item.quantity * item.gst_percentage / 100;
   const getNet = (item: CartItem) => item.seller_price * item.quantity;
 
   const totals = cart.reduce((acc, item) => ({
     items: acc.items + 1,
     qty: acc.qty + item.quantity,
-    disc: acc.disc + ((item.mrp - item.seller_price) * item.quantity),
+    disc: acc.disc + (item.mrp - item.seller_price) * item.quantity,
     tax: acc.tax + getTax(item),
-    mrp: acc.mrp + (item.mrp * item.quantity),
-    net: acc.net + getNet(item),
+    mrp: acc.mrp + item.mrp * item.quantity,
+    net: acc.net + getNet(item)
   }), { items: 0, qty: 0, disc: 0, tax: 0, mrp: 0, net: 0 });
 
   const handleScannedItems = (items: CartItem[]) => {
-    items.forEach(scannedItem => {
-      setCart(prev => {
-        const existing = prev.find(c => c.id === scannedItem.id);
-        if (existing) return prev.map(c => c.id === scannedItem.id ? { ...c, quantity: c.quantity + scannedItem.quantity } : c);
+    items.forEach((scannedItem) => {
+      setCart((prev) => {
+        const existing = prev.find((c) => c.id === scannedItem.id);
+        if (existing) return prev.map((c) => c.id === scannedItem.id ? { ...c, quantity: c.quantity + scannedItem.quantity } : c);
         return [...prev, scannedItem];
       });
     });
@@ -249,14 +249,14 @@ const SellerPOS = () => {
         <div className="flex items-center gap-3">
           <SellerHamburgerMenu />
           <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
-          <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')} className="relative">
-            <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
-            {onlinePendingCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">
-                {onlinePendingCount}
-              </span>
-            )}
-          </Button>
+          
+
+
+
+
+
+
+          
         </div>
       </header>
 
@@ -268,8 +268,8 @@ const SellerPOS = () => {
             readOnly
             placeholder="Search product..."
             onClick={() => setShowSearchDialog(true)}
-            className="pl-9 cursor-pointer"
-          />
+            className="pl-9 cursor-pointer" />
+          
         </div>
 
         <div className="relative flex-1 min-w-[200px]">
@@ -279,28 +279,28 @@ const SellerPOS = () => {
                 ref={barcodeRef}
                 placeholder="Enter barcode..."
                 value={barcodeInput}
-                onChange={e => { setBarcodeInput(e.target.value); setBarcodeDropdownOpen(true); }}
+                onChange={(e) => {setBarcodeInput(e.target.value);setBarcodeDropdownOpen(true);}}
                 onFocus={() => barcodeInput && setBarcodeDropdownOpen(true)}
-                className="flex-1"
-              />
-              {barcodeDropdownOpen && barcodeFilteredProducts.length > 0 && (
-                <div className="absolute z-50 top-full left-0 right-0 bg-card border border-border rounded-b-lg shadow-lg max-h-60 overflow-y-auto">
-                  {barcodeFilteredProducts.map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="w-full p-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
-                      onClick={() => { addToCart(item); setBarcodeInput(''); setBarcodeDropdownOpen(false); }}
-                    >
+                className="flex-1" />
+              
+              {barcodeDropdownOpen && barcodeFilteredProducts.length > 0 &&
+              <div className="absolute z-50 top-full left-0 right-0 bg-card border border-border rounded-b-lg shadow-lg max-h-60 overflow-y-auto">
+                  {barcodeFilteredProducts.map((item) =>
+                <button
+                  key={item.id}
+                  type="button"
+                  className="w-full p-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
+                  onClick={() => {addToCart(item);setBarcodeInput('');setBarcodeDropdownOpen(false);}}>
+                  
                       <div>
                         <div className="font-medium text-sm">{item.item_name}</div>
                         <div className="text-xs text-muted-foreground">{item.barcode || '-'}</div>
                       </div>
                       <div className="text-sm font-semibold">₹{item.seller_price}</div>
                     </button>
-                  ))}
+                )}
                 </div>
-              )}
+              }
             </div>
             <Button type="submit" size="icon" variant="outline">
               <Search className="w-4 h-4" />
@@ -318,14 +318,14 @@ const SellerPOS = () => {
 
       {/* Cart Table */}
       <div className="flex-1 overflow-y-auto min-h-0 p-2">
-        {cart.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-20">
+        {cart.length === 0 ?
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-20">
             <Search className="w-12 h-12" />
             <p className="text-lg font-medium">No items in cart</p>
             <p className="text-sm">Search or scan products to add them</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
+          </div> :
+
+        <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -341,8 +341,8 @@ const SellerPOS = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cart.map((item, idx) => (
-                  <TableRow key={item.id}>
+                {cart.map((item, idx) =>
+              <TableRow key={item.id}>
                     <TableCell className="font-medium text-xs sticky left-0 bg-background z-10">{idx + 1}</TableCell>
                     <TableCell className="font-medium text-xs max-w-[120px] truncate">{item.item_name}</TableCell>
                     <TableCell>
@@ -367,16 +367,16 @@ const SellerPOS = () => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+              )}
               </TableBody>
             </Table>
           </div>
-        )}
+        }
       </div>
 
       {/* Bottom Summary */}
-      {cart.length > 0 && (
-        <div className="bg-card border-t border-border p-3" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}>
+      {cart.length > 0 &&
+      <div className="bg-card border-t border-border p-3" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}>
           <div className="flex flex-wrap gap-4 text-sm mb-3 justify-between">
             <div><span className="text-muted-foreground">Items:</span> <span className="font-semibold">{totals.items}</span></div>
             <div><span className="text-muted-foreground">Qty:</span> <span className="font-semibold">{totals.qty}</span></div>
@@ -389,39 +389,39 @@ const SellerPOS = () => {
             Proceed to Checkout — ₹{totals.net.toFixed(2)}
           </Button>
         </div>
-      )}
+      }
 
-      {showCheckout && (
-        <POSCheckoutModal
-          open={showCheckout}
-          onOpenChange={setShowCheckout}
-          totalAmount={totals.net}
-          cart={cart}
-          sellerId={seller.id}
-          sellerName={seller.seller_name}
-          onPaymentComplete={handlePaymentComplete}
-        />
-      )}
+      {showCheckout &&
+      <POSCheckoutModal
+        open={showCheckout}
+        onOpenChange={setShowCheckout}
+        totalAmount={totals.net}
+        cart={cart}
+        sellerId={seller.id}
+        sellerName={seller.seller_name}
+        onPaymentComplete={handlePaymentComplete} />
 
-      {scannerMode === 'camera' && (
-        <POSBarcodeScannerModal
-          open={true}
-          onOpenChange={() => setScannerMode(null)}
-          sellerId={seller.id}
-          onItemsScanned={handleScannedItems}
-          mode="camera"
-        />
-      )}
+      }
 
-      {scannerMode === 'external' && (
-        <POSBarcodeScannerModal
-          open={true}
-          onOpenChange={() => setScannerMode(null)}
-          sellerId={seller.id}
-          onItemsScanned={handleScannedItems}
-          mode="external"
-        />
-      )}
+      {scannerMode === 'camera' &&
+      <POSBarcodeScannerModal
+        open={true}
+        onOpenChange={() => setScannerMode(null)}
+        sellerId={seller.id}
+        onItemsScanned={handleScannedItems}
+        mode="camera" />
+
+      }
+
+      {scannerMode === 'external' &&
+      <POSBarcodeScannerModal
+        open={true}
+        onOpenChange={() => setScannerMode(null)}
+        sellerId={seller.id}
+        onItemsScanned={handleScannedItems}
+        mode="external" />
+
+      }
 
       {/* Search Products Dialog */}
       <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>
@@ -434,40 +434,40 @@ const SellerPOS = () => {
             <Input
               placeholder="Search by name or barcode..."
               value={dialogSearchQuery}
-              onChange={e => setDialogSearchQuery(e.target.value)}
+              onChange={(e) => setDialogSearchQuery(e.target.value)}
               className="pl-9 border-2 border-primary"
-              autoFocus
-            />
+              autoFocus />
+            
           </div>
           <div className="flex-1 overflow-y-auto -mx-6 px-6">
-            {filteredProducts.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No products found</p>
-            ) : (
-              filteredProducts.map(item => (
-                <button
-                  key={item.id}
-                  className="w-full py-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
-                  onClick={() => addToCart(item)}
-                >
+            {filteredProducts.length === 0 ?
+            <p className="text-center text-muted-foreground py-8">No products found</p> :
+
+            filteredProducts.map((item) =>
+            <button
+              key={item.id}
+              className="w-full py-3 text-left hover:bg-accent flex justify-between items-center border-b border-border last:border-0"
+              onClick={() => addToCart(item)}>
+              
                   <div>
                     <div className="font-semibold text-sm">{item.item_name}</div>
                     <div className="text-xs text-muted-foreground">{item.barcode || '-'} • Stock: {item.stock_quantity}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold text-sm">₹{Number(item.seller_price).toFixed(2)}</div>
-                    {item.mrp > item.seller_price && (
-                      <div className="text-xs text-muted-foreground line-through">₹{Number(item.mrp).toFixed(2)}</div>
-                    )}
+                    {item.mrp > item.seller_price &&
+                <div className="text-xs text-muted-foreground line-through">₹{Number(item.mrp).toFixed(2)}</div>
+                }
                   </div>
                 </button>
-              ))
-            )}
+            )
+            }
           </div>
         </DialogContent>
       </Dialog>
 
-    </div>
-  );
+    </div>);
+
 };
 
 export default SellerPOS;
