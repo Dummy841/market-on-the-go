@@ -1,60 +1,86 @@
 
 
-## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
+# Admin Login & Employee Management System
 
-### 1. Fix POS Header Under Status Bar
-The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
+## Overview
+Create a secure admin login system with mobile + password authentication, and an employee management module for managing admin panel access.
 
-**File:** `src/pages/SellerPOS.tsx` (line 237)
+## Database Changes
 
-### 2. Show All Cart Columns on Mobile (Reorder)
-Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
+### 1. New `admin_employees` table
+```sql
+CREATE TABLE public.admin_employees (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  mobile text NOT NULL UNIQUE,
+  email text,
+  profile_photo_url text,
+  password_hash text NOT NULL,
+  role text NOT NULL DEFAULT 'employee', -- 'admin', 'employee', 'manager', etc.
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.admin_employees ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access to admin_employees" ON public.admin_employees FOR ALL USING (true) WITH CHECK (true);
+```
 
-Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
+### 2. Seed initial admin account
+- Mobile: `9502395261`
+- Role: `admin`
+- Password: Auto-generated strong password (e.g., `Zippy@Admin2026!`) using `hash_password()` function (already exists in DB)
 
-**File:** `src/pages/SellerPOS.tsx`
+## New Pages & Components
 
-### 3. Persist Cart in localStorage Instead of sessionStorage
-Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
+### 1. Admin Login Page (`/admin-login`)
+- Mobile number input (10-digit Indian validation)
+- Password input with show/hide toggle
+- Password validation: must contain uppercase, lowercase, number, and special character
+- On success: store admin session in localStorage (`adminEmployee` object + session token) and redirect to `/dashboard`
+- Verify credentials using `verify_password()` DB function (already exists)
 
-**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
+### 2. Admin Auth Context (`AdminAuthContext.tsx`)
+- Manages admin employee session state
+- `login(mobile, password)` — verifies against `admin_employees` table
+- `logout()` — clears session
+- Wraps the Dashboard route to protect it
 
-### 4. Faster UPI QR Code Generation
-Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
+### 3. Dashboard Route Protection
+- Wrap `/dashboard` route with admin auth check
+- If not logged in, redirect to `/admin-login`
 
-**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
+### 4. Employee Management Page (`/dashboard/employees`)
+- Table listing all employees: name, mobile, email, role, status, actions
+- "Add Employee" button opens a form dialog with fields:
+  - Employee Name (required)
+  - Mobile (required, Indian validation)
+  - Email (optional)
+  - Profile Photo (upload to `seller-profiles` bucket)
+  - Password (required, alphanumeric + special char validation)
+  - Role (select: admin, manager, employee)
+- Edit/deactivate employees from the table
+- Employees can change their own password via a button in the dashboard header
 
-Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
+### 5. Change Password in Dashboard Header
+- Add logged-in employee name + "Change Password" option in the dashboard header
+- Reuse the existing `ChangePasswordModal` pattern but adapted for `admin_employees` table
 
-### 5. Add Telugu Name Fields to Seller Items
-**Database migration:** Add `telugu_name` column to the `items` table.
+## Sidebar Changes
+- Add "Employee Management" as a sub-item under the existing "Sellers" top-level item, OR as a new standalone item after Sellers
+- Route: `/dashboard/employees`
 
-**Files:**
-- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
-- `src/components/EditItemModal.tsx` — Same fields for editing.
-- Save `telugu_name` to the items table.
+## Routing Changes (`App.tsx`)
+- Add `/admin-login` route
+- Add `/dashboard/employees` nested route
+- Protect `/dashboard` with admin auth
 
-For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
+## Security Notes
+- Passwords hashed server-side using existing `hash_password()` function
+- Verification via existing `verify_password()` function
+- Session stored in localStorage with admin employee data (no Supabase Auth involved, consistent with seller auth pattern)
 
-### 6. Bilingual Receipt Printing (Telugu / English)
-Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
-
-- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
-- "Print in English" prints current receipt as-is.
-- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
-
-**Files:**
-- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
-- Update CartItem interface to include `telugu_name`.
-- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
-
-### Summary of Changes
-
-| File | Change |
-|------|--------|
-| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
-| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
-| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
-| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
-| **Database migration** | Add `telugu_name text` column to `items` table |
+## Initial Credentials
+After implementation, the admin account will be:
+- **Mobile**: 9502395261
+- **Password**: `Zippy@Admin2026!` (must change after first login)
 
