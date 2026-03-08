@@ -542,8 +542,8 @@ const SellerWholesale = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border p-3 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <SellerHamburgerMenu />
             <h1 className="text-lg font-bold">Wholesale Shop</h1>
           </div>

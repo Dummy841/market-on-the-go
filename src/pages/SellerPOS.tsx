@@ -245,17 +245,19 @@ const SellerPOS = () => {
   return (
     <div className="fixed inset-0 bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
-      <header className="bg-card border-b border-border p-3 flex items-center gap-3">
-        <SellerHamburgerMenu />
-        <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
-        <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')} className="relative">
-          <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
-          {onlinePendingCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">
-              {onlinePendingCount}
-            </span>
-          )}
-        </Button>
+      <header className="bg-card border-b border-border p-3">
+        <div className="flex items-center gap-3">
+          <SellerHamburgerMenu />
+          <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
+          <Button variant="outline" size="sm" onClick={() => navigate('/seller-dashboard')} className="relative">
+            <ShoppingBag className="w-4 h-4 mr-1" /> Dashboard
+            {onlinePendingCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">
+                {onlinePendingCount}
+              </span>
+            )}
+          </Button>
+        </div>
       </header>
 
       {/* Search & Barcode Bar */}
