@@ -432,11 +432,14 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
           {/* Batch No & Stock Qty */}
           <div>
             <Label>Batch No & Stock Qty</Label>
-            {selectedItemName && itemBatches.length > 0 ? (
+            {itemBatches.length > 0 ? (
               <div className="space-y-2">
-                <Select value={selectedBatchId} onValueChange={handleBatchSelect}>
+                <Select
+                  value={selectedBatchId}
+                  onValueChange={handleBatchSelect}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select batch" />
+                    <SelectValue placeholder={form.batch_number ? `Batch: ${form.batch_number}` : "Select batch"} />
                   </SelectTrigger>
                   <SelectContent className="z-[9999]">
                     {itemBatches.map(batch => (
@@ -446,6 +449,9 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
                     ))}
                   </SelectContent>
                 </Select>
+                {form.batch_number && (
+                  <p className="text-xs text-muted-foreground">Selected: <span className="font-semibold text-foreground">{form.batch_number}</span></p>
+                )}
                 <Input
                   type="number"
                   value={form.stock_quantity}
@@ -454,12 +460,20 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
                 />
               </div>
             ) : (
-              <Input
-                type="number"
-                value={form.stock_quantity}
-                onChange={e => setForm(f => ({ ...f, stock_quantity: Number(e.target.value) }))}
-                placeholder="Enter stock quantity"
-              />
+              <div className="space-y-2">
+                <Input
+                  value={form.batch_number}
+                  onChange={e => setForm(f => ({ ...f, batch_number: e.target.value }))}
+                  placeholder="Enter batch number"
+                />
+                <Input
+                  type="number"
+                  value={form.stock_quantity}
+                  onChange={e => setForm(f => ({ ...f, stock_quantity: Number(e.target.value) }))}
+                  placeholder="Enter stock quantity"
+                />
+              </div>
+            )}
             )}
           </div>
 
