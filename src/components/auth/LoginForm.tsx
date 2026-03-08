@@ -23,6 +23,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [error, setError] = useState("");
+  const [reusedMessage, setReusedMessage] = useState("");
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
   const isVerifyingRef = useRef(false);
