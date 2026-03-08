@@ -391,20 +391,24 @@ const Banners = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => openEditDialog(banner)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleDelete(banner.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasPermission("banners", "edit") && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openEditDialog(banner)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission("banners", "delete") && (
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDelete(banner.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -286,13 +286,14 @@ const Subcategories = () => {
           <p className="text-muted-foreground text-sm">Manage subcategories for each category</p>
         </div>
 
-        <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setImageFile(null); setImagePreview(null); } }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Subcategory
-            </Button>
-          </DialogTrigger>
+        {hasPermission("subcategories", "create") && (
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) { setImageFile(null); setImagePreview(null); } }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Subcategory
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Subcategory</DialogTitle>
