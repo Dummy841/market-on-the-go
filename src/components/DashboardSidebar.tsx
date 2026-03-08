@@ -123,7 +123,7 @@ export function DashboardSidebar() {
                       }
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {(open || isMobile) && <span className="truncate text-sm">{item.title}</span>}
+                      {(open || isMobile) && <span className="truncate text-base">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </div>
