@@ -650,7 +650,7 @@ export const Checkout = () => {
             <Textarea placeholder="Any instructions for the restaurant or delivery partner?" value={instructions} onChange={e => setInstructions(e.target.value)} className="mt-3" />
             
             {/* Expected Delivery Time */}
-            {deliveryTimeEstimate && isDeliveryStateValid && (
+            {deliveryTimeEstimate && isDeliveryStateValid && !isDistanceTooFar && (
               <div className="mt-3 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
                 <span className="text-sm font-medium text-blue-700">Expected Delivery:</span>
                 <span className="text-sm text-blue-600">{deliveryTimeEstimate}</span>
