@@ -170,9 +170,11 @@ const WholesaleInventory = () => {
               <Printer className="w-4 h-4 mr-2" /> Print Barcodes ({selectedIds.size})
             </Button>
           )}
-          <Button onClick={() => { setEditProduct(null); setShowAddModal(true); }}>
-            <Plus className="w-4 h-4 mr-2" /> Add Product
-          </Button>
+          {hasPermission("wholesale_inventory", "create") && (
+            <Button onClick={() => { setEditProduct(null); setShowAddModal(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Add Product
+            </Button>
+          )}
         </div>
       </div>
 

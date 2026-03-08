@@ -165,7 +165,7 @@ const WholesaleOrders = () => {
                         <Button size="icon" variant="ghost" onClick={() => { setViewOrder(order); setProofUrl(order.payment_proof_url); }}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {order.payment_status === 'pending' && (
+                        {order.payment_status === 'pending' && hasPermission("wholesale_orders", "update") && (
                           <>
                             <Button size="icon" variant="ghost" className="text-green-600" onClick={() => updateOrder(order.id, { payment_status: 'verified' })}>
                               <CheckCircle className="w-4 h-4" />
@@ -175,12 +175,12 @@ const WholesaleOrders = () => {
                             </Button>
                           </>
                         )}
-                        {order.payment_status === 'verified' && order.order_status === 'pending' && (
+                        {order.payment_status === 'verified' && order.order_status === 'pending' && hasPermission("wholesale_orders", "update") && (
                           <Button size="icon" variant="ghost" onClick={() => updateOrder(order.id, { order_status: 'dispatched' })}>
                             <Truck className="w-4 h-4" />
                           </Button>
                         )}
-                        {order.order_status === 'dispatched' && (
+                        {order.order_status === 'dispatched' && hasPermission("wholesale_orders", "update") && (
                           <Button size="icon" variant="ghost" className="text-green-600" onClick={() => setPinOrder(order)} title="Mark as Delivered">
                             <PackageCheck className="w-4 h-4" />
                           </Button>

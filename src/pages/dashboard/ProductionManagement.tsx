@@ -110,13 +110,14 @@ const ProductionManagement = () => {
           <h2 className="text-xl font-semibold text-foreground">Production Management</h2>
           <p className="text-muted-foreground text-sm">Manage production entries and batches</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditEntry(null); }}>
-          <DialogTrigger asChild>
-            <Button onClick={openAdd}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Entry
-            </Button>
-          </DialogTrigger>
+        {hasPermission("production", "create") && (
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditEntry(null); }}>
+            <DialogTrigger asChild>
+              <Button onClick={openAdd}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Entry
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editEntry ? "Edit Production Entry" : "New Production Entry"}</DialogTitle>
