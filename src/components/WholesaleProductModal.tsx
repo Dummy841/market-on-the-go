@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Camera, X, Upload, ScanBarcode } from 'lucide-react';
+import { Camera, X, Upload, ScanBarcode, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -22,6 +22,13 @@ interface WholesaleProduct {
   gst_percentage: number;
   show_in_quick_add: boolean;
   is_active: boolean;
+}
+
+interface ProductionEntry {
+  id: string;
+  item_name: string;
+  batch_number: string;
+  stock_quantity: number;
 }
 
 interface Props {
@@ -54,8 +61,18 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
+  // Production entries state
+  const [productionItems, setProductionItems] = useState<ProductionEntry[]>([]);
+  const [productNameSearch, setProductNameSearch] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [selectedItemName, setSelectedItemName] = useState('');
+  const [itemBatches, setItemBatches] = useState<ProductionEntry[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const productNameRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchSubcategories();
+    fetchProductionItems();
     if (product) {
       setForm({
         product_name: product.product_name,
@@ -70,11 +87,49 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         show_in_quick_add: product.show_in_quick_add,
         is_active: product.is_active,
       });
+      setProductNameSearch(product.product_name);
+      setSelectedItemName(product.product_name);
       fetchProductImages(product.id);
     } else {
       generateBarcode();
     }
   }, [product]);
+
+  // Fetch batches when item name is selected
+  useEffect(() => {
+    if (selectedItemName) {
+      const batches = productionItems.filter(p => p.item_name === selectedItemName);
+      setItemBatches(batches);
+      setSelectedBatchId('');
+    } else {
+      setItemBatches([]);
+      setSelectedBatchId('');
+    }
+  }, [selectedItemName, productionItems]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (productNameRef.current && !productNameRef.current.contains(e.target as Node)) {
+        setShowProductDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const fetchProductionItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('production_entries' as any)
+        .select('*')
+        .order('item_name');
+      if (error) throw error;
+      setProductionItems((data as any) || []);
+    } catch (err) {
+      console.error('Error fetching production items:', err);
+    }
+  };
 
   const fetchSubcategories = async () => {
     const { data } = await supabase.from('subcategories').select('id, name, category').eq('is_active', true).order('name');
@@ -97,7 +152,6 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         .select('*')
         .limit(1)
         .single();
-
       if (error) throw error;
       const nextBarcode = ((data as any).last_barcode || 10000) + 1;
       setForm(f => ({ ...f, barcode: String(nextBarcode) }));
@@ -116,7 +170,6 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-
       if ('BarcodeDetector' in window) {
         const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'] });
         const detect = async () => {
@@ -134,7 +187,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         };
         requestAnimationFrame(detect);
       } else {
-        toast({ variant: 'destructive', title: 'Not Supported', description: 'Barcode scanner not supported. Enter barcode manually.' });
+        toast({ variant: 'destructive', title: 'Not Supported', description: 'Barcode scanner not supported.' });
         stopScanner();
       }
     } catch (err) {
@@ -161,13 +214,8 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     setNewImages(prev => [...prev, ...files]);
   };
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const removeNewImage = (index: number) => {
-    setNewImages(prev => prev.filter((_, i) => i !== index));
-  };
+  const removeImage = (index: number) => setImages(prev => prev.filter((_, i) => i !== index));
+  const removeNewImage = (index: number) => setNewImages(prev => prev.filter((_, i) => i !== index));
 
   const uploadImages = async (productId: string): Promise<string[]> => {
     const urls: string[] = [];
@@ -182,6 +230,27 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     }
     return urls;
   };
+
+  const selectProductionItem = (itemName: string) => {
+    setSelectedItemName(itemName);
+    setProductNameSearch(itemName);
+    setForm(f => ({ ...f, product_name: itemName }));
+    setShowProductDropdown(false);
+  };
+
+  const handleBatchSelect = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    const batch = itemBatches.find(b => b.id === batchId);
+    if (batch) {
+      setForm(f => ({ ...f, stock_quantity: batch.stock_quantity }));
+    }
+  };
+
+  // Get unique item names for dropdown
+  const uniqueItemNames = [...new Set(productionItems.map(p => p.item_name))];
+  const filteredItemNames = uniqueItemNames.filter(name =>
+    name.toLowerCase().includes(productNameSearch.toLowerCase())
+  );
 
   const handleSave = async () => {
     if (!form.product_name || !form.barcode) {
@@ -211,7 +280,6 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
           .eq('id', product.id);
         if (error) throw error;
       } else {
-        // Update barcode sequence
         await supabase
           .from('wholesale_barcode_sequence' as any)
           .update({ last_barcode: parseInt(form.barcode) } as any)
@@ -238,28 +306,20 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         productId = (data as any).id;
       }
 
-      // Upload new images
       if (newImages.length > 0 && productId) {
         const uploadedUrls = await uploadImages(productId);
         const allUrls = [...images, ...uploadedUrls];
-
-        // Delete old images and re-insert
         await supabase.from('wholesale_product_images' as any).delete().eq('product_id', productId);
         for (let i = 0; i < allUrls.length; i++) {
           await supabase.from('wholesale_product_images' as any).insert({
-            product_id: productId,
-            image_url: allUrls[i],
-            display_order: i,
+            product_id: productId, image_url: allUrls[i], display_order: i,
           } as any);
         }
       } else if (product && productId) {
-        // Update existing images order
         await supabase.from('wholesale_product_images' as any).delete().eq('product_id', productId);
         for (let i = 0; i < images.length; i++) {
           await supabase.from('wholesale_product_images' as any).insert({
-            product_id: productId,
-            image_url: images[i],
-            display_order: i,
+            product_id: productId, image_url: images[i], display_order: i,
           } as any);
         }
       }
@@ -283,9 +343,40 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
+          {/* Product Name - Searchable dropdown from production entries */}
+          <div ref={productNameRef} className="relative">
             <Label>Product Name *</Label>
-            <Input value={form.product_name} onChange={e => setForm(f => ({ ...f, product_name: e.target.value }))} />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={productNameSearch}
+                onChange={e => {
+                  setProductNameSearch(e.target.value);
+                  setForm(f => ({ ...f, product_name: e.target.value }));
+                  setShowProductDropdown(true);
+                  if (e.target.value !== selectedItemName) {
+                    setSelectedItemName('');
+                  }
+                }}
+                onFocus={() => setShowProductDropdown(true)}
+                placeholder="Search or type product name..."
+                className="pl-9"
+              />
+            </div>
+            {showProductDropdown && filteredItemNames.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+                {filteredItemNames.map(name => (
+                  <button
+                    key={name}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                    onClick={() => selectProductionItem(name)}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -333,11 +424,41 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Stock Qty</Label>
-              <Input type="number" value={form.stock_quantity} onChange={e => setForm(f => ({ ...f, stock_quantity: Number(e.target.value) }))} />
-            </div>
+          {/* Batch No & Stock Qty */}
+          <div>
+            <Label>Batch No & Stock Qty</Label>
+            {selectedItemName && itemBatches.length > 0 ? (
+              <div className="space-y-2">
+                <Select value={selectedBatchId} onValueChange={handleBatchSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select batch" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    {itemBatches.map(batch => (
+                      <SelectItem key={batch.id} value={batch.id}>
+                        {batch.batch_number} — Qty: {batch.stock_quantity}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  value={form.stock_quantity}
+                  onChange={e => setForm(f => ({ ...f, stock_quantity: Number(e.target.value) }))}
+                  placeholder="Stock quantity"
+                />
+              </div>
+            ) : (
+              <Input
+                type="number"
+                value={form.stock_quantity}
+                onChange={e => setForm(f => ({ ...f, stock_quantity: Number(e.target.value) }))}
+                placeholder="Enter stock quantity"
+              />
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Low Stock Alert</Label>
               <Input type="number" value={form.low_stock_alert} onChange={e => setForm(f => ({ ...f, low_stock_alert: Number(e.target.value) }))} />
@@ -358,7 +479,6 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             <Switch checked={form.is_active} onCheckedChange={v => setForm(f => ({ ...f, is_active: v }))} />
           </div>
 
-          {/* Images */}
           <div>
             <Label>Product Images (max 4)</Label>
             <div className="flex gap-2 mt-2 flex-wrap">
