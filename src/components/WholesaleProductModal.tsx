@@ -455,8 +455,9 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
                 <Input
                   type="number"
                   value={form.stock_quantity}
-                  onChange={e => setForm(f => ({ ...f, stock_quantity: Number(e.target.value) }))}
-                  placeholder="Stock quantity"
+                  disabled
+                  className="bg-muted cursor-not-allowed"
+                  placeholder="Stock from batch"
                 />
               </div>
             ) : (
