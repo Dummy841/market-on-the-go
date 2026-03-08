@@ -294,6 +294,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             product_name: form.product_name,
             barcode: form.barcode,
             category: form.category || null,
+            batch_number: form.batch_number || null,
             purchase_price: form.purchase_price,
             mrp: form.mrp,
             selling_price: form.selling_price,
