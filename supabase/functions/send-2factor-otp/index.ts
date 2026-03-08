@@ -48,14 +48,37 @@ serve(async (req) => {
       );
     }
 
-    // Generate custom 4-digit OTP
-    const otp = generate4DigitOtp();
-    console.log('Generated 4-digit OTP for', mobile);
-
-    // Store OTP in user_otp table
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Check for an existing valid (unused, not expired) OTP for this mobile
+    const { data: existingOtp } = await supabase
+      .from('user_otp')
+      .select('*')
+      .eq('mobile', mobile)
+      .eq('is_used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingOtp) {
+      console.log('Reusing existing valid OTP for', mobile, '- expires at', existingOtp.expires_at);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'OTP is still active. Please use the OTP sent earlier.',
+          sessionId: mobile,
+          reused: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // No valid OTP exists — generate a new one
+    const otp = generate4DigitOtp();
+    console.log('Generated new 4-digit OTP for', mobile);
 
     // Mark old OTPs as used
     await supabase
@@ -64,7 +87,7 @@ serve(async (req) => {
       .eq('mobile', mobile)
       .eq('is_used', false);
 
-    // Insert new OTP
+    // Insert new OTP with 5 min expiry
     const { error: insertError } = await supabase
       .from('user_otp')
       .insert({
@@ -86,7 +109,6 @@ serve(async (req) => {
     const resultText = await response.text();
     console.log('Renflair SMS Response:', resultText);
 
-    // Renflair returns success response
     if (response.ok) {
       return new Response(
         JSON.stringify({ 
