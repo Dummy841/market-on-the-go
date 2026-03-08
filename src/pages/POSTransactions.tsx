@@ -81,9 +81,35 @@ const POSTransactions = () => {
         const { data: users } = await supabase.from('users').select('id, name, mobile').in('id', userIds);
         if (users) users.forEach(u => { usersMap[u.id] = { name: u.name, mobile: u.mobile }; });
       }
+
+      // Collect all item IDs to fetch purchase prices
+      const allItemIds = new Set<string>();
+      data.forEach(o => {
+        const items = Array.isArray(o.items) ? o.items : [];
+        items.forEach((i: any) => {
+          const itemId = i.item_id || i.id;
+          if (itemId) allItemIds.add(itemId);
+        });
+      });
+
+      let purchasePriceMap: Record<string, number> = {};
+      if (allItemIds.size > 0) {
+        const ids = Array.from(allItemIds);
+        const { data: itemsData } = await supabase
+          .from('items')
+          .select('id, purchase_price')
+          .in('id', ids);
+        if (itemsData) {
+          itemsData.forEach(item => { purchasePriceMap[item.id] = Number(item.purchase_price); });
+        }
+      }
+
       setOrders(data.map(o => ({
         ...o,
-        items: (Array.isArray(o.items) ? o.items : []) as unknown as OrderItem[],
+        items: (Array.isArray(o.items) ? o.items : []).map((i: any) => ({
+          ...i,
+          purchase_price: purchasePriceMap[i.item_id || i.id] || 0,
+        })) as unknown as OrderItem[],
         customer_name: usersMap[o.user_id]?.name || (o.user_id === '00000000-0000-0000-0000-000000000000' ? 'Walk-in' : '-'),
         customer_mobile: usersMap[o.user_id]?.mobile || '',
       })));
@@ -95,7 +121,11 @@ const POSTransactions = () => {
     if (seller) fetchOrders();
   }, [seller, selectedDate, filterMode]);
 
-  const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  const totalSale = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  const totalPurchase = orders.reduce((sum, o) => {
+    return sum + o.items.reduce((s, i) => s + ((i.purchase_price || 0) * i.quantity), 0);
+  }, 0);
+  const totalProfit = totalSale - totalPurchase;
 
   const getPaymentLabel = (method: string) => {
     if (method === 'cash') return 'CASH';
