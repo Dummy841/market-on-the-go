@@ -104,6 +104,7 @@ const AppContent = () => {
         <Route path="wholesale-inventory" element={<WholesaleInventory />} />
         <Route path="wholesale-orders" element={<WholesaleOrders />} />
         <Route path="production" element={<ProductionManagement />} />
+        <Route path="wholesale-revenue" element={<WholesaleRevenue />} />
       </Route>
       <Route path="/seller-wholesale" element={<SellerWholesale />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
