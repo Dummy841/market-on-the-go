@@ -23,6 +23,7 @@ interface ServiceModule {
 }
 
 const Modules = () => {
+  const { hasPermission } = useAdminAuth();
   const [modules, setModules] = useState<ServiceModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
