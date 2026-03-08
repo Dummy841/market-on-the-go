@@ -32,6 +32,7 @@ interface Settlement {
 }
 
 const Settlements = () => {
+  const { hasPermission } = useAdminAuth();
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"pending" | "settled">("pending");
