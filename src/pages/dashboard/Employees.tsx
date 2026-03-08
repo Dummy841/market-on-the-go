@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, UserX, UserCheck } from "lucide-react";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 const SUPERADMIN_MOBILE = "9502395261";
 
