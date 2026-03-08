@@ -334,8 +334,8 @@ const SellerWholesale = () => {
                   </Button>
             }
 
-                {/* Delivery PIN */}
-                {order.delivery_pin && order.order_status !== 'delivered' && order.order_status !== 'cancelled' &&
+                {/* Delivery PIN - only show after dispatched */}
+                {order.delivery_pin && order.order_status === 'dispatched' &&
             <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
                     <Lock className="w-4 h-4 text-orange-600" />
                     <div>
