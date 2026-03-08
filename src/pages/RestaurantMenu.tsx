@@ -405,12 +405,6 @@ const RestaurantMenu = () => {
                     <h1 className="font-semibold text-card-foreground text-sm line-clamp-1">
                       {restaurant.seller_name}
                     </h1>
-                    <Badge
-                      variant={restaurant.is_online !== false ? 'default' : 'secondary'}
-                      className="flex-shrink-0 text-[10px] px-1.5 py-0"
-                    >
-                      {restaurant.is_online !== false ? 'Online' : 'Offline'}
-                    </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mb-1">
                     Owner: {restaurant.owner_name}
