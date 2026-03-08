@@ -24,6 +24,7 @@ import Revenue from "./pages/dashboard/Revenue";
 import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
 import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
 import ProductionManagement from "./pages/dashboard/ProductionManagement";
+import Employees from "./pages/dashboard/Employees";
 import WholesaleRevenue from "./pages/dashboard/WholesaleRevenue";
 import SellerWholesale from "./pages/SellerWholesale";
 import Help from "./pages/Help";
