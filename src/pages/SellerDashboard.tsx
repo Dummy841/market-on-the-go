@@ -182,12 +182,44 @@ const SellerDashboard = () => {
     }
   }, [seller]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount + auto offline when tab closes
   useEffect(() => {
+    const setOfflineOnClose = () => {
+      if (seller?.id) {
+        // Use sendBeacon for reliability on tab close
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/sellers?id=eq.${seller.id}`;
+        const body = JSON.stringify({ is_online: false });
+        const headers = {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Prefer': 'return=minimal',
+        };
+        // sendBeacon doesn't support custom headers, use fetch with keepalive
+        fetch(url, {
+          method: 'PATCH',
+          headers,
+          body,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && seller?.id) {
+        setOfflineOnClose();
+      }
+    };
+
+    window.addEventListener('beforeunload', setOfflineOnClose);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       stopAllDashboardRinging();
+      window.removeEventListener('beforeunload', setOfflineOnClose);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [seller?.id]);
 
   const fetchWalletBalance = async () => {
     if (!seller) return;

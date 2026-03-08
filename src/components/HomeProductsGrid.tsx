@@ -55,6 +55,51 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
     fetchProducts();
   }, [userLocation, searchQuery, selectedSubcategory]);
 
+  // Real-time subscription for seller online/offline status changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('seller-status-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sellers', filter: 'status=eq.approved' },
+        (payload) => {
+          const updatedSeller = payload.new as any;
+          const oldSeller = payload.old as any;
+          // Only react to is_online changes
+          if (updatedSeller.is_online !== oldSeller.is_online) {
+            // Update items in state without refetching
+            setItems(prev => prev.map(item => 
+              item.seller_id === updatedSeller.id 
+                ? { ...item, seller_is_online: updatedSeller.is_online }
+                : item
+            ));
+            setAllItems(prev => prev.map(item => 
+              item.seller_id === updatedSeller.id 
+                ? { ...item, seller_is_online: updatedSeller.is_online }
+                : item
+            ));
+            // Update grouped items too
+            setGroupedItems(prev => {
+              const updated: Record<string, Item[]> = {};
+              Object.entries(prev).forEach(([key, items]) => {
+                updated[key] = items.map(item => 
+                  item.seller_id === updatedSeller.id 
+                    ? { ...item, seller_is_online: updatedSeller.is_online }
+                    : item
+                );
+              });
+              return updated;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
