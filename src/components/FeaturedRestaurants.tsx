@@ -309,12 +309,12 @@ export const FeaturedRestaurants = ({ category = 'food_delivery', searchQuery = 
           cuisine={["Restaurant"]} 
           rating={restaurant.average_rating || 0} 
           reviewsCount={restaurant.total_ratings || 0} 
-          deliveryTime={restaurant.is_online !== false ? restaurant.deliveryTime || "25-35 min" : "Currently not taking orders"} 
+          deliveryTime={restaurant.deliveryTime || "25-35 min"} 
           deliveryFee={0} 
           distance={formatDistance(restaurant.distance || 0)} 
-          offers={restaurant.is_online !== false ? ["Fresh & Delicious"] : ["Offline"]} 
+          offers={["Fresh & Delicious"]} 
           onClick={() => handleRestaurantClick(restaurant.id)} 
-          isOffline={restaurant.is_online === false} 
+          isOffline={false}
         />
       ))}
     </div>

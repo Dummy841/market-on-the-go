@@ -496,11 +496,11 @@ const RestaurantMenu = () => {
                             <Button
                               size="sm"
                               onClick={() => handleAddToCart(item)}
-                              disabled={!item.is_active || restaurant.is_online === false}
+                              disabled={!item.is_active}
                               className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
                               <Plus className="h-3 w-3 mr-1" />
-                              {restaurant.is_online === false ? 'Offline' : 'ADD'}
+                              ADD
                             </Button>
                           </div>
                         </div>
