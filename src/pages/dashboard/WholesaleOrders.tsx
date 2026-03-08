@@ -113,6 +113,20 @@ const WholesaleOrders = () => {
     <div className="p-4 md:p-6 space-y-4">
       <h1 className="text-2xl font-bold">Wholesale Orders</h1>
 
+      <div className="flex gap-2">
+        {(['all', 'pending', 'delivered'] as const).map(f => (
+          <Button
+            key={f}
+            size="sm"
+            variant={statusFilter === f ? 'default' : 'outline'}
+            onClick={() => setStatusFilter(f)}
+            className="capitalize"
+          >
+            {f === 'all' ? 'All' : f}
+          </Button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-center py-10 text-muted-foreground">Loading...</div>
       ) : (
