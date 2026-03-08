@@ -18,6 +18,7 @@ import { Seller } from '@/contexts/SellerAuthContext';
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 const Sellers = () => {
+  const { hasPermission } = useAdminAuth();
   const navigate = useNavigate();
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
