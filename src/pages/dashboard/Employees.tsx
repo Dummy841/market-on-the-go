@@ -55,7 +55,7 @@ const Employees = () => {
       {loading ? (
         <p className="text-muted-foreground">Loading...</p>
       ) : (
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

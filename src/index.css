@@ -195,3 +195,16 @@ All colors MUST be HSL.
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Dashboard tables: horizontal scroll on mobile */
+@media (max-width: 768px) {
+  main [role="table"],
+  main table {
+    min-width: 600px;
+  }
+  main .border,
+  main [class*="CardContent"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
