@@ -148,7 +148,7 @@ const EmployeeForm = () => {
   const { toast } = useToast();
   const isEdit = !!id;
 
-  const [formData, setFormData] = useState({ name: "", mobile: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ name: "", mobile: "", email: "", password: "Zippy@1234" });
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -156,6 +156,7 @@ const EmployeeForm = () => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(isEdit);
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
   useEffect(() => {
     if (isEdit) {
