@@ -96,8 +96,37 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
       )
       .subscribe();
 
+    // Real-time subscription for item stock changes
+    const itemChannel = supabase
+      .channel('item-stock-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'items' },
+        (payload) => {
+          const updated = payload.new as any;
+          const old = payload.old as any;
+          if (updated.stock_quantity !== old.stock_quantity || updated.is_active !== old.is_active) {
+            const updateItem = (item: Item) =>
+              item.id === updated.id
+                ? { ...item, stock_quantity: updated.stock_quantity, is_active: updated.is_active }
+                : item;
+            setItems(prev => prev.map(updateItem));
+            setAllItems(prev => prev.map(updateItem));
+            setGroupedItems(prev => {
+              const result: Record<string, Item[]> = {};
+              Object.entries(prev).forEach(([key, items]) => {
+                result[key] = items.map(updateItem);
+              });
+              return result;
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(itemChannel);
     };
   }, []);
 
