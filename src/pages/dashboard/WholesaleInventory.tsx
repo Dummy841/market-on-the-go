@@ -195,7 +195,7 @@ const WholesaleInventory = () => {
                 </TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Barcode</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>Batch No</TableHead>
                 <TableHead>MRP</TableHead>
                 <TableHead>Selling Price</TableHead>
                 <TableHead>Stock</TableHead>
