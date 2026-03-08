@@ -14,6 +14,7 @@ interface Item {
   item_photo_url: string | null;
   item_info: string | null;
   is_active: boolean;
+  stock_quantity: number;
   seller_id: string;
   seller_name: string;
   seller_is_online: boolean;
@@ -146,6 +147,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
           item_photo_url,
           item_info,
           is_active,
+          stock_quantity,
           seller_id,
           subcategory_id,
           seller_item_images(image_url, display_order),
@@ -202,6 +204,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             item_photo_url: item.item_photo_url,
             item_info: item.item_info,
             is_active: item.is_active,
+            stock_quantity: (item as any).stock_quantity ?? 0,
             seller_id: item.seller_id,
             seller_name: seller.seller_name,
             seller_is_online: seller.is_online,

@@ -20,6 +20,7 @@ interface HomeProductCardProps {
     item_photo_url: string | null;
     item_info?: string | null;
     is_active: boolean;
+    stock_quantity?: number;
     seller_id: string;
     seller_name: string;
     seller_is_online: boolean;
@@ -31,7 +32,8 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
   const { addToCart, cartItems, cartRestaurant, removeFromCart, updateQuantity } = useCart();
   const [showInfo, setShowInfo] = useState(false);
 
-  const isAvailable = item.is_active;
+  const isOutOfStock = (item.stock_quantity ?? 0) <= 0;
+  const isAvailable = item.is_active && !isOutOfStock;
   const cartItem = cartItems.find(ci => ci.id === item.id);
   const quantity = cartItem?.quantity || 0;
   const mrp = item.mrp || 0;
@@ -95,7 +97,7 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
           {!isAvailable && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="text-white text-xs font-medium px-2 py-1 bg-destructive rounded">
-                Unavailable
+                {isOutOfStock ? 'Out of Stock' : 'Unavailable'}
               </span>
             </div>
           )}
