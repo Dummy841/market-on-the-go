@@ -14,6 +14,7 @@ interface WholesaleProduct {
   product_name: string;
   barcode: string;
   category: string | null;
+  batch_number: string | null;
   purchase_price: number;
   mrp: number;
   selling_price: number;
@@ -79,7 +80,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         product_name: product.product_name,
         barcode: product.barcode,
         category: product.category || '',
-        batch_number: (product as any).batch_number || '',
+        batch_number: product.batch_number || '',
         purchase_price: product.purchase_price,
         mrp: product.mrp,
         selling_price: product.selling_price,
