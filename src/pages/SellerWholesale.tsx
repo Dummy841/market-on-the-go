@@ -595,7 +595,7 @@ const SellerWholesale = () => {
                     <span className="text-xs text-muted-foreground line-through">₹{product.mrp}</span>
                     }
                     </div>
-                    {product.stock_quantity <= 0 ? (
+                    {product.stock_quantity === 0 ? (
                       <Button size="sm" className="w-full mt-2" disabled>
                         Out of Stock
                       </Button>
