@@ -47,7 +47,7 @@ const statusColors: Record<string, string> = {
   dispatched: 'bg-purple-100 text-purple-800',
   delivered: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-800',
-  cancelled: 'bg-red-100 text-red-800',
+  cancelled: 'bg-red-100 text-red-800'
 };
 
 const SellerWholesale = () => {
@@ -73,7 +73,7 @@ const SellerWholesale = () => {
   const [reuploadSubmitting, setReuploadSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!seller) { navigate('/seller-login'); return; }
+    if (!seller) {navigate('/seller-login');return;}
     fetchProducts();
   }, [seller]);
 
@@ -85,27 +85,27 @@ const SellerWholesale = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('wholesale_products' as any)
-        .select('*')
-        .eq('is_active', true)
-        .order('product_name');
+      const { data, error } = await supabase.
+      from('wholesale_products' as any).
+      select('*').
+      eq('is_active', true).
+      order('product_name');
       if (error) throw error;
 
-      const productIds = (data as any[]).map(p => p.id);
-      const { data: imgData } = await supabase
-        .from('wholesale_product_images' as any)
-        .select('product_id, image_url')
-        .in('product_id', productIds)
-        .order('display_order');
+      const productIds = (data as any[]).map((p) => p.id);
+      const { data: imgData } = await supabase.
+      from('wholesale_product_images' as any).
+      select('product_id, image_url').
+      in('product_id', productIds).
+      order('display_order');
 
       const imageMap: Record<string, string[]> = {};
-      (imgData as any[] || []).forEach(img => {
+      (imgData as any[] || []).forEach((img) => {
         if (!imageMap[img.product_id]) imageMap[img.product_id] = [];
         imageMap[img.product_id].push(img.image_url);
       });
 
-      setProducts((data as any[]).map(p => ({ ...p, images: imageMap[p.id] || [] })));
+      setProducts((data as any[]).map((p) => ({ ...p, images: imageMap[p.id] || [] })));
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -117,13 +117,13 @@ const SellerWholesale = () => {
     if (!seller) return;
     setOrdersLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('wholesale_orders' as any)
-        .select('*')
-        .eq('seller_id', seller.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.
+      from('wholesale_orders' as any).
+      select('*').
+      eq('seller_id', seller.id).
+      order('created_at', { ascending: false });
       if (error) throw error;
-      setOrders((data as any) || []);
+      setOrders(data as any || []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -141,15 +141,15 @@ const SellerWholesale = () => {
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from('wholesale-images').getPublicUrl(path);
 
-      const { error } = await supabase
-        .from('wholesale_orders' as any)
-        .update({
-          payment_proof_url: urlData.publicUrl,
-          upi_transaction_id: reuploadTxnId || null,
-          payment_status: 'pending',
-          admin_notes: null,
-        } as any)
-        .eq('id', proofUploadOrder.id);
+      const { error } = await supabase.
+      from('wholesale_orders' as any).
+      update({
+        payment_proof_url: urlData.publicUrl,
+        upi_transaction_id: reuploadTxnId || null,
+        payment_status: 'pending',
+        admin_notes: null
+      } as any).
+      eq('id', proofUploadOrder.id);
       if (error) throw error;
 
       toast({ title: 'Proof Uploaded', description: 'Your payment proof has been re-submitted for verification.' });
@@ -165,20 +165,20 @@ const SellerWholesale = () => {
   };
 
   const addToCart = (product: WholesaleProduct) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.id === product.id);
-      if (existing) return prev.map(c => c.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
+    setCart((prev) => {
+      const existing = prev.find((c) => c.id === product.id);
+      if (existing) return prev.map((c) => c.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
       return [...prev, { ...product, quantity: 1 }];
     });
   };
 
   const updateQty = (id: string, delta: number) => {
-    setCart(prev => prev.map(c => c.id === id ? { ...c, quantity: Math.max(0, c.quantity + delta) } : c).filter(c => c.quantity > 0));
+    setCart((prev) => prev.map((c) => c.id === id ? { ...c, quantity: Math.max(0, c.quantity + delta) } : c).filter((c) => c.quantity > 0));
   };
 
   const cartTotal = cart.reduce((sum, c) => sum + c.selling_price * c.quantity, 0);
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
-  const getCartQty = (id: string) => cart.find(c => c.id === id)?.quantity || 0;
+  const getCartQty = (id: string) => cart.find((c) => c.id === id)?.quantity || 0;
 
   const handleUPIPayment = () => {
     const upiUrl = `upi://pay?pa=2755c@ybl&pn=Zippy%20Wholesale&am=${cartTotal}&cu=INR`;
@@ -206,13 +206,13 @@ const SellerWholesale = () => {
       const { error } = await supabase.from('wholesale_orders' as any).insert({
         seller_id: seller.id,
         seller_name: seller.seller_name,
-        items: cart.map(c => ({
+        items: cart.map((c) => ({
           product_id: c.id,
           product_name: c.product_name,
           barcode: c.barcode,
           selling_price: c.selling_price,
           mrp: c.mrp,
-          quantity: c.quantity,
+          quantity: c.quantity
         })),
         total_amount: cartTotal,
         delivery_address: `${seller.seller_name}`,
@@ -222,7 +222,7 @@ const SellerWholesale = () => {
         payment_proof_url: urlData.publicUrl,
         payment_status: 'pending',
         order_status: 'pending',
-        delivery_pin: generatePin(),
+        delivery_pin: generatePin()
       } as any);
 
       if (error) throw error;
@@ -239,9 +239,9 @@ const SellerWholesale = () => {
     }
   };
 
-  const filtered = products.filter(p =>
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode.includes(search)
+  const filtered = products.filter((p) =>
+  p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+  p.barcode.includes(search)
   );
 
   if (!seller) return null;
@@ -256,14 +256,14 @@ const SellerWholesale = () => {
         </div>
         <h2 className="text-xl font-bold mb-4">My Wholesale Orders</h2>
 
-        {ordersLoading ? (
-          <div className="text-center py-10 text-muted-foreground">Loading orders...</div>
-        ) : orders.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10">No orders yet</p>
-        ) : (
-          <div className="space-y-3">
-            {orders.map(order => (
-              <Card key={order.id} className="p-4 space-y-3">
+        {ordersLoading ?
+        <div className="text-center py-10 text-muted-foreground">Loading orders...</div> :
+        orders.length === 0 ?
+        <p className="text-center text-muted-foreground py-10">No orders yet</p> :
+
+        <div className="space-y-3">
+            {orders.map((order) =>
+          <Card key={order.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm font-bold">#{order.id}</span>
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[order.order_status] || 'bg-muted text-muted-foreground'}`}>
@@ -295,42 +295,42 @@ const SellerWholesale = () => {
                 {/* Tracking Steps */}
                 <div className="flex items-center gap-1 pt-2">
                   {['pending', 'verified', 'dispatched', 'delivered'].map((s, i, arr) => {
-                    const statusIndex = arr.indexOf(order.order_status);
-                    const isActive = i <= statusIndex;
-                    return (
-                      <div key={s} className="flex items-center flex-1">
+                const statusIndex = arr.indexOf(order.order_status);
+                const isActive = i <= statusIndex;
+                return (
+                  <div key={s} className="flex items-center flex-1">
                         <div className={`h-2 flex-1 rounded-full ${isActive ? 'bg-green-500' : 'bg-muted'}`} />
                         {i < arr.length - 1 && <div className="w-1" />}
-                      </div>
-                    );
-                  })}
+                      </div>);
+
+              })}
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>Pending</span><span>Verified</span><span>Dispatched</span><span>Delivered</span>
                 </div>
 
                 {/* Rejection Remarks */}
-                {order.payment_status === 'rejected' && order.admin_notes && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                {order.payment_status === 'rejected' && order.admin_notes &&
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <p className="text-xs font-medium text-red-700">Rejection Reason:</p>
                     <p className="text-sm text-red-800">{order.admin_notes}</p>
                   </div>
-                )}
+            }
 
                 {/* Upload Payment Proof for rejected orders */}
-                {order.payment_status === 'rejected' && (
-                  <Button
-                    variant="outline"
-                    className="w-full border-primary text-primary"
-                    onClick={() => { setProofUploadOrder(order); setReuploadFile(null); setReuploadTxnId(''); }}
-                  >
+                {order.payment_status === 'rejected' &&
+            <Button
+              variant="outline"
+              className="w-full border-primary text-primary"
+              onClick={() => {setProofUploadOrder(order);setReuploadFile(null);setReuploadTxnId('');}}>
+              
                     <Upload className="w-4 h-4 mr-2" /> Upload Payment Proof
                   </Button>
-                )}
+            }
 
                 {/* Delivery PIN */}
-                {order.delivery_pin && order.order_status !== 'delivered' && order.order_status !== 'cancelled' && (
-                  <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                {order.delivery_pin && order.order_status !== 'delivered' && order.order_status !== 'cancelled' &&
+            <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
                     <Lock className="w-4 h-4 text-orange-600" />
                     <div>
                       <p className="text-xs text-orange-700 font-medium">Delivery PIN</p>
@@ -338,22 +338,22 @@ const SellerWholesale = () => {
                       <p className="text-[10px] text-orange-600">Share this PIN with delivery person for verification</p>
                     </div>
                   </div>
-                )}
+            }
 
                 {/* Invoice button for delivered orders */}
-                {order.order_status === 'delivered' && (
-                  <Button variant="outline" className="w-full" onClick={() => setInvoiceOrder(order)}>
+                {order.order_status === 'delivered' &&
+            <Button variant="outline" className="w-full" onClick={() => setInvoiceOrder(order)}>
                     <FileText className="w-4 h-4 mr-2" /> View Invoice
                   </Button>
-                )}
+            }
               </Card>
-            ))}
+          )}
           </div>
-        )}
+        }
 
         {/* Invoice Modal */}
-        {invoiceOrder && (
-          <Dialog open={!!invoiceOrder} onOpenChange={() => setInvoiceOrder(null)}>
+        {invoiceOrder &&
+        <Dialog open={!!invoiceOrder} onOpenChange={() => setInvoiceOrder(null)}>
             <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Invoice #{invoiceOrder.id}</DialogTitle>
@@ -361,12 +361,12 @@ const SellerWholesale = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{new Date(invoiceOrder.created_at).toLocaleDateString('en-IN')}</span></div>
                 <div className="border-t pt-2 space-y-1">
-                  {Array.isArray(invoiceOrder.items) && invoiceOrder.items.map((item: any, i: number) => (
-                    <div key={i} className="flex justify-between">
+                  {Array.isArray(invoiceOrder.items) && invoiceOrder.items.map((item: any, i: number) =>
+                <div key={i} className="flex justify-between">
                       <span>{item.product_name} × {item.quantity}</span>
                       <span>₹{item.selling_price * item.quantity}</span>
                     </div>
-                  ))}
+                )}
                 </div>
                 <div className="border-t pt-2 flex justify-between font-bold text-base">
                   <span>Total</span>
@@ -379,11 +379,11 @@ const SellerWholesale = () => {
               </div>
             </DialogContent>
           </Dialog>
-        )}
+        }
 
         {/* Upload Payment Proof Modal */}
-        {proofUploadOrder && (
-          <Dialog open={!!proofUploadOrder} onOpenChange={(open) => { if (!open) setProofUploadOrder(null); }}>
+        {proofUploadOrder &&
+        <Dialog open={!!proofUploadOrder} onOpenChange={(open) => {if (!open) setProofUploadOrder(null);}}>
             <DialogContent className="max-w-sm">
               <DialogHeader>
                 <DialogTitle>Upload Payment Proof</DialogTitle>
@@ -391,24 +391,24 @@ const SellerWholesale = () => {
               <div className="space-y-4">
                 <div>
                   <Label>UPI Transaction ID</Label>
-                  <Input value={reuploadTxnId} onChange={e => setReuploadTxnId(e.target.value)} placeholder="Enter UPI transaction ID" />
+                  <Input value={reuploadTxnId} onChange={(e) => setReuploadTxnId(e.target.value)} placeholder="Enter UPI transaction ID" />
                 </div>
                 <div>
                   <Label>Payment Screenshot *</Label>
-                  {reuploadFile ? (
-                    <div className="relative mt-2">
+                  {reuploadFile ?
+                <div className="relative mt-2">
                       <img src={URL.createObjectURL(reuploadFile)} className="w-full max-h-48 object-contain rounded-lg border" />
                       <Button size="icon" variant="destructive" className="absolute top-2 right-2 h-6 w-6" onClick={() => setReuploadFile(null)}>
                         <X className="w-3 h-3" />
                       </Button>
-                    </div>
-                  ) : (
-                    <label className="mt-2 flex flex-col items-center justify-center h-28 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
+                    </div> :
+
+                <label className="mt-2 flex flex-col items-center justify-center h-28 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
                       <Upload className="w-6 h-6 text-muted-foreground mb-1" />
                       <span className="text-sm text-muted-foreground">Tap to upload</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && setReuploadFile(e.target.files[0])} />
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && setReuploadFile(e.target.files[0])} />
                     </label>
-                  )}
+                }
                 </div>
                 <Button className="w-full" onClick={handleReuploadProof} disabled={reuploadSubmitting || !reuploadFile}>
                   {reuploadSubmitting ? 'Submitting...' : 'Submit Proof'}
@@ -416,9 +416,9 @@ const SellerWholesale = () => {
               </div>
             </DialogContent>
           </Dialog>
-        )}
-      </div>
-    );
+        }
+      </div>);
+
   }
 
   // Payment proof step
@@ -432,33 +432,33 @@ const SellerWholesale = () => {
         <div className="space-y-4">
           <div>
             <Label>UPI Transaction ID (optional)</Label>
-            <Input value={upiTxnId} onChange={e => setUpiTxnId(e.target.value)} placeholder="Enter UPI transaction ID" />
+            <Input value={upiTxnId} onChange={(e) => setUpiTxnId(e.target.value)} placeholder="Enter UPI transaction ID" />
           </div>
 
           <div>
             <Label>Payment Screenshot *</Label>
-            {paymentProof ? (
-              <div className="relative mt-2">
+            {paymentProof ?
+            <div className="relative mt-2">
                 <img src={URL.createObjectURL(paymentProof)} className="w-full max-h-64 object-contain rounded-lg border" />
                 <Button size="icon" variant="destructive" className="absolute top-2 right-2 h-6 w-6" onClick={() => setPaymentProof(null)}>
                   <X className="w-3 h-3" />
                 </Button>
-              </div>
-            ) : (
-              <label className="mt-2 flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
+              </div> :
+
+            <label className="mt-2 flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
                 <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                 <span className="text-sm text-muted-foreground">Tap to upload</span>
-                <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && setPaymentProof(e.target.files[0])} />
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && setPaymentProof(e.target.files[0])} />
               </label>
-            )}
+            }
           </div>
 
           <Button className="w-full" onClick={handleSubmitOrder} disabled={submitting || !paymentProof}>
             {submitting ? 'Submitting...' : 'Submit Order'}
           </Button>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   // Payment step
@@ -486,8 +486,8 @@ const SellerWholesale = () => {
             After payment, you'll need to upload a screenshot as proof.
           </p>
         </Card>
-      </div>
-    );
+      </div>);
+
   }
 
   // Cart step
@@ -497,12 +497,12 @@ const SellerWholesale = () => {
         <Button variant="ghost" onClick={() => setStep('browse')} className="mb-4"><ArrowLeft className="w-4 h-4 mr-2" /> Back</Button>
         <h2 className="text-xl font-bold mb-4">Cart ({cartCount} items)</h2>
 
-        {cart.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10">Cart is empty</p>
-        ) : (
-          <div className="space-y-3">
-            {cart.map(item => (
-              <Card key={item.id} className="p-3 flex items-center justify-between">
+        {cart.length === 0 ?
+        <p className="text-center text-muted-foreground py-10">Cart is empty</p> :
+
+        <div className="space-y-3">
+            {cart.map((item) =>
+          <Card key={item.id} className="p-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-sm">{item.product_name}</p>
                   <p className="text-xs text-muted-foreground">₹{item.selling_price} each</p>
@@ -514,7 +514,7 @@ const SellerWholesale = () => {
                   <span className="font-bold text-sm ml-2">₹{item.selling_price * item.quantity}</span>
                 </div>
               </Card>
-            ))}
+          )}
 
             <Card className="p-3">
               <div className="flex justify-between font-bold">
@@ -533,9 +533,9 @@ const SellerWholesale = () => {
               Proceed to Payment (₹{cartTotal})
             </Button>
           </div>
-        )}
-      </div>
-    );
+        }
+      </div>);
+
   }
 
   // Browse step
@@ -548,16 +548,16 @@ const SellerWholesale = () => {
             <h1 className="text-lg font-bold">Wholesale Shop</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { setStep('orders'); fetchOrders(); }}>
-              <Package className="w-4 h-4 mr-1" /> My Orders
-            </Button>
-            {cartCount > 0 && (
-              <Button onClick={() => setStep('cart')} className="relative">
+            
+
+            
+            {cartCount > 0 &&
+            <Button onClick={() => setStep('cart')} className="relative">
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 Cart ({cartCount})
                 <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">{cartCount}</Badge>
               </Button>
-            )}
+            }
           </div>
         </div>
       </header>
@@ -565,60 +565,60 @@ const SellerWholesale = () => {
       <div className="p-4 max-w-7xl mx-auto">
         <div className="relative max-w-sm mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
 
-        {loading ? (
-          <div className="text-center py-10 text-muted-foreground">Loading products...</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {filtered.map(product => {
-              const qty = getCartQty(product.id);
-              return (
-                <Card key={product.id} className="overflow-hidden">
-                  {product.images && product.images[0] ? (
-                    <img src={product.images[0]} className="w-full h-32 object-cover" />
-                  ) : (
-                    <div className="w-full h-32 bg-muted flex items-center justify-center text-muted-foreground text-xs">No Image</div>
-                  )}
+        {loading ?
+        <div className="text-center py-10 text-muted-foreground">Loading products...</div> :
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {filtered.map((product) => {
+            const qty = getCartQty(product.id);
+            return (
+              <Card key={product.id} className="overflow-hidden">
+                  {product.images && product.images[0] ?
+                <img src={product.images[0]} className="w-full h-32 object-cover" /> :
+
+                <div className="w-full h-32 bg-muted flex items-center justify-center text-muted-foreground text-xs">No Image</div>
+                }
                   <div className="p-2">
                     <p className="font-medium text-sm truncate">{product.product_name}</p>
                     <div className="flex items-baseline gap-1">
                       <span className="font-bold text-sm">₹{product.selling_price}</span>
-                      {product.mrp > product.selling_price && (
-                        <span className="text-xs text-muted-foreground line-through">₹{product.mrp}</span>
-                      )}
+                      {product.mrp > product.selling_price &&
+                    <span className="text-xs text-muted-foreground line-through">₹{product.mrp}</span>
+                    }
                     </div>
                     <p className={`text-[10px] ${product.stock_quantity <= 5 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       {product.stock_quantity <= 5 ? 'Out of Stock' : `Stock: ${product.stock_quantity}`}
                     </p>
 
-                    {product.stock_quantity <= 5 ? (
-                      <Button size="sm" className="w-full mt-2" disabled>
+                    {product.stock_quantity <= 5 ?
+                  <Button size="sm" className="w-full mt-2" disabled>
                         Out of Stock
-                      </Button>
-                    ) : qty === 0 ? (
-                      <Button size="sm" className="w-full mt-2" onClick={() => addToCart(product)}>
+                      </Button> :
+                  qty === 0 ?
+                  <Button size="sm" className="w-full mt-2" onClick={() => addToCart(product)}>
                         <Plus className="w-3 h-3 mr-1" /> Add
-                      </Button>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2 mt-2">
+                      </Button> :
+
+                  <div className="flex items-center justify-center gap-2 mt-2">
                         <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(product.id, -1)}><Minus className="w-3 h-3" /></Button>
                         <span className="font-bold text-sm">{qty}</span>
                         <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(product.id, 1)}><Plus className="w-3 h-3" /></Button>
                       </div>
-                    )}
+                  }
                   </div>
-                </Card>
-              );
-            })}
+                </Card>);
+
+          })}
           </div>
-        )}
+        }
       </div>
 
       {/* Floating cart bar */}
-      {cartCount > 0 && step === 'browse' && (
-        <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-3 z-20">
+      {cartCount > 0 && step === 'browse' &&
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-3 z-20">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div>
               <span className="font-bold">{cartCount} items</span>
@@ -627,9 +627,9 @@ const SellerWholesale = () => {
             <Button onClick={() => setStep('cart')}>View Cart</Button>
           </div>
         </div>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 };
 
 export default SellerWholesale;
