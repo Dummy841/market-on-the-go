@@ -196,6 +196,11 @@ const SellerWholesale = () => {
       toast({ variant: 'destructive', title: 'Upload payment proof' });
       return;
     }
+    const txnIdTrimmed = upiTxnId.trim();
+    if (!txnIdTrimmed || txnIdTrimmed.length < 8) {
+      toast({ variant: 'destructive', title: 'Invalid Transaction ID', description: 'Please enter a valid UPI transaction ID (minimum 8 characters)' });
+      return;
+    }
     setSubmitting(true);
     try {
       const ext = paymentProof.name.split('.').pop();
