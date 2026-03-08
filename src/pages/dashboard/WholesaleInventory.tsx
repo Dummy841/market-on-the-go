@@ -32,6 +32,7 @@ const WholesaleInventory = () => {
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<WholesaleProduct | null>(null);
   const [viewProduct, setViewProduct] = useState<WholesaleProduct | null>(null);
@@ -59,10 +60,13 @@ const WholesaleInventory = () => {
     }
   };
 
-  const filtered = products.filter(p =>
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode.includes(search)
-  );
+  const filtered = products.filter(p => {
+    const matchesSearch = p.product_name.toLowerCase().includes(search.toLowerCase()) || p.barcode.includes(search);
+    if (!matchesSearch) return false;
+    if (stockFilter === 'out') return p.stock_quantity === 0;
+    if (stockFilter === 'low') return p.stock_quantity > 0 && p.stock_quantity <= p.low_stock_alert;
+    return true;
+  });
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -170,14 +174,28 @@ const WholesaleInventory = () => {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name or barcode..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or barcode..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(['all', 'low', 'out'] as const).map(f => (
+            <Button
+              key={f}
+              variant={stockFilter === f ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStockFilter(f)}
+            >
+              {f === 'all' ? 'All' : f === 'low' ? 'Low Stock' : 'Out of Stock'}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
