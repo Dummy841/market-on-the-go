@@ -81,7 +81,7 @@ export const HomeSellerCard = ({ seller, onClose }: HomeSellerCardProps) => {
         <img
           src={seller.profile_photo_url || '/placeholder.svg'}
           alt={seller.seller_name}
-          className={`w-14 h-14 rounded-full object-cover ${!seller.is_online ? 'grayscale' : ''}`}
+          className="w-14 h-14 rounded-full object-cover"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
