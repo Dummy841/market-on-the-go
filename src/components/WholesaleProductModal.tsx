@@ -493,6 +493,16 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             </div>
           </div>
 
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Enter product description..."
+              rows={3}
+            />
+          </div>
+
           <div className="flex items-center justify-between">
             <Label>Show in Quick Add</Label>
             <Switch checked={form.show_in_quick_add} onCheckedChange={v => setForm(f => ({ ...f, show_in_quick_add: v }))} />
