@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, Plus, ShoppingBag, TrendingUp, Monitor, Receipt, Settings, Package, Wallet } from 'lucide-react';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 
 const SellerHamburgerMenu = () => {
   const { seller } = useSellerAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
 
@@ -59,37 +62,90 @@ const SellerHamburgerMenu = () => {
 
   const navItems = allNavItems.filter(item => getVisibleNavIds().includes(item.id));
 
+  const isActiveItem = (item: typeof allNavItems[0]) => {
+    const path = location.pathname;
+    const search = location.search;
+    if (item.id === 'dashboard' && path === '/seller-dashboard' && !search) return true;
+    if (item.id === 'add' && path === '/seller-dashboard' && search.includes('section=add')) return true;
+    if (item.id === 'menu' && path === '/seller-dashboard' && search.includes('section=menu')) return true;
+    if (item.id === 'orders' && path === '/seller-dashboard' && search.includes('section=orders')) return true;
+    if (item.id === 'earnings' && path === '/seller-dashboard' && search.includes('section=earnings')) return true;
+    if (item.id === 'wholesale' && path === '/seller-wholesale' && !search.includes('tab=orders')) return true;
+    if (item.id === 'pos' && path === '/seller-pos' && !path.includes('/transactions') && !path.includes('/settings')) return true;
+    if (item.id === 'transactions' && path === '/seller-pos/transactions') return true;
+    if (item.id === 'settings' && path === '/seller-pos/settings') return true;
+    if (item.id === 'wholesale-orders' && path === '/seller-wholesale' && search.includes('tab=orders')) return true;
+    if (item.id === 'wallet' && path === '/seller-wallet') return true;
+    return false;
+  };
+
+  // Mobile: hamburger sheet
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-9 w-9">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="p-4 border-b border-border">
+            <h2 className="font-bold text-lg">{seller.seller_name}</h2>
+            <p className="text-sm text-muted-foreground">{seller.owner_name}</p>
+          </div>
+          <div className="py-2">
+            {navItems.map((item) => {
+              const active = isActiveItem(item);
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { item.action(); setOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                    active ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                  {item.badge && item.badge > 0 && (
+                    <span className="ml-auto bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop: horizontal nav buttons
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9">
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-64 p-0">
-        <div className="p-4 border-b border-border">
-          <h2 className="font-bold text-lg">{seller.seller_name}</h2>
-          <p className="text-sm text-muted-foreground">{seller.owner_name}</p>
-        </div>
-        <div className="py-2">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { item.action(); setOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted"
-            >
-              <item.icon className="w-4 h-4" />
-              <span>{item.label}</span>
-              {item.badge && item.badge > 0 && (
-                <span className="ml-auto bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </SheetContent>
-    </Sheet>
+    <div className="flex gap-2 overflow-x-auto">
+      {navItems.map((item) => {
+        const active = isActiveItem(item);
+        return (
+          <Button
+            key={item.id}
+            variant={active ? 'default' : 'outline'}
+            size="sm"
+            onClick={item.action}
+            className={`flex items-center gap-2 relative whitespace-nowrap ${
+              active ? 'bg-primary text-primary-foreground' : ''
+            }`}
+          >
+            <item.icon className="w-4 h-4" />
+            <span>{item.label}</span>
+            {item.badge && item.badge > 0 && (
+              <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                {item.badge}
+              </span>
+            )}
+          </Button>
+        );
+      })}
+    </div>
   );
 };
 
