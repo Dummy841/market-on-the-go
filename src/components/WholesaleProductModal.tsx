@@ -43,6 +43,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     product_name: '',
     barcode: '',
     category: '',
+    batch_number: '',
     purchase_price: 0,
     mrp: 0,
     selling_price: 0,
@@ -78,6 +79,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         product_name: product.product_name,
         barcode: product.barcode,
         category: product.category || '',
+        batch_number: (product as any).batch_number || '',
         purchase_price: product.purchase_price,
         mrp: product.mrp,
         selling_price: product.selling_price,
@@ -242,7 +244,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     setSelectedBatchId(batchId);
     const batch = itemBatches.find(b => b.id === batchId);
     if (batch) {
-      setForm(f => ({ ...f, stock_quantity: batch.stock_quantity }));
+      setForm(f => ({ ...f, stock_quantity: batch.stock_quantity, batch_number: batch.batch_number }));
     }
   };
 
@@ -268,6 +270,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             product_name: form.product_name,
             barcode: form.barcode,
             category: form.category || null,
+            batch_number: form.batch_number || null,
             purchase_price: form.purchase_price,
             mrp: form.mrp,
             selling_price: form.selling_price,
@@ -291,6 +294,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             product_name: form.product_name,
             barcode: form.barcode,
             category: form.category || null,
+            batch_number: form.batch_number || null,
             purchase_price: form.purchase_price,
             mrp: form.mrp,
             selling_price: form.selling_price,

@@ -16,6 +16,7 @@ interface WholesaleProduct {
   product_name: string;
   barcode: string;
   category: string | null;
+  batch_number: string | null;
   purchase_price: number;
   mrp: number;
   selling_price: number;
@@ -194,7 +195,7 @@ const WholesaleInventory = () => {
                 </TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Barcode</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>Batch No</TableHead>
                 <TableHead>MRP</TableHead>
                 <TableHead>Selling Price</TableHead>
                 <TableHead>Stock</TableHead>
@@ -220,7 +221,7 @@ const WholesaleInventory = () => {
                     </TableCell>
                     <TableCell className="font-medium">{product.product_name}</TableCell>
                     <TableCell className="font-mono text-xs">{product.barcode}</TableCell>
-                    <TableCell>{product.category || '-'}</TableCell>
+                    <TableCell>{product.batch_number || '-'}</TableCell>
                     <TableCell>₹{product.mrp}</TableCell>
                     <TableCell>₹{product.selling_price}</TableCell>
                     <TableCell>

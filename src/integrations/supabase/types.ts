@@ -1292,6 +1292,7 @@ export type Database = {
       wholesale_products: {
         Row: {
           barcode: string
+          batch_number: string | null
           category: string | null
           created_at: string
           gst_percentage: number
@@ -1308,6 +1309,7 @@ export type Database = {
         }
         Insert: {
           barcode: string
+          batch_number?: string | null
           category?: string | null
           created_at?: string
           gst_percentage?: number
@@ -1324,6 +1326,7 @@ export type Database = {
         }
         Update: {
           barcode?: string
+          batch_number?: string | null
           category?: string | null
           created_at?: string
           gst_percentage?: number
