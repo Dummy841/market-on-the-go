@@ -79,6 +79,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         product_name: product.product_name,
         barcode: product.barcode,
         category: product.category || '',
+        batch_number: (product as any).batch_number || '',
         purchase_price: product.purchase_price,
         mrp: product.mrp,
         selling_price: product.selling_price,
