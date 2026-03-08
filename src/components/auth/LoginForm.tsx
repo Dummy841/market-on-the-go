@@ -126,7 +126,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     finally { setIsLoading(false); }
   };
 
-  const resetForm = () => { setStep('login'); setMobile(""); setSessionId(""); setOtp(""); setResendTimer(0); setError(""); isVerifyingRef.current = false; };
+  const resetForm = () => { setStep('login'); setMobile(""); setSessionId(""); setOtp(""); setResendTimer(0); setError(""); setReusedMessage(""); isVerifyingRef.current = false; };
   const handleClose = () => { resetForm(); onClose(); };
   const handleOtpChange = (value: string) => { setOtp(value.replace(/\D/g, '').slice(0, 4)); setError(""); };
 
