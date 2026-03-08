@@ -89,10 +89,17 @@ const SellerLogin = () => {
         setSessionId(data.sessionId);
         setOtpSent(true);
         startResendTimer();
-        toast({
-          title: "OTP Sent",
-          description: "Please enter the 4-digit OTP sent to your mobile",
-        });
+        if (data.reused) {
+          toast({
+            title: "OTP Still Active",
+            description: "Your recent OTP is still valid. Please use it.",
+          });
+        } else {
+          toast({
+            title: "OTP Sent",
+            description: "Please enter the 4-digit OTP sent to your mobile",
+          });
+        }
       } else {
         throw new Error(data?.error || 'Failed to send OTP');
       }
