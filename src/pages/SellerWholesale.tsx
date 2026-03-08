@@ -595,25 +595,21 @@ const SellerWholesale = () => {
                     <span className="text-xs text-muted-foreground line-through">₹{product.mrp}</span>
                     }
                     </div>
-                    <p className={`text-[10px] ${product.stock_quantity <= 5 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                      {product.stock_quantity <= 5 ? 'Out of Stock' : `Stock: ${product.stock_quantity}`}
-                    </p>
-
-                    {product.stock_quantity <= 5 ?
-                  <Button size="sm" className="w-full mt-2" disabled>
+                    {product.stock_quantity <= 0 ? (
+                      <Button size="sm" className="w-full mt-2" disabled>
                         Out of Stock
-                      </Button> :
-                  qty === 0 ?
-                  <Button size="sm" className="w-full mt-2" onClick={() => addToCart(product)}>
+                      </Button>
+                    ) : qty === 0 ? (
+                      <Button size="sm" className="w-full mt-2" onClick={() => addToCart(product)}>
                         <Plus className="w-3 h-3 mr-1" /> Add
-                      </Button> :
-
-                  <div className="flex items-center justify-center gap-2 mt-2">
+                      </Button>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 mt-2">
                         <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(product.id, -1)}><Minus className="w-3 h-3" /></Button>
                         <span className="font-bold text-sm">{qty}</span>
                         <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => updateQty(product.id, 1)}><Plus className="w-3 h-3" /></Button>
                       </div>
-                  }
+                    )}
                   </div>
                 </Card>);
 
