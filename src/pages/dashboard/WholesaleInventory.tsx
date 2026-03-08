@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Search, Eye, Pencil, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import WholesaleProductModal from '@/components/WholesaleProductModal';
 import WholesaleProductViewModal from '@/components/WholesaleProductViewModal';
 import JsBarcode from 'jsbarcode';
