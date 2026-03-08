@@ -261,9 +261,11 @@ const WholesaleInventory = () => {
                         <Button size="icon" variant="ghost" onClick={() => setViewProduct(product)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { setEditProduct(product); setShowAddModal(true); }}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        {hasPermission("wholesale_inventory", "edit") && (
+                          <Button size="icon" variant="ghost" onClick={() => { setEditProduct(product); setShowAddModal(true); }}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
