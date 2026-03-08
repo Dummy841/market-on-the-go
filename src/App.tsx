@@ -45,6 +45,7 @@ import UserWallet from "./pages/UserWallet";
 import Profile from "./pages/Profile";
 import SplashScreen from "./components/SplashScreen";
  
+import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
