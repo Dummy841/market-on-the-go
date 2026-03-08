@@ -81,17 +81,11 @@ export const HomeSellerCard = ({ seller, onClose }: HomeSellerCardProps) => {
         <img
           src={seller.profile_photo_url || '/placeholder.svg'}
           alt={seller.seller_name}
-          className={`w-14 h-14 rounded-full object-cover ${!seller.is_online ? 'grayscale' : ''}`}
+          className="w-14 h-14 rounded-full object-cover"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold truncate">{seller.seller_name}</h3>
-            <Badge 
-              variant={seller.is_online ? "default" : "secondary"}
-              className={seller.is_online ? "bg-green-600" : ""}
-            >
-              {seller.is_online ? "Online" : "Offline"}
-            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Owner: {seller.owner_name}

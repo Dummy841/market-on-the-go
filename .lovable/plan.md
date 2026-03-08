@@ -1,64 +1,60 @@
 
 
-## Plan: Remove Online/Offline Gating, Add Time-Based & Distance-Based Checkout Restrictions
+## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
 
-### Summary
-Currently, sellers' online/offline status blocks users from adding items to cart and viewing menus. The new behavior:
-1. **Show all sellers and items regardless of online/offline status** -- remove all offline-related restrictions on browsing and adding to cart
-2. **At checkout, enforce a 10km distance limit** from seller to delivery address. If exceeded, show "We can't deliver to your location" and disable the pay button
-3. **At checkout, if current IST time is past 10:00 PM**, show "Delivery Tomorrow" as the expected delivery time instead of the normal estimate
+### 1. Fix POS Header Under Status Bar
+The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
 
-### Changes Required
+**File:** `src/pages/SellerPOS.tsx` (line 237)
 
-#### 1. `src/components/FeaturedRestaurants.tsx`
-- Remove the `isOffline` prop from `RestaurantCard` -- always pass `false`
-- Change delivery time display: instead of "Currently not taking orders" for offline sellers, show the normal distance-based delivery time
-- Keep the sorting logic (online first is fine for ordering) but remove visual offline indicators
+### 2. Show All Cart Columns on Mobile (Reorder)
+Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
 
-#### 2. `src/components/RestaurantCard.tsx`
-- No changes needed if we just pass `isOffline={false}` from parent. The component already handles it.
+Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
 
-#### 3. `src/pages/RestaurantMenu.tsx`
-- Remove the offline banner at the top of restaurant header (lines 397-406)
-- Remove the `disabled` condition on Add button that checks `restaurant.is_online === false` (line 519)
-- Change the button text from showing "Offline" to always showing "ADD" (line 523)
-- Remove grayscale styling on restaurant image when offline (line 412)
-- Remove the "Online"/"Offline" badge next to restaurant name (lines 420-425)
-- Remove "Offline" text from delivery time display (line 442)
+**File:** `src/pages/SellerPOS.tsx`
 
-#### 4. `src/pages/Checkout.tsx`
-- Add a `isDistanceTooFar` check: if `deliveryDistance > 10`, set a flag
-- When `isDistanceTooFar` is true, show a red warning: "We can't deliver to your location. Delivery is only available within 10km from the restaurant."
-- Disable the Pay button when `isDistanceTooFar` is true (add to existing disabled conditions on line 734)
-- Add time check: get current IST hour. If hour >= 22 (10 PM), override `deliveryTimeEstimate` to show "Delivery Tomorrow" instead of the calculated time
+### 3. Persist Cart in localStorage Instead of sessionStorage
+Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
 
-#### 5. `src/components/Cart.tsx`
-- In the Cart page, also check distance and time before allowing "Proceed to Checkout"
-- Since Cart doesn't have the delivery address yet, no distance check needed here (it happens at checkout)
+**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
 
-#### 6. `src/lib/distanceUtils.ts`
-- No changes needed; existing functions suffice
+### 4. Faster UPI QR Code Generation
+Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
 
-#### 7. `src/components/HomeSellerCard.tsx`
-- Remove grayscale on offline sellers' profile photos
-- Remove "Online"/"Offline" badge -- or keep it but make it non-blocking
+**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
 
-### Technical Details
+Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
 
-**Time check (IST):**
-```typescript
-const now = new Date();
-const istHour = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours();
-const isAfter10PM = istHour >= 22;
-```
+### 5. Add Telugu Name Fields to Seller Items
+**Database migration:** Add `telugu_name` column to the `items` table.
 
-**Distance check in Checkout:**
-```typescript
-const isDistanceTooFar = deliveryDistance > 10 && selectedAddress != null;
-```
+**Files:**
+- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
+- `src/components/EditItemModal.tsx` — Same fields for editing.
+- Save `telugu_name` to the items table.
 
-The pay button disabled condition becomes:
-```typescript
-disabled={isPlacingOrder || cartItems.length === 0 || !isDeliveryStateValid || isDistanceTooFar}
-```
+For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
+
+### 6. Bilingual Receipt Printing (Telugu / English)
+Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
+
+- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
+- "Print in English" prints current receipt as-is.
+- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
+
+**Files:**
+- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
+- Update CartItem interface to include `telugu_name`.
+- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
+
+### Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
+| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
+| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
+| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
+| **Database migration** | Add `telugu_name text` column to `items` table |
 

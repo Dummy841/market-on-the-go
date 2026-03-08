@@ -394,35 +394,17 @@ const RestaurantMenu = () => {
 
             {/* Restaurant Header - Compact */}
             <div className="bg-card rounded-lg p-3 mb-6 shadow-card">
-              {restaurant.is_online === false && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="destructive" className="text-xs">Offline</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      Not taking orders now
-                    </span>
-                  </div>
-                </div>
-              )}
               <div className="flex items-center gap-3">
                 <img
                   src={restaurant.profile_photo_url || restaurant1}
                   alt={restaurant.seller_name}
-                  className={`w-16 h-16 rounded-lg object-cover flex-shrink-0 ${
-                    restaurant.is_online === false ? 'grayscale' : ''
-                  }`}
+                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h1 className="font-semibold text-card-foreground text-sm line-clamp-1">
                       {restaurant.seller_name}
                     </h1>
-                    <Badge
-                      variant={restaurant.is_online !== false ? 'default' : 'secondary'}
-                      className="flex-shrink-0 text-[10px] px-1.5 py-0"
-                    >
-                      {restaurant.is_online !== false ? 'Online' : 'Offline'}
-                    </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mb-1">
                     Owner: {restaurant.owner_name}
@@ -437,9 +419,7 @@ const RestaurantMenu = () => {
                     <div className="flex items-center gap-0.5">
                       <Clock className="h-3 w-3 flex-shrink-0" />
                       <span>
-                        {restaurant.is_online !== false
-                          ? restaurant.deliveryTime || '25-35 min'
-                          : 'Offline'}
+                        {restaurant.deliveryTime || '25-35 min'}
                       </span>
                     </div>
                     <div className="flex items-center gap-0.5">
@@ -516,11 +496,11 @@ const RestaurantMenu = () => {
                             <Button
                               size="sm"
                               onClick={() => handleAddToCart(item)}
-                              disabled={!item.is_active || restaurant.is_online === false}
+                              disabled={!item.is_active}
                               className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
                               <Plus className="h-3 w-3 mr-1" />
-                              {restaurant.is_online === false ? 'Offline' : 'ADD'}
+                              ADD
                             </Button>
                           </div>
                         </div>

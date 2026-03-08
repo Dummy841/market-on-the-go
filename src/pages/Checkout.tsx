@@ -132,6 +132,16 @@ export const Checkout = () => {
 
   const ALLOWED_STATES = ['andhra pradesh', 'telangana', 'karnataka', 'tamil nadu'];
 
+  // Check if current IST time is past 10 PM
+  const getIsAfter10PM = () => {
+    const now = new Date();
+    const istHour = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours();
+    return istHour >= 22;
+  };
+
+  const isAfter10PM = getIsAfter10PM();
+  const isDistanceTooFar = deliveryDistance > 10 && selectedAddress != null && selectedAddress.latitude != null;
+
   // Validate selected address whenever it changes or seller coordinates change
   useEffect(() => {
     if (selectedAddress?.latitude && selectedAddress?.longitude && sellerCoordinates) {
@@ -142,7 +152,13 @@ export const Checkout = () => {
         sellerCoordinates.longitude
       );
       setDeliveryDistance(distance);
-      setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
+      
+      // Override delivery time if after 10 PM
+      if (getIsAfter10PM()) {
+        setDeliveryTimeEstimate('Delivery Tomorrow');
+      } else {
+        setDeliveryTimeEstimate(getExpectedDeliveryTime(distance));
+      }
     } else {
       setDeliveryDistance(0);
       setDeliveryTimeEstimate(null);
@@ -648,6 +664,14 @@ export const Checkout = () => {
                 <p className="text-xs text-red-500 mt-1">Delivery is available only in Andhra Pradesh, Telangana, Karnataka, and Tamil Nadu.</p>
               </div>
             )}
+
+            {/* Distance restriction warning */}
+            {isDistanceTooFar && isDeliveryStateValid && (
+              <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                <p className="text-sm font-medium text-red-700">We can't deliver to your location</p>
+                <p className="text-xs text-red-500 mt-1">Delivery is only available within 10km from the restaurant. Your location is {deliveryDistance.toFixed(1)}km away.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -731,7 +755,7 @@ export const Checkout = () => {
             </div>
             
             {/* Pay Button */}
-            <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0 || !isDeliveryStateValid}>
+            <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0 || !isDeliveryStateValid || isDistanceTooFar}>
               {isPlacingOrder ? "Processing..." : (totalAmount === 0 ? "Place Order" : `Pay ₹${totalAmount}`)}
             </Button>
           </CardContent>
