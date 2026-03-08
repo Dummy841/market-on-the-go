@@ -34,7 +34,7 @@ export const AdminChangePasswordModal = ({ open, onOpenChange, employeeId }: Pro
 
     setSaving(true);
     const { data: hash } = await supabase.rpc("hash_password", { password: newPassword });
-    const { error } = await supabase.from("admin_employees" as any).update({ password_hash: hash, updated_at: new Date().toISOString() }).eq("id", employeeId);
+    const { error } = await supabase.from("admin_employees" as any).update({ password_hash: hash, password_changed: true, updated_at: new Date().toISOString() }).eq("id", employeeId);
     setSaving(false);
 
     if (error) {

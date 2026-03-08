@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_employees ADD COLUMN IF NOT EXISTS password_changed boolean NOT NULL DEFAULT false;
