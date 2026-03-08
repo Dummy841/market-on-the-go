@@ -59,8 +59,17 @@ const SellerWholesale = () => {
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
-  const initialTab = searchParams.get('tab') === 'orders' ? 'orders' : 'browse';
-  const [step, setStep] = useState<Step>(initialTab);
+  const [step, setStep] = useState<Step>(searchParams.get('tab') === 'orders' ? 'orders' : 'browse');
+
+  // Sync step with URL changes (e.g., nav button clicks)
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'orders') {
+      setStep('orders');
+    } else if (step === 'orders') {
+      setStep('browse');
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(true);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [upiTxnId, setUpiTxnId] = useState('');
@@ -334,8 +343,8 @@ const SellerWholesale = () => {
                   </Button>
             }
 
-                {/* Delivery PIN */}
-                {order.delivery_pin && order.order_status !== 'delivered' && order.order_status !== 'cancelled' &&
+                {/* Delivery PIN - only show after dispatched */}
+                {order.delivery_pin && order.order_status === 'dispatched' &&
             <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
                     <Lock className="w-4 h-4 text-orange-600" />
                     <div>
