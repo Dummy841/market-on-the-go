@@ -17,6 +17,7 @@ const SellerLogin = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [reusedMessage, setReusedMessage] = useState('');
   const { loginWithOtp } = useSellerAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
