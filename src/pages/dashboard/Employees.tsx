@@ -25,6 +25,7 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { hasPermission } = useAdminAuth();
 
   const fetchEmployees = async () => {
     const { data, error } = await supabase.from("admin_employees").select("*").order("created_at", { ascending: false });
