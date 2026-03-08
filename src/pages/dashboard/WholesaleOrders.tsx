@@ -46,6 +46,7 @@ const WholesaleOrders = () => {
   const [pinOrder, setPinOrder] = useState<WholesaleOrder | null>(null);
   const [rejectOrder, setRejectOrder] = useState<WholesaleOrder | null>(null);
   const [rejectRemarks, setRejectRemarks] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'delivered'>('all');
   const { toast } = useToast();
 
   useEffect(() => { fetchOrders(); }, []);
@@ -112,6 +113,20 @@ const WholesaleOrders = () => {
     <div className="p-4 md:p-6 space-y-4">
       <h1 className="text-2xl font-bold">Wholesale Orders</h1>
 
+      <div className="flex gap-2">
+        {(['all', 'pending', 'delivered'] as const).map(f => (
+          <Button
+            key={f}
+            size="sm"
+            variant={statusFilter === f ? 'default' : 'outline'}
+            onClick={() => setStatusFilter(f)}
+            className="capitalize"
+          >
+            {f === 'all' ? 'All' : f}
+          </Button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-center py-10 text-muted-foreground">Loading...</div>
       ) : (
@@ -129,12 +144,16 @@ const WholesaleOrders = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.length === 0 ? (
+              {(() => {
+                const filtered = statusFilter === 'all' ? orders : orders.filter(o => 
+                  statusFilter === 'pending' ? !['delivered', 'cancelled'].includes(o.order_status) : o.order_status === 'delivered'
+                );
+                return filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No orders yet</TableCell>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No orders found</TableCell>
                 </TableRow>
               ) : (
-                orders.map(order => (
+                filtered.map(order => (
                   <TableRow key={order.id}>
                     <TableCell className="font-mono text-xs">{order.id}</TableCell>
                     <TableCell>{order.seller_name}</TableCell>
@@ -211,7 +230,8 @@ const WholesaleOrders = () => {
                     </TableCell>
                   </TableRow>
                 ))
-              )}
+              );
+              })()}
             </TableBody>
           </Table>
         </div>
