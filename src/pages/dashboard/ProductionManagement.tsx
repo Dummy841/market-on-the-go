@@ -196,9 +196,11 @@ const ProductionManagement = () => {
                     <TableCell>{entry.stock_quantity}</TableCell>
                     <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(entry)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      {hasPermission("production", "edit") && (
+                        <Button size="icon" variant="ghost" onClick={() => openEdit(entry)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
