@@ -132,24 +132,18 @@ const DeliveryPartners = () => {
         )}
       </div>
       
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border min-w-[140px] flex-1">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Total</p>
-            <p className="text-xl font-bold text-primary">{stats.total}</p>
-          </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="px-3 py-2 rounded-lg border">
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Total</p>
+          <p className="text-lg font-bold text-primary">{stats.total}</p>
         </div>
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border min-w-[140px] flex-1">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><UserCheck className="h-3.5 w-3.5" /> Online</p>
-            <p className="text-xl font-bold text-green-600">{stats.online}</p>
-          </div>
+        <div className="px-3 py-2 rounded-lg border">
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><UserCheck className="h-3 w-3" /> Online</p>
+          <p className="text-lg font-bold text-green-600">{stats.online}</p>
         </div>
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border min-w-[140px] flex-1">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Active</p>
-            <p className="text-xl font-bold text-blue-600">{stats.active}</p>
-          </div>
+        <div className="px-3 py-2 rounded-lg border">
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> Active</p>
+          <p className="text-lg font-bold text-blue-600">{stats.active}</p>
         </div>
       </div>
 

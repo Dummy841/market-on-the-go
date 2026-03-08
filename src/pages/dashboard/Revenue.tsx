@@ -317,25 +317,20 @@ const Revenue = () => {
       </div>
 
       {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {statCards.map(stat => (
-          <Card key={stat.title} className="border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-lg ${stat.color}`}>
-                  <stat.icon className="h-6 w-6 text-white" />
-                </div>
-                {stat.trend === "up" ? <ArrowUpRight className="h-5 w-5 text-green-500" /> : <ArrowDownRight className="h-5 w-5 text-red-500" />}
+          <div key={stat.title} className="px-3 py-2 rounded-lg border">
+            <div className="flex items-center justify-between mb-1">
+              <div className={`p-1.5 rounded ${stat.color}`}>
+                <stat.icon className="h-3.5 w-3.5 text-white" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-                <p className={`text-2xl font-bold ${stat.textColor}`}>
-                  {loading ? "..." : formatCurrency(stat.value)}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-              </div>
-            </CardContent>
-          </Card>
+              {stat.trend === "up" ? <ArrowUpRight className="h-3.5 w-3.5 text-green-500" /> : <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />}
+            </div>
+            <p className="text-[10px] text-muted-foreground">{stat.title}</p>
+            <p className={`text-lg font-bold ${stat.textColor}`}>
+              {loading ? "..." : formatCurrency(stat.value)}
+            </p>
+          </div>
         ))}
       </div>
 
