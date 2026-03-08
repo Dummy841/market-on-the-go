@@ -437,8 +437,8 @@ const SellerWholesale = () => {
 
         <div className="space-y-4">
           <div>
-            <Label>UPI Transaction ID (optional)</Label>
-            <Input value={upiTxnId} onChange={(e) => setUpiTxnId(e.target.value)} placeholder="Enter UPI transaction ID" />
+            <Label>UPI Transaction ID *</Label>
+            <Input value={upiTxnId} onChange={(e) => setUpiTxnId(e.target.value)} placeholder="Enter UPI transaction ID (min 8 chars)" />
           </div>
 
           <div>
