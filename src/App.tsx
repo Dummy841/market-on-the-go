@@ -112,6 +112,8 @@ const AppContent = () => {
         <Route path="production" element={<ProductionManagement />} />
         <Route path="wholesale-revenue" element={<WholesaleRevenue />} />
         <Route path="employees" element={<Employees />} />
+        <Route path="employees/add" element={<EmployeeForm />} />
+        <Route path="employees/:id/edit" element={<EmployeeForm />} />
         <Route path="roles" element={<Roles />} />
       </Route>
       <Route path="/seller-wholesale" element={<SellerWholesale />} />
