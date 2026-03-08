@@ -213,6 +213,7 @@ const WholesaleInventory = () => {
                   <Checkbox
                     checked={filtered.length > 0 && selectedIds.size === filtered.length}
                     onCheckedChange={toggleAll}
+                    className="h-5 w-5 border-2 border-orange-400 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 data-[state=checked]:text-white"
                   />
                 </TableHead>
                 <TableHead>Product</TableHead>
