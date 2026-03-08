@@ -1,7 +1,36 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Capacitor } from "@capacitor/core";
 
 const SUPERADMIN_MOBILE = "9502395261";
+const STORAGE_KEY = "adminEmployee";
+
+// On native app: persist in localStorage (survives app close, only logout clears)
+// On web: use sessionStorage (auto-clears when tab closes)
+const isNative = Capacitor.isNativePlatform();
+
+const getStorage = () => (isNative ? localStorage : sessionStorage);
+
+const saveSession = (data: AdminEmployee) => {
+  const json = JSON.stringify(data);
+  getStorage().setItem(STORAGE_KEY, json);
+};
+
+const loadSession = (): AdminEmployee | null => {
+  const raw = getStorage().getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    getStorage().removeItem(STORAGE_KEY);
+    return null;
+  }
+};
+
+const clearSession = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_KEY);
+};
 
 interface AdminEmployee {
   id: string;
@@ -37,14 +66,7 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("adminEmployee");
-    if (stored) {
-      try {
-        setAdmin(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem("adminEmployee");
-      }
-    }
+    setAdmin(loadSession());
     setLoading(false);
   }, []);
 
@@ -89,7 +111,7 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
         permissions: (employee as any).permissions || {},
       };
 
-      localStorage.setItem("adminEmployee", JSON.stringify(adminData));
+      saveSession(adminData);
       setAdmin(adminData);
       return { success: true };
     } catch (err: any) {
@@ -98,7 +120,7 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("adminEmployee");
+    clearSession();
     setAdmin(null);
   };
 
@@ -106,7 +128,7 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
     if (admin) {
       const updated = { ...admin, profile_photo_url: url };
       setAdmin(updated);
-      localStorage.setItem("adminEmployee", JSON.stringify(updated));
+      saveSession(updated);
     }
   };
 
