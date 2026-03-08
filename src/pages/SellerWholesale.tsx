@@ -592,8 +592,22 @@ const SellerWholesale = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {filtered.map((product) => {
             const qty = getCartQty(product.id);
+            const discount = product.mrp > product.selling_price ? product.mrp - product.selling_price : 0;
             return (
-              <Card key={product.id} className="overflow-hidden">
+              <Card key={product.id} className="overflow-hidden relative">
+                  {/* Info button */}
+                  <button
+                    className="absolute top-1 right-1 z-10 bg-background/80 rounded-full p-1"
+                    onClick={() => { setViewProduct(product); setViewImgIndex(0); }}
+                  >
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  {/* Discount badge */}
+                  {discount > 0 && (
+                    <span className="absolute top-1 left-1 z-10 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      ₹{discount} OFF
+                    </span>
+                  )}
                   {product.images && product.images[0] ?
                 <img src={product.images[0]} className="w-full h-32 object-cover" /> :
 
