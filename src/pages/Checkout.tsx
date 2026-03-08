@@ -664,6 +664,14 @@ export const Checkout = () => {
                 <p className="text-xs text-red-500 mt-1">Delivery is available only in Andhra Pradesh, Telangana, Karnataka, and Tamil Nadu.</p>
               </div>
             )}
+
+            {/* Distance restriction warning */}
+            {isDistanceTooFar && isDeliveryStateValid && (
+              <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                <p className="text-sm font-medium text-red-700">We can't deliver to your location</p>
+                <p className="text-xs text-red-500 mt-1">Delivery is only available within 10km from the restaurant. Your location is {deliveryDistance.toFixed(1)}km away.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
