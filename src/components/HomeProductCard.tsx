@@ -20,6 +20,7 @@ interface HomeProductCardProps {
     item_photo_url: string | null;
     item_info?: string | null;
     is_active: boolean;
+    stock_quantity?: number;
     seller_id: string;
     seller_name: string;
     seller_is_online: boolean;
