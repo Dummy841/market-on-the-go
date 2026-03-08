@@ -251,10 +251,20 @@ const POSTransactions = () => {
       {/* Header */}
       <header className="bg-card border-b border-border p-3 flex items-center gap-3" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
         <SellerHamburgerMenu />
-        <h1 className="text-lg font-bold flex-1">POS Transactions</h1>
-        <div className="text-right">
-          <div className="text-xs text-muted-foreground">Total</div>
-          <div className="text-sm font-bold text-primary">₹{totalAmount.toFixed(2)}</div>
+        <h1 className="text-lg font-bold">POS Transactions</h1>
+        <div className="flex-1 flex items-center justify-end gap-3 text-right">
+          <div>
+            <div className="text-[10px] text-muted-foreground">Purchase</div>
+            <div className="text-xs font-bold text-muted-foreground">₹{totalPurchase.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground">Sale</div>
+            <div className="text-xs font-bold text-primary">₹{totalSale.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground">Profit</div>
+            <div className={`text-xs font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>₹{totalProfit.toFixed(2)}</div>
+          </div>
         </div>
       </header>
 
