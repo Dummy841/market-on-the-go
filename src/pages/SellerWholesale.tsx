@@ -82,6 +82,8 @@ const SellerWholesale = () => {
   const [reuploadFile, setReuploadFile] = useState<File | null>(null);
   const [reuploadTxnId, setReuploadTxnId] = useState('');
   const [reuploadSubmitting, setReuploadSubmitting] = useState(false);
+  const [viewProduct, setViewProduct] = useState<WholesaleProduct | null>(null);
+  const [viewImgIndex, setViewImgIndex] = useState(0);
 
   useEffect(() => {
     if (!seller) {navigate('/seller-login');return;}
