@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Eye, CheckCircle, XCircle, Truck, PackageCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { PinVerificationModal } from '@/components/PinVerificationModal';
 
 interface WholesaleOrder {
