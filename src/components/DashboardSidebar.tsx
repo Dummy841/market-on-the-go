@@ -32,7 +32,9 @@ const menuItems = [
       { title: "Users", url: "/dashboard/users", icon: Users },
       { title: "Orders", url: "/dashboard/orders", icon: FileText },
       { title: "Settlements", url: "/dashboard/settlements", icon: Wallet },
+      { title: "Refunds", url: "/dashboard/refunds", icon: RotateCcw },
       { title: "Delivery Partners", url: "/dashboard/delivery-partners", icon: Truck },
+      { title: "Banners", url: "/dashboard/banners", icon: Image },
       { title: "Modules", url: "/dashboard/modules", icon: Grid3X3 },
       { title: "Subcategories", url: "/dashboard/subcategories", icon: Layers },
       { title: "Support Chats", url: "/dashboard/support-chats", icon: MessageCircle },
@@ -44,8 +46,6 @@ const menuItems = [
     type: "group",
     items: [
       { title: "Sellers", url: "/dashboard/sellers", icon: Store },
-      { title: "Refunds", url: "/dashboard/refunds", icon: RotateCcw },
-      { title: "Banners", url: "/dashboard/banners", icon: Image },
       { title: "Wholesale Inventory", url: "/dashboard/wholesale-inventory", icon: Store },
       { title: "Wholesale Orders", url: "/dashboard/wholesale-orders", icon: FileText, badgeKey: "wholesaleOrders" },
       { title: "Production", url: "/dashboard/production", icon: Factory },
