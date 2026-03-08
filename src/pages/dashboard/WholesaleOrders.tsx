@@ -185,6 +185,28 @@ const WholesaleOrders = () => {
                             <PackageCheck className="w-4 h-4" />
                           </Button>
                         )}
+                        {order.order_status === 'dispatched' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-blue-600"
+                            title="Go to Delivery"
+                            onClick={async () => {
+                              const { data: seller } = await supabase
+                                .from('sellers')
+                                .select('seller_latitude, seller_longitude')
+                                .eq('id', order.seller_id)
+                                .single();
+                              if (seller?.seller_latitude && seller?.seller_longitude) {
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${seller.seller_latitude},${seller.seller_longitude}`, '_blank');
+                              } else {
+                                toast({ title: 'Location not available', description: 'Seller location is not set', variant: 'destructive' });
+                              }
+                            }}
+                          >
+                            <Navigation className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
