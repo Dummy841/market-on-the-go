@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Eye, CheckCircle, XCircle, Truck, PackageCheck } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Truck, PackageCheck, Navigation } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
@@ -183,6 +183,28 @@ const WholesaleOrders = () => {
                         {order.order_status === 'dispatched' && hasPermission("wholesale_orders", "update") && (
                           <Button size="icon" variant="ghost" className="text-green-600" onClick={() => setPinOrder(order)} title="Mark as Delivered">
                             <PackageCheck className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {order.order_status === 'dispatched' && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-blue-600"
+                            title="Go to Delivery"
+                            onClick={async () => {
+                              const { data: seller } = await supabase
+                                .from('sellers')
+                                .select('seller_latitude, seller_longitude')
+                                .eq('id', order.seller_id)
+                                .single();
+                              if (seller?.seller_latitude && seller?.seller_longitude) {
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${seller.seller_latitude},${seller.seller_longitude}`, '_blank');
+                              } else {
+                                toast({ title: 'Location not available', description: 'Seller location is not set', variant: 'destructive' });
+                              }
+                            }}
+                          >
+                            <Navigation className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
