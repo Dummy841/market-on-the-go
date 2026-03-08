@@ -417,6 +417,33 @@ export type Database = {
           },
         ]
       }
+      production_entries: {
+        Row: {
+          batch_number: string
+          created_at: string
+          id: string
+          item_name: string
+          stock_quantity: number
+          updated_at: string
+        }
+        Insert: {
+          batch_number: string
+          created_at?: string
+          id?: string
+          item_name: string
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          stock_quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ratings: {
         Row: {
           created_at: string
