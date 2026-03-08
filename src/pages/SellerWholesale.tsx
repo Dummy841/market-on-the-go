@@ -250,7 +250,7 @@ const SellerWholesale = () => {
   if (step === 'orders') {
     return (
       <div className="min-h-screen bg-background p-4 max-w-lg mx-auto">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <SellerHamburgerMenu />
           <h2 className="text-xl font-bold">My Wholesale Orders</h2>
         </div>
