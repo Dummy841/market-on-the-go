@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Minus, ShoppingCart, Upload, Search, X, Package, FileText, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, ShoppingCart, Upload, Search, X, Package, FileText, Lock, Info } from 'lucide-react';
 import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
