@@ -50,8 +50,8 @@ const AdminLogin = () => {
     <div className="min-h-screen flex items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Shield className="h-8 w-8 text-primary" />
+          <div className="mx-auto mb-2">
+            <img src={zippyLogo} alt="Zippy" className="h-16 w-auto mx-auto" />
           </div>
           <CardTitle className="text-2xl">Admin Login</CardTitle>
           <p className="text-sm text-muted-foreground">Sign in to access the admin panel</p>
