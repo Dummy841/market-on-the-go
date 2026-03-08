@@ -5,7 +5,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, Key, Camera, User } from "lucide-react";
+import { LogOut, Key, Camera, Menu } from "lucide-react";
 import { AdminChangePasswordModal } from "@/components/AdminChangePasswordModal";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,20 +56,20 @@ const Dashboard = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <DashboardSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-16 flex items-center justify-between px-6 border-b border-border bg-background">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-6 border-b border-border bg-background sticky top-0 z-30">
+            <div className="flex items-center gap-2 md:gap-4">
+              <SidebarTrigger className="h-9 w-9" />
+              <h1 className="text-lg md:text-2xl font-bold text-foreground truncate">Dashboard</h1>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-1.5 px-2">
                   <Avatar className="h-7 w-7">
                     <AvatarImage src={admin.profile_photo_url || undefined} alt={admin.name} />
                     <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                   </Avatar>
-                  <span className="hidden sm:inline">{admin.name}</span>
+                  <span className="hidden sm:inline text-sm">{admin.name}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -86,8 +86,8 @@ const Dashboard = () => {
             </DropdownMenu>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           </header>
-          <main className="flex-1 p-6 bg-background">
-            <div className="max-w-7xl mx-auto">
+          <main className="flex-1 p-3 md:p-6 bg-background overflow-x-auto">
+            <div className="max-w-7xl mx-auto min-w-0">
               <Outlet />
             </div>
           </main>
