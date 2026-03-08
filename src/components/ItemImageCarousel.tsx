@@ -82,7 +82,7 @@ const ItemImageCarousel = ({ images, alt, className = '' }: ItemImageCarouselPro
 
   if (images.length === 1) {
     return (
-      <img src={images[0]} alt={alt} className={`w-full h-full object-cover ${className}`} />
+      <img src={images[0]} alt={alt} loading="lazy" decoding="async" className={`w-full h-full object-cover ${className}`} />
     );
   }
 
