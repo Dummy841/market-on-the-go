@@ -22,6 +22,7 @@ export type Database = {
           is_active: boolean
           mobile: string
           name: string
+          password_changed: boolean
           password_hash: string
           permissions: Json
           profile_photo_url: string | null
@@ -35,6 +36,7 @@ export type Database = {
           is_active?: boolean
           mobile: string
           name: string
+          password_changed?: boolean
           password_hash: string
           permissions?: Json
           profile_photo_url?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           is_active?: boolean
           mobile?: string
           name?: string
+          password_changed?: boolean
           password_hash?: string
           permissions?: Json
           profile_photo_url?: string | null
