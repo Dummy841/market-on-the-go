@@ -26,7 +26,7 @@ serve(async (req) => {
     }
 
     // Test account bypass
-    const TEST_MOBILES = ['9502395261', '7894561230'];
+    const TEST_MOBILES = ['7894561230'];
     if (TEST_MOBILES.includes(mobile)) {
       console.log('Test account detected, using default OTP 0000');
       return new Response(
