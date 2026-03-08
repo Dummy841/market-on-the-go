@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface ServiceModule {
   id: string;
