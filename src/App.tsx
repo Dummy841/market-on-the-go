@@ -44,6 +44,7 @@ import OrderDetails from "./pages/OrderDetails";
 import CartPage from "./pages/CartPage";
 import UserWallet from "./pages/UserWallet";
 import Profile from "./pages/Profile";
+import AdminLogin from "./pages/AdminLogin";
 import SplashScreen from "./components/SplashScreen";
  
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
