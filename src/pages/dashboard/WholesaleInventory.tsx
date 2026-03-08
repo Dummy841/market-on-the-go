@@ -32,6 +32,7 @@ const WholesaleInventory = () => {
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<WholesaleProduct | null>(null);
   const [viewProduct, setViewProduct] = useState<WholesaleProduct | null>(null);
