@@ -89,13 +89,12 @@ const SellerLogin = () => {
       if (data?.success) {
         setSessionId(data.sessionId);
         setOtpSent(true);
-        startResendTimer();
         if (data.reused) {
-          toast({
-            title: "OTP Still Active",
-            description: "Your recent OTP is still valid. Please use it.",
-          });
+          setReusedMessage("Your recent OTP is still valid. Please use it.");
+          setResendTimer(180);
         } else {
+          setReusedMessage('');
+          startResendTimer();
           toast({
             title: "OTP Sent",
             description: "Please enter the 4-digit OTP sent to your mobile",
