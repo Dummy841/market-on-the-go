@@ -473,8 +473,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
                   placeholder="Enter stock quantity"
                 />
               </div>
-            )}
-            )}
+          </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
