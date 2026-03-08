@@ -19,7 +19,9 @@ interface OrderItem {
   seller_price: number;
   mrp: number;
   gst_percentage: number;
+  purchase_price?: number;
   id?: string;
+  item_id?: string;
 }
 
 interface PosOrder {
