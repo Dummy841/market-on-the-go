@@ -46,6 +46,7 @@ const WholesaleOrders = () => {
   const [pinOrder, setPinOrder] = useState<WholesaleOrder | null>(null);
   const [rejectOrder, setRejectOrder] = useState<WholesaleOrder | null>(null);
   const [rejectRemarks, setRejectRemarks] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'delivered'>('all');
   const { toast } = useToast();
 
   useEffect(() => { fetchOrders(); }, []);
