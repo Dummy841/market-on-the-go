@@ -228,41 +228,33 @@ const WholesaleRevenue = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <Package className="w-4 h-4" />
-            <span>Orders</span>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="px-3 py-2 rounded-lg border">
+          <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-0.5">
+            <Package className="w-3 h-3" /> Orders
           </div>
-          <p className="text-2xl font-bold">{stats.orderCount}</p>
-          <p className="text-xs text-muted-foreground">{getFilterLabel()}</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <IndianRupee className="w-4 h-4" />
-            <span>Purchase Price</span>
+          <p className="text-lg font-bold">{stats.orderCount}</p>
+        </div>
+        <div className="px-3 py-2 rounded-lg border">
+          <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-0.5">
+            <IndianRupee className="w-3 h-3" /> Purchase
           </div>
-          <p className="text-2xl font-bold">₹{stats.totalPurchase.toLocaleString('en-IN')}</p>
-          <p className="text-xs text-muted-foreground">Total cost</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-            <IndianRupee className="w-4 h-4" />
-            <span>Sale Price</span>
+          <p className="text-lg font-bold">₹{stats.totalPurchase.toLocaleString('en-IN')}</p>
+        </div>
+        <div className="px-3 py-2 rounded-lg border">
+          <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-0.5">
+            <IndianRupee className="w-3 h-3" /> Sale
           </div>
-          <p className="text-2xl font-bold">₹{stats.totalSale.toLocaleString('en-IN')}</p>
-          <p className="text-xs text-muted-foreground">Total revenue</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-xs mb-1" style={{ color: stats.profit >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }}>
-            <TrendingUp className="w-4 h-4" />
-            <span>Profit</span>
+          <p className="text-lg font-bold">₹{stats.totalSale.toLocaleString('en-IN')}</p>
+        </div>
+        <div className="px-3 py-2 rounded-lg border">
+          <div className="flex items-center gap-1 text-[10px] mb-0.5" style={{ color: stats.profit >= 0 ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }}>
+            <TrendingUp className="w-3 h-3" /> Profit
           </div>
-          <p className={`text-2xl font-bold ${stats.profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+          <p className={`text-lg font-bold ${stats.profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
             ₹{stats.profit.toLocaleString('en-IN')}
           </p>
-          <p className="text-xs text-muted-foreground">Sale - Purchase</p>
-        </Card>
+        </div>
       </div>
 
       {/* Orders Table */}
