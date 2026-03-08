@@ -132,45 +132,25 @@ const DeliveryPartners = () => {
         )}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Total Partners
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">{stats.total}</p>
-            <p className="text-sm text-muted-foreground">Registered partners</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <UserCheck className="h-5 w-5" />
-              Online Partners
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{stats.online}</p>
-            <p className="text-sm text-muted-foreground">Available for delivery</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Active Partners
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{stats.active}</p>
-            <p className="text-sm text-muted-foreground">Currently active</p>
-          </CardContent>
-        </Card>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border min-w-[140px] flex-1">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Total</p>
+            <p className="text-xl font-bold text-primary">{stats.total}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border min-w-[140px] flex-1">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><UserCheck className="h-3.5 w-3.5" /> Online</p>
+            <p className="text-xl font-bold text-green-600">{stats.online}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border min-w-[140px] flex-1">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Active</p>
+            <p className="text-xl font-bold text-blue-600">{stats.active}</p>
+          </div>
+        </div>
       </div>
 
       <Card>

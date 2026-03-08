@@ -123,13 +123,9 @@ const Refunds = () => {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold text-foreground">Refunds Management</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex gap-3 overflow-x-auto pb-2">
           {[1, 2].map(i => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-16 bg-muted rounded"></div>
-              </CardContent>
-            </Card>
+            <div key={i} className="animate-pulse min-w-[140px] h-16 bg-muted rounded-lg flex-1"></div>
           ))}
         </div>
       </div>
@@ -146,7 +142,7 @@ const Refunds = () => {
       </div>
       
       {/* Status Filter Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="flex gap-3 overflow-x-auto pb-1">
         {statusOptions.map(status => {
           const Icon = status.icon;
           let count = 0;
@@ -154,23 +150,19 @@ const Refunds = () => {
           else if (status.value === "refunded") count = refundedCount;
 
           return (
-            <Card 
-              key={status.value} 
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                selectedStatus === status.value ? 'ring-2 ring-primary shadow-md' : ''
+            <div
+              key={status.value}
+              className={`cursor-pointer flex items-center gap-3 px-4 py-3 rounded-lg border transition-all min-w-[160px] flex-1 ${
+                selectedStatus === status.value ? 'ring-2 ring-primary shadow-sm' : 'hover:shadow-sm'
               }`}
               onClick={() => setSelectedStatus(status.value)}
             >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{status.label}</p>
-                    <p className="text-2xl font-bold">{count}</p>
-                  </div>
-                  <Icon className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground truncate">{status.label}</p>
+                <p className="text-xl font-bold">{count}</p>
+              </div>
+              <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            </div>
           );
         })}
       </div>
