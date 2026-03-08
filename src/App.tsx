@@ -23,6 +23,7 @@ import SupportChats from "./pages/dashboard/SupportChats";
 import Revenue from "./pages/dashboard/Revenue";
 import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
 import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
+import ProductionManagement from "./pages/dashboard/ProductionManagement";
 import SellerWholesale from "./pages/SellerWholesale";
 import Help from "./pages/Help";
 import SellerLogin from "./pages/SellerLogin";
