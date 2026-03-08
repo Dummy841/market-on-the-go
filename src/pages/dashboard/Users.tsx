@@ -31,6 +31,7 @@ interface User {
 }
 
 const Users = () => {
+  const { hasPermission } = useAdminAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
