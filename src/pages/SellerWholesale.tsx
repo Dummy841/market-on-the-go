@@ -17,6 +17,7 @@ interface WholesaleProduct {
   product_name: string;
   barcode: string;
   category: string | null;
+  batch_number: string | null;
   mrp: number;
   selling_price: number;
   stock_quantity: number;
@@ -210,6 +211,7 @@ const SellerWholesale = () => {
           product_id: c.id,
           product_name: c.product_name,
           barcode: c.barcode,
+          batch_number: c.batch_number || null,
           selling_price: c.selling_price,
           mrp: c.mrp,
           quantity: c.quantity
