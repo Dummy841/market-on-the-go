@@ -1,60 +1,84 @@
 
 
-## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
+# Employee Form Page with Granular Dashboard Access Permissions
 
-### 1. Fix POS Header Under Status Bar
-The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
+## What We're Building
 
-**File:** `src/pages/SellerPOS.tsx` (line 237)
+1. **Separate Add/Edit Employee page** instead of a dialog — navigates to `/dashboard/employees/add` and `/dashboard/employees/:id/edit`
+2. **Remove the "Role" field** from the form
+3. **Add "Dashboard Access" section** with collapsible permission groups and checkboxes matching the handwritten spec
+4. **Hide superadmin (9502395261)** from the employee table
+5. **Revenue pages (Online & Wholesale) are superadmin-only** — never shown to employees
+6. **Enforce access**: Sidebar only shows items the employee has access to; routes redirect if unauthorized
 
-### 2. Show All Cart Columns on Mobile (Reorder)
-Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
+## Database Changes
 
-Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
+Add a `permissions` jsonb column to `admin_employees`:
 
-**File:** `src/pages/SellerPOS.tsx`
+```sql
+ALTER TABLE public.admin_employees 
+ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
+```
 
-### 3. Persist Cart in localStorage Instead of sessionStorage
-Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
+## Permissions Structure (stored as JSON)
 
-**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
+```json
+{
+  "users": { "view": true, "view_profile": true, "view_orders": true, "wallet_topup": true, "export": true },
+  "sellers": { "view": true, "create": true, "view_details": true, "edit": true, "view_sales": true, "view_settlements": true },
+  "employees": { "view": true, "edit": true, "create": true },
+  "orders": { "view": true, "online": true, "pos": true, "update": true },
+  "settlements": { "view": true, "update": true },
+  "refunds": { "view": true },
+  "delivery_partners": { "view": true, "create": true, "edit": true, "update": true },
+  "banners": { "view": true, "create": true, "edit": true, "delete": true },
+  "modules": { "view": true, "create": true, "edit": true, "delete": true },
+  "subcategories": { "view": true, "create": true, "edit": true, "delete": true },
+  "support_chats": { "view": true, "update": true },
+  "wholesale_inventory": { "view": true, "create": true, "edit": true },
+  "wholesale_orders": { "view": true, "update": true },
+  "production": { "view": true, "edit": true, "create": true }
+}
+```
 
-### 4. Faster UPI QR Code Generation
-Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
+## New Files
 
-**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
+### 1. `src/pages/dashboard/EmployeeForm.tsx`
+- Full-page form with employee details (name, mobile, email, photo, password)
+- "Dashboard Access" section with collapsible groups (Users, Sellers, Employees, Orders, etc.)
+- Each group has a header with a toggle-all checkbox and individual sub-permission checkboxes
+- On save, stores permissions JSON in `admin_employees.permissions`
+- For edit mode, loads existing employee data and pre-checks permissions
 
-Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
+## Modified Files
 
-### 5. Add Telugu Name Fields to Seller Items
-**Database migration:** Add `telugu_name` column to the `items` table.
+### 2. `src/pages/dashboard/Employees.tsx`
+- Remove the dialog form entirely
+- "Add Employee" button navigates to `/dashboard/employees/add`
+- Edit button navigates to `/dashboard/employees/:id/edit`
+- Filter out superadmin (mobile `9502395261`) from the table
+- Remove the "Role" column from the table
 
-**Files:**
-- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
-- `src/components/EditItemModal.tsx` — Same fields for editing.
-- Save `telugu_name` to the items table.
+### 3. `src/App.tsx`
+- Add routes: `/dashboard/employees/add` and `/dashboard/employees/:id/edit`
 
-For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
+### 4. `src/contexts/AdminAuthContext.tsx`
+- Add `permissions` to the `AdminEmployee` interface
+- Store permissions in localStorage on login
+- Add helper: `hasPermission(section, action)` — returns true for superadmin always
 
-### 6. Bilingual Receipt Printing (Telugu / English)
-Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
+### 5. `src/components/DashboardSidebar.tsx`
+- Filter menu items based on `admin.permissions`
+- Hide Revenue and Wholesale Revenue entirely (superadmin-only)
+- Show Employee Management only if `employees.view` is true
+- Each sidebar item checks if the employee has at least `view` permission for that section
 
-- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
-- "Print in English" prints current receipt as-is.
-- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
+### 6. `src/pages/Dashboard.tsx`
+- Wrap `<Outlet>` routes with permission checks — redirect to `/dashboard` if employee lacks access to the current route
 
-**Files:**
-- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
-- Update CartItem interface to include `telugu_name`.
-- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
-
-### Summary of Changes
-
-| File | Change |
-|------|--------|
-| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
-| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
-| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
-| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
-| **Database migration** | Add `telugu_name text` column to `items` table |
+## Superadmin Rules
+- Mobile `9502395261` is treated as superadmin in code
+- Always has full access to everything including Revenue pages
+- Never appears in the employee table
+- Cannot be edited or deactivated by other employees
 
