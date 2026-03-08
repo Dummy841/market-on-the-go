@@ -755,7 +755,7 @@ export const Checkout = () => {
             </div>
             
             {/* Pay Button */}
-            <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0 || !isDeliveryStateValid}>
+            <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-4" size="lg" onClick={handlePlaceOrder} disabled={isPlacingOrder || cartItems.length === 0 || !isDeliveryStateValid || isDistanceTooFar}>
               {isPlacingOrder ? "Processing..." : (totalAmount === 0 ? "Place Order" : `Pay ₹${totalAmount}`)}
             </Button>
           </CardContent>
