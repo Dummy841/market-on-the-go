@@ -355,6 +355,7 @@ const Subcategories = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
