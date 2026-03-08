@@ -21,6 +21,7 @@ interface AdminAuthContextType {
   logout: () => void;
   isSuperAdmin: () => boolean;
   hasPermission: (section: string, action?: string) => boolean;
+  updateProfilePhoto: (url: string) => void;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
