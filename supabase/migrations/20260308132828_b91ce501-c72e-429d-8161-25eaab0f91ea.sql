@@ -1,0 +1,1 @@
+ALTER TABLE public.wholesale_products ADD COLUMN IF NOT EXISTS description text DEFAULT NULL;

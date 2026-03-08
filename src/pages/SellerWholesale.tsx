@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Minus, ShoppingCart, Upload, Search, X, Package, FileText, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, ShoppingCart, Upload, Search, X, Package, FileText, Lock, Info } from 'lucide-react';
 import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
@@ -23,6 +23,7 @@ interface WholesaleProduct {
   stock_quantity: number;
   is_active: boolean;
   images?: string[];
+  description?: string;
 }
 
 interface CartItem extends WholesaleProduct {
@@ -81,6 +82,8 @@ const SellerWholesale = () => {
   const [reuploadFile, setReuploadFile] = useState<File | null>(null);
   const [reuploadTxnId, setReuploadTxnId] = useState('');
   const [reuploadSubmitting, setReuploadSubmitting] = useState(false);
+  const [viewProduct, setViewProduct] = useState<WholesaleProduct | null>(null);
+  const [viewImgIndex, setViewImgIndex] = useState(0);
 
   useEffect(() => {
     if (!seller) {navigate('/seller-login');return;}
@@ -589,8 +592,22 @@ const SellerWholesale = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {filtered.map((product) => {
             const qty = getCartQty(product.id);
+            const discount = product.mrp > product.selling_price ? product.mrp - product.selling_price : 0;
             return (
-              <Card key={product.id} className="overflow-hidden">
+              <Card key={product.id} className="overflow-hidden relative">
+                  {/* Info button */}
+                  <button
+                    className="absolute top-1 right-1 z-10 bg-background/80 rounded-full p-1"
+                    onClick={() => { setViewProduct(product); setViewImgIndex(0); }}
+                  >
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  {/* Discount badge */}
+                  {discount > 0 && (
+                    <span className="absolute top-1 left-1 z-10 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      ₹{discount} OFF
+                    </span>
+                  )}
                   {product.images && product.images[0] ?
                 <img src={product.images[0]} className="w-full h-32 object-cover" /> :
 
@@ -639,6 +656,72 @@ const SellerWholesale = () => {
           </div>
         </div>
       }
+
+      {/* Product Detail Modal */}
+      {viewProduct && (
+        <Dialog open={!!viewProduct} onOpenChange={() => setViewProduct(null)}>
+          <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{viewProduct.product_name}</DialogTitle>
+            </DialogHeader>
+            {viewProduct.images && viewProduct.images.length > 0 && (
+              <div className="relative rounded-lg overflow-hidden">
+                <img
+                  src={viewProduct.images[viewImgIndex % viewProduct.images.length]}
+                  className="w-full h-48 object-cover"
+                  alt={viewProduct.product_name}
+                />
+                {viewProduct.images.length > 1 && (
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    {viewProduct.images.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-2 h-2 rounded-full ${i === viewImgIndex % viewProduct.images!.length ? 'bg-primary' : 'bg-white/60'}`}
+                        onClick={() => setViewImgIndex(i)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {viewProduct.mrp > viewProduct.selling_price && (
+                  <span className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded">
+                    ₹{viewProduct.mrp - viewProduct.selling_price} OFF
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">₹{viewProduct.selling_price}</span>
+                {viewProduct.mrp > viewProduct.selling_price && (
+                  <span className="text-muted-foreground line-through text-sm">MRP ₹{viewProduct.mrp}</span>
+                )}
+              </div>
+              {viewProduct.description && (
+                <p className="text-sm text-muted-foreground">{viewProduct.description}</p>
+              )}
+              {viewProduct.category && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Category</span>
+                  <span>{viewProduct.category}</span>
+                </div>
+              )}
+              {viewProduct.stock_quantity === 0 ? (
+                <Button className="w-full" disabled>Out of Stock</Button>
+              ) : getCartQty(viewProduct.id) === 0 ? (
+                <Button className="w-full" onClick={() => { addToCart(viewProduct); setViewProduct(null); }}>
+                  <Plus className="w-4 h-4 mr-2" /> Add to Cart
+                </Button>
+              ) : (
+                <div className="flex items-center justify-center gap-3">
+                  <Button size="icon" variant="outline" onClick={() => updateQty(viewProduct.id, -1)}><Minus className="w-4 h-4" /></Button>
+                  <span className="font-bold text-lg">{getCartQty(viewProduct.id)}</span>
+                  <Button size="icon" variant="outline" onClick={() => updateQty(viewProduct.id, 1)}><Plus className="w-4 h-4" /></Button>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>);
 
 };

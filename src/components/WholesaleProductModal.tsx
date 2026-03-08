@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     gst_percentage: 0,
     show_in_quick_add: false,
     is_active: true,
+    description: '',
   });
   const [images, setImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -89,6 +91,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         gst_percentage: product.gst_percentage,
         show_in_quick_add: product.show_in_quick_add,
         is_active: product.is_active,
+        description: (product as any).description || '',
       });
       setProductNameSearch(product.product_name);
       setSelectedItemName(product.product_name);
@@ -267,7 +270,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
       if (product) {
         const { error } = await supabase
           .from('wholesale_products' as any)
-          .update({
+           .update({
             product_name: form.product_name,
             barcode: form.barcode,
             category: form.category || null,
@@ -280,6 +283,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             gst_percentage: form.gst_percentage,
             show_in_quick_add: form.show_in_quick_add,
             is_active: form.is_active,
+            description: form.description || null,
           } as any)
           .eq('id', product.id);
         if (error) throw error;
@@ -304,6 +308,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             gst_percentage: form.gst_percentage,
             show_in_quick_add: form.show_in_quick_add,
             is_active: form.is_active,
+            description: form.description || null,
           } as any)
           .select()
           .single();
@@ -486,6 +491,16 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
               <Label>GST %</Label>
               <Input type="number" value={form.gst_percentage} onChange={e => setForm(f => ({ ...f, gst_percentage: Number(e.target.value) }))} />
             </div>
+          </div>
+
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Enter product description..."
+              rows={3}
+            />
           </div>
 
           <div className="flex items-center justify-between">

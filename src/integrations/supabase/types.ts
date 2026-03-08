@@ -1295,6 +1295,7 @@ export type Database = {
           batch_number: string | null
           category: string | null
           created_at: string
+          description: string | null
           gst_percentage: number
           id: string
           is_active: boolean
@@ -1312,6 +1313,7 @@ export type Database = {
           batch_number?: string | null
           category?: string | null
           created_at?: string
+          description?: string | null
           gst_percentage?: number
           id?: string
           is_active?: boolean
@@ -1329,6 +1331,7 @@ export type Database = {
           batch_number?: string | null
           category?: string | null
           created_at?: string
+          description?: string | null
           gst_percentage?: number
           id?: string
           is_active?: boolean
