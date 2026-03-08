@@ -60,10 +60,13 @@ const WholesaleInventory = () => {
     }
   };
 
-  const filtered = products.filter(p =>
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.barcode.includes(search)
-  );
+  const filtered = products.filter(p => {
+    const matchesSearch = p.product_name.toLowerCase().includes(search.toLowerCase()) || p.barcode.includes(search);
+    if (!matchesSearch) return false;
+    if (stockFilter === 'out') return p.stock_quantity === 0;
+    if (stockFilter === 'low') return p.stock_quantity > 0 && p.stock_quantity <= p.low_stock_alert;
+    return true;
+  });
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
