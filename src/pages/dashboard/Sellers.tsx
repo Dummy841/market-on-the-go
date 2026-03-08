@@ -85,10 +85,12 @@ const Sellers = () => {
   return <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-foreground">Sellers Management</h2>
-        <Button onClick={() => setShowCreateForm(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Seller
-        </Button>
+        {hasPermission("sellers", "create") && (
+          <Button onClick={() => setShowCreateForm(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Seller
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-md">
