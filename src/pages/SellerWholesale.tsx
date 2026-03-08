@@ -59,8 +59,17 @@ const SellerWholesale = () => {
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
-  const initialTab = searchParams.get('tab') === 'orders' ? 'orders' : 'browse';
-  const [step, setStep] = useState<Step>(initialTab);
+  const [step, setStep] = useState<Step>(searchParams.get('tab') === 'orders' ? 'orders' : 'browse');
+
+  // Sync step with URL changes (e.g., nav button clicks)
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'orders') {
+      setStep('orders');
+    } else if (step === 'orders') {
+      setStep('browse');
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(true);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [upiTxnId, setUpiTxnId] = useState('');
