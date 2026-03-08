@@ -17,6 +17,7 @@ const SellerLogin = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [reusedMessage, setReusedMessage] = useState('');
   const { loginWithOtp } = useSellerAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -88,13 +89,12 @@ const SellerLogin = () => {
       if (data?.success) {
         setSessionId(data.sessionId);
         setOtpSent(true);
-        startResendTimer();
         if (data.reused) {
-          toast({
-            title: "OTP Still Active",
-            description: "Your recent OTP is still valid. Please use it.",
-          });
+          setReusedMessage("Your recent OTP is still valid. Please use it.");
+          setResendTimer(180);
         } else {
+          setReusedMessage('');
+          startResendTimer();
           toast({
             title: "OTP Sent",
             description: "Please enter the 4-digit OTP sent to your mobile",
@@ -216,6 +216,7 @@ const SellerLogin = () => {
               <p className="text-sm text-muted-foreground text-center">
                 OTP sent to <span className="font-semibold">{mobile}</span>
               </p>
+              {reusedMessage && <p className="text-sm text-orange-600 font-medium text-center">{reusedMessage}</p>}
               <div className="flex justify-center">
                 <InputOTP maxLength={4} value={otp} onChange={setOtp}>
                   <InputOTPGroup>

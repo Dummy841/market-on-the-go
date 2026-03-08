@@ -23,6 +23,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
   const [isLoading, setIsLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [error, setError] = useState("");
+  const [reusedMessage, setReusedMessage] = useState("");
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
   const isVerifyingRef = useRef(false);
@@ -83,11 +84,13 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       if (data.success) {
         setSessionId(data.sessionId);
         if (data.reused) {
-          toast({ title: "OTP Still Active", description: "Your recent OTP is still valid. Please use it." });
+          setReusedMessage("Your recent OTP is still valid. Please use it.");
+          setStep('verify'); setResendTimer(180); setOtp(""); isVerifyingRef.current = false;
         } else {
+          setReusedMessage("");
           toast({ title: "OTP Sent", description: "Please enter the 4-digit OTP sent to your mobile" });
+          setStep('verify'); setResendTimer(30); setOtp(""); isVerifyingRef.current = false;
         }
-        setStep('verify'); setResendTimer(30); setOtp(""); isVerifyingRef.current = false;
       } else throw new Error(data.error || 'Failed to send OTP');
     } catch (error: any) {
       setError(error.message || "Failed to send OTP. Please try again.");
@@ -123,7 +126,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
     finally { setIsLoading(false); }
   };
 
-  const resetForm = () => { setStep('login'); setMobile(""); setSessionId(""); setOtp(""); setResendTimer(0); setError(""); isVerifyingRef.current = false; };
+  const resetForm = () => { setStep('login'); setMobile(""); setSessionId(""); setOtp(""); setResendTimer(0); setError(""); setReusedMessage(""); isVerifyingRef.current = false; };
   const handleClose = () => { resetForm(); onClose(); };
   const handleOtpChange = (value: string) => { setOtp(value.replace(/\D/g, '').slice(0, 4)); setError(""); };
 
@@ -154,7 +157,10 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
             </>
           ) : (
             <>
-              <div className="text-center mb-4"><p className="text-sm text-muted-foreground">OTP sent to <span className="font-medium text-foreground">+91 {mobile}</span></p></div>
+              <div className="text-center mb-4">
+                <p className="text-sm text-muted-foreground">OTP sent to <span className="font-medium text-foreground">+91 {mobile}</span></p>
+                {reusedMessage && <p className="text-sm text-orange-600 font-medium mt-2">{reusedMessage}</p>}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="otp">Enter OTP</Label>
                 <Input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="Enter 4-digit OTP" value={otp} onChange={(e) => handleOtpChange(e.target.value)} maxLength={4} className="text-center text-2xl font-bold tracking-[0.5em] h-14 border-2 border-primary/30 focus:border-primary" autoFocus />
