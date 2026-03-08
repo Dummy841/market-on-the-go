@@ -144,12 +144,16 @@ const WholesaleOrders = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.length === 0 ? (
+              {(() => {
+                const filtered = statusFilter === 'all' ? orders : orders.filter(o => 
+                  statusFilter === 'pending' ? !['delivered', 'cancelled'].includes(o.order_status) : o.order_status === 'delivered'
+                );
+                return filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No orders yet</TableCell>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No orders found</TableCell>
                 </TableRow>
               ) : (
-                orders.map(order => (
+                filtered.map(order => (
                   <TableRow key={order.id}>
                     <TableCell className="font-mono text-xs">{order.id}</TableCell>
                     <TableCell>{order.seller_name}</TableCell>
