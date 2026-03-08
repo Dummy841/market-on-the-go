@@ -46,6 +46,7 @@ const menuItems = [
       { title: "Support Chats", url: "/dashboard/support-chats", icon: MessageCircle },
       { title: "Wholesale Inventory", url: "/dashboard/wholesale-inventory", icon: Store },
       { title: "Wholesale Orders", url: "/dashboard/wholesale-orders", icon: FileText, badgeKey: "wholesaleOrders" },
+      { title: "Production", url: "/dashboard/production", icon: Factory },
     ]
   }
 ];
