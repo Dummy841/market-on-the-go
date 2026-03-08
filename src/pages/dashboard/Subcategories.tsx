@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Upload, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface Subcategory {
   id: string;
