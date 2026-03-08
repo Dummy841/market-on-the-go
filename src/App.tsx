@@ -24,6 +24,7 @@ import Revenue from "./pages/dashboard/Revenue";
 import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
 import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
 import ProductionManagement from "./pages/dashboard/ProductionManagement";
+import Employees from "./pages/dashboard/Employees";
 import WholesaleRevenue from "./pages/dashboard/WholesaleRevenue";
 import SellerWholesale from "./pages/SellerWholesale";
 import Help from "./pages/Help";
@@ -43,8 +44,10 @@ import OrderDetails from "./pages/OrderDetails";
 import CartPage from "./pages/CartPage";
 import UserWallet from "./pages/UserWallet";
 import Profile from "./pages/Profile";
+import AdminLogin from "./pages/AdminLogin";
 import SplashScreen from "./components/SplashScreen";
  
+import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 import { CartProvider } from "./contexts/CartContext";
@@ -86,6 +89,7 @@ const AppContent = () => {
       <Route path="/seller-pos/transactions" element={<POSTransactions />} />
       <Route path="/seller-pos/settings" element={<POSSettings />} />
       <Route path="/delivery-login" element={<DeliveryPartnerLogin />} />
+      <Route path="/admin-login" element={<AdminLogin />} />
       <Route path="/delivery-dashboard" element={<DeliveryPartnerDashboard />} />
       <Route path="/dashboard" element={<Dashboard />}>
         <Route index element={<DashboardHome />} />
@@ -105,6 +109,7 @@ const AppContent = () => {
         <Route path="wholesale-orders" element={<WholesaleOrders />} />
         <Route path="production" element={<ProductionManagement />} />
         <Route path="wholesale-revenue" element={<WholesaleRevenue />} />
+        <Route path="employees" element={<Employees />} />
       </Route>
       <Route path="/seller-wholesale" element={<SellerWholesale />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -134,20 +139,22 @@ const App = () => {
       {/* BrowserRouter must wrap providers that use react-router hooks (e.g., voice-call navigation) */}
       <BrowserRouter>
         <GoogleMapsProvider>
-          <UserAuthProvider>
-            <SellerAuthProvider>
-              <CartProvider>
-                <OrderTrackingProvider>
-                    <TooltipProvider>
-                      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-                      <Toaster />
-                      <Sonner />
-                      <AppContent />
-                    </TooltipProvider>
-                </OrderTrackingProvider>
-              </CartProvider>
-            </SellerAuthProvider>
-          </UserAuthProvider>
+          <AdminAuthProvider>
+            <UserAuthProvider>
+              <SellerAuthProvider>
+                <CartProvider>
+                  <OrderTrackingProvider>
+                      <TooltipProvider>
+                        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                        <Toaster />
+                        <Sonner />
+                        <AppContent />
+                      </TooltipProvider>
+                  </OrderTrackingProvider>
+                </CartProvider>
+              </SellerAuthProvider>
+            </UserAuthProvider>
+          </AdminAuthProvider>
         </GoogleMapsProvider>
       </BrowserRouter>
     </QueryClientProvider>

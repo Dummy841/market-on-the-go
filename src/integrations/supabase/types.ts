@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_employees: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          mobile: string
+          name: string
+          password_hash: string
+          profile_photo_url: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          mobile: string
+          name: string
+          password_hash: string
+          profile_photo_url?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          mobile?: string
+          name?: string
+          password_hash?: string
+          profile_photo_url?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       banners: {
         Row: {
           created_at: string
