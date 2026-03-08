@@ -290,7 +290,7 @@ const Settlements = () => {
               )}
               {filter === "pending" ? "Pending Withdrawals" : "Settled Withdrawals"}
             </CardTitle>
-            {filter === "pending" && selectedIds.length > 0 && (
+            {filter === "pending" && selectedIds.length > 0 && hasPermission("settlements", "update") && (
               <Button 
                 onClick={handleSettleAll} 
                 disabled={settlingAll}

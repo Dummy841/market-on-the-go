@@ -19,6 +19,7 @@ interface ProductionEntry {
 }
 
 const ProductionManagement = () => {
+  const { hasPermission } = useAdminAuth();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);

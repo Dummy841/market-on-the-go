@@ -30,6 +30,7 @@ interface WholesaleProduct {
 }
 
 const WholesaleInventory = () => {
+  const { hasPermission } = useAdminAuth();
   const [products, setProducts] = useState<WholesaleProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

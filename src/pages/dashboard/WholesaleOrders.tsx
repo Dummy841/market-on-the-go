@@ -38,6 +38,7 @@ const statusColors: Record<string, string> = {
 };
 
 const WholesaleOrders = () => {
+  const { hasPermission } = useAdminAuth();
   const [orders, setOrders] = useState<WholesaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewOrder, setViewOrder] = useState<WholesaleOrder | null>(null);

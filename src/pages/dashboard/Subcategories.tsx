@@ -400,12 +400,16 @@ const Subcategories = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(subcategory)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(subcategory.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {hasPermission("subcategories", "edit") && (
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(subcategory)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission("subcategories", "delete") && (
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(subcategory.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
