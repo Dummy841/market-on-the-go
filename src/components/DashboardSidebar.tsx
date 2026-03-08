@@ -123,7 +123,7 @@ export function DashboardSidebar() {
                       }
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {(open || isMobile) && <span className="truncate text-sm">{item.title}</span>}
+                      {(open || isMobile) && <span className="truncate text-base">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </div>
@@ -142,7 +142,7 @@ export function DashboardSidebar() {
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {(open || isMobile) && (
                         <>
-                          <span className="truncate flex-1 text-left text-sm">{item.title}</span>
+                          <span className="truncate flex-1 text-left text-base">{item.title}</span>
                           <ChevronDown className="h-4 w-4 transition-transform ui-state-open:rotate-180" />
                         </>
                       )}
@@ -158,7 +158,7 @@ export function DashboardSidebar() {
                             <NavLink
                               to={subItem.url}
                               className={({ isActive }) =>
-                                `flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-xs ${
+                                `flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
                                   isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"
                                 }`
                               }
