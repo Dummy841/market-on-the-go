@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit2, GripVertical, ImageIcon } from 'lucide-react';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   Dialog,
   DialogContent,
