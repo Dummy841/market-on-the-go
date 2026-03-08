@@ -23,6 +23,7 @@ interface WholesaleProduct {
   stock_quantity: number;
   is_active: boolean;
   images?: string[];
+  description?: string;
 }
 
 interface CartItem extends WholesaleProduct {
