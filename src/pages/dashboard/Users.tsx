@@ -17,6 +17,7 @@ import { WalletTopUpModal } from "@/components/WalletTopUpModal";
 import { formatDistanceToNow } from "date-fns";
 import { Eye, FileText, Users as UsersIcon, UserCheck, UserPlus, Crown, MoreVertical, Wallet, IndianRupee, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 interface User {
   id: string;
