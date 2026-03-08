@@ -203,6 +203,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             item_photo_url: item.item_photo_url,
             item_info: item.item_info,
             is_active: item.is_active,
+            stock_quantity: (item as any).stock_quantity ?? 0,
             seller_id: item.seller_id,
             seller_name: seller.seller_name,
             seller_is_online: seller.is_online,

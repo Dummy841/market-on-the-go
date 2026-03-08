@@ -32,7 +32,8 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
   const { addToCart, cartItems, cartRestaurant, removeFromCart, updateQuantity } = useCart();
   const [showInfo, setShowInfo] = useState(false);
 
-  const isAvailable = item.is_active;
+  const isOutOfStock = (item.stock_quantity ?? 0) <= 0;
+  const isAvailable = item.is_active && !isOutOfStock;
   const cartItem = cartItems.find(ci => ci.id === item.id);
   const quantity = cartItem?.quantity || 0;
   const mrp = item.mrp || 0;
