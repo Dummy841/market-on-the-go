@@ -33,7 +33,7 @@ const SellerEarningsDashboard = () => {
   } = useSellerAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState(format(new Date(new Date().setDate(new Date().getDate() - 7)), 'yyyy-MM-dd'));
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dailyEarnings, setDailyEarnings] = useState<DailyEarning[]>([]);
   const [totalStats, setTotalStats] = useState({
