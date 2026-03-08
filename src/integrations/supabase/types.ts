@@ -23,6 +23,7 @@ export type Database = {
           mobile: string
           name: string
           password_hash: string
+          permissions: Json
           profile_photo_url: string | null
           role: string
           updated_at: string
@@ -35,6 +36,7 @@ export type Database = {
           mobile: string
           name: string
           password_hash: string
+          permissions?: Json
           profile_photo_url?: string | null
           role?: string
           updated_at?: string
@@ -47,6 +49,7 @@ export type Database = {
           mobile?: string
           name?: string
           password_hash?: string
+          permissions?: Json
           profile_photo_url?: string | null
           role?: string
           updated_at?: string

@@ -5,76 +5,60 @@ import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
+// permissionKey maps sidebar items to permission sections
 const menuItems = [
-  { 
-    title: "Dashboard", 
-    url: "/dashboard", 
-    icon: BarChart3,
-    type: "single"
-  },
-  { 
-    title: "Users", 
-    url: "/dashboard/users", 
-    icon: Users,
-    type: "single"
-  },
-  { 
-    title: "Sellers", 
-    url: "/dashboard/sellers", 
-    icon: Store,
-    type: "single"
-  },
+  { title: "Dashboard", url: "/dashboard", icon: BarChart3, type: "single" },
+  { title: "Users", url: "/dashboard/users", icon: Users, type: "single", permissionKey: "users" },
+  { title: "Sellers", url: "/dashboard/sellers", icon: Store, type: "single", permissionKey: "sellers" },
   {
     title: "Employee Management",
     icon: UserCog,
     type: "group",
+    permissionKey: "employees",
     items: [
       { title: "Employees", url: "/dashboard/employees", icon: Users },
       { title: "Roles", url: "/dashboard/roles", icon: ShieldCheck },
-    ]
+    ],
   },
   {
     title: "Online Management",
     icon: Settings,
     type: "group",
     items: [
-      { title: "Revenue", url: "/dashboard/revenue", icon: IndianRupee },
-      { title: "Orders", url: "/dashboard/orders", icon: FileText },
-      { title: "Settlements", url: "/dashboard/settlements", icon: Wallet },
-      { title: "Refunds", url: "/dashboard/refunds", icon: RotateCcw },
-      { title: "Delivery Partners", url: "/dashboard/delivery-partners", icon: Truck },
-      { title: "Banners", url: "/dashboard/banners", icon: Image },
-      { title: "Modules", url: "/dashboard/modules", icon: Grid3X3 },
-      { title: "Subcategories", url: "/dashboard/subcategories", icon: Layers },
-      { title: "Support Chats", url: "/dashboard/support-chats", icon: MessageCircle },
-    ]
+      { title: "Revenue", url: "/dashboard/revenue", icon: IndianRupee, superAdminOnly: true },
+      { title: "Orders", url: "/dashboard/orders", icon: FileText, permissionKey: "orders" },
+      { title: "Settlements", url: "/dashboard/settlements", icon: Wallet, permissionKey: "settlements" },
+      { title: "Refunds", url: "/dashboard/refunds", icon: RotateCcw, permissionKey: "refunds" },
+      { title: "Delivery Partners", url: "/dashboard/delivery-partners", icon: Truck, permissionKey: "delivery_partners" },
+      { title: "Banners", url: "/dashboard/banners", icon: Image, permissionKey: "banners" },
+      { title: "Modules", url: "/dashboard/modules", icon: Grid3X3, permissionKey: "modules" },
+      { title: "Subcategories", url: "/dashboard/subcategories", icon: Layers, permissionKey: "subcategories" },
+      { title: "Support Chats", url: "/dashboard/support-chats", icon: MessageCircle, permissionKey: "support_chats" },
+    ],
   },
   {
     title: "Wholesale Management",
     icon: Store,
     type: "group",
     items: [
-      { title: "Wholesale Revenue", url: "/dashboard/wholesale-revenue", icon: IndianRupee },
-      { title: "Wholesale Inventory", url: "/dashboard/wholesale-inventory", icon: Store },
-      { title: "Wholesale Orders", url: "/dashboard/wholesale-orders", icon: FileText, badgeKey: "wholesaleOrders" },
-      { title: "Production", url: "/dashboard/production", icon: Factory },
-    ]
-  }
+      { title: "Wholesale Revenue", url: "/dashboard/wholesale-revenue", icon: IndianRupee, superAdminOnly: true },
+      { title: "Wholesale Inventory", url: "/dashboard/wholesale-inventory", icon: Store, permissionKey: "wholesale_inventory" },
+      { title: "Wholesale Orders", url: "/dashboard/wholesale-orders", icon: FileText, permissionKey: "wholesale_orders", badgeKey: "wholesaleOrders" },
+      { title: "Production", url: "/dashboard/production", icon: Factory, permissionKey: "production" },
+    ],
+  },
 ];
 
 export function DashboardSidebar() {
   const { open } = useSidebar();
+  const { hasPermission, isSuperAdmin } = useAdminAuth();
   const [wholesaleOrderCount, setWholesaleOrderCount] = useState(0);
 
   useEffect(() => {
@@ -87,12 +71,10 @@ export function DashboardSidebar() {
       if (!error && count) setWholesaleOrderCount(count);
     };
     fetchCount();
-
     const channel = supabase
       .channel("admin-wholesale-orders-badge")
       .on("postgres_changes", { event: "*", schema: "public", table: "wholesale_orders" }, () => fetchCount())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -101,35 +83,54 @@ export function DashboardSidebar() {
     return 0;
   };
 
+  const canSeeItem = (item: any) => {
+    if (item.superAdminOnly) return isSuperAdmin();
+    if (item.permissionKey) return hasPermission(item.permissionKey);
+    return true; // Dashboard link always visible
+  };
+
+  const getVisibleSubItems = (items: any[]) => items.filter(canSeeItem);
+
   return (
     <Sidebar variant="sidebar" className="border-r border-border">
       <SidebarContent className="p-0">
         <div className="p-4 border-b border-border">
-          <h2 className={`font-semibold text-foreground transition-opacity ${open ? 'opacity-100' : 'opacity-0'}`}>
+          <h2 className={`font-semibold text-foreground transition-opacity ${open ? "opacity-100" : "opacity-0"}`}>
             Admin Panel
           </h2>
         </div>
 
         <div className="p-2">
-          {menuItems.map((item, index) => (
-            <div key={index} className="mb-2">
-              {item.type === "single" ? (
-                <SidebarMenuButton asChild className="w-full">
-                  <NavLink 
-                    to={item.url} 
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-md transition-colors w-full ${
-                        isActive 
-                          ? "bg-primary text-primary-foreground" 
-                          : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                      }`
-                    }
-                  >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {open && <span className="truncate">{item.title}</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              ) : (
+          {menuItems.map((item, index) => {
+            if (item.type === "single") {
+              if (!canSeeItem(item)) return null;
+              return (
+                <div key={index} className="mb-2">
+                  <SidebarMenuButton asChild className="w-full">
+                    <NavLink
+                      to={item.url!}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-md transition-colors w-full ${
+                          isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                        }`
+                      }
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {open && <span className="truncate">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </div>
+              );
+            }
+
+            // Group type
+            const visibleSubs = getVisibleSubItems(item.items || []);
+            // For groups with permissionKey (like employees), check that too
+            if (item.permissionKey && !hasPermission(item.permissionKey)) return null;
+            if (visibleSubs.length === 0 && !item.permissionKey) return null;
+
+            return (
+              <div key={index} className="mb-2">
                 <Collapsible defaultOpen={true}>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className="w-full hover:bg-muted text-muted-foreground hover:text-foreground">
@@ -142,20 +143,18 @@ export function DashboardSidebar() {
                       )}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  
+
                   {open && (
                     <CollapsibleContent className="ml-6 mt-1 space-y-1">
-                      {item.items?.map((subItem) => {
-                        const badgeCount = getBadgeCount((subItem as any).badgeKey);
+                      {visibleSubs.map((subItem: any) => {
+                        const badgeCount = getBadgeCount(subItem.badgeKey);
                         return (
                           <SidebarMenuButton key={subItem.title} asChild>
-                            <NavLink 
-                              to={subItem.url} 
+                            <NavLink
+                              to={subItem.url}
                               className={({ isActive }) =>
                                 `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm ${
-                                  isActive 
-                                    ? "bg-primary text-primary-foreground" 
-                                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                                  isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"
                                 }`
                               }
                             >
@@ -173,9 +172,9 @@ export function DashboardSidebar() {
                     </CollapsibleContent>
                   )}
                 </Collapsible>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </SidebarContent>
     </Sidebar>
