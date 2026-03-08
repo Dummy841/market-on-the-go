@@ -244,7 +244,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     setSelectedBatchId(batchId);
     const batch = itemBatches.find(b => b.id === batchId);
     if (batch) {
-      setForm(f => ({ ...f, stock_quantity: batch.stock_quantity }));
+      setForm(f => ({ ...f, stock_quantity: batch.stock_quantity, batch_number: batch.batch_number }));
     }
   };
 
