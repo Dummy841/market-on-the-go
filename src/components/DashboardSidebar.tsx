@@ -35,11 +35,13 @@ const menuItems = [
     icon: Store,
     type: "single"
   },
-  { 
-    title: "Employee Management", 
-    url: "/dashboard/employees", 
+  {
+    title: "Employee Management",
     icon: UserCog,
-    type: "single"
+    type: "group",
+    items: [
+      { title: "Employees", url: "/dashboard/employees", icon: Users },
+    ]
   },
   {
     title: "Online Management",
