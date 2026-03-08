@@ -170,6 +170,7 @@ const EmployeeForm = () => {
           setFormData({ name: data.name, mobile: data.mobile, email: data.email || "", password: "" });
           setExistingPhotoUrl(data.profile_photo_url);
           setPermissions((data as any).permissions || {});
+          setPasswordChanged((data as any).password_changed || false);
         }
         setLoading(false);
       })();
