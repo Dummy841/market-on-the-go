@@ -142,7 +142,7 @@ export function DashboardSidebar() {
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {(open || isMobile) && (
                         <>
-                          <span className="truncate flex-1 text-left text-sm">{item.title}</span>
+                          <span className="truncate flex-1 text-left text-base">{item.title}</span>
                           <ChevronDown className="h-4 w-4 transition-transform ui-state-open:rotate-180" />
                         </>
                       )}
