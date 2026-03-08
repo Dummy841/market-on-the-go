@@ -53,6 +53,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
     gst_percentage: 0,
     show_in_quick_add: false,
     is_active: true,
+    description: '',
   });
   const [images, setImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<File[]>([]);
