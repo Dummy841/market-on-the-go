@@ -158,6 +158,7 @@ const ProductionManagement = () => {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card className="border-border">
