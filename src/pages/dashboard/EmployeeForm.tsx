@@ -299,21 +299,27 @@ const EmployeeForm = () => {
             <Input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>Password {isEdit ? "(leave blank to keep current)" : "*"}</Label>
-          <div className="relative max-w-sm">
-            <Input
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder={isEdit ? "Leave blank to keep current" : "Strong password"}
-            />
-            <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+        {/* Hide password field entirely if editing and employee already changed their password */}
+        {!(isEdit && passwordChanged) && (
+          <div className="space-y-2">
+            <Label>Password {isEdit ? "(leave blank to keep current)" : "(default: Zippy@1234)"}</Label>
+            <div className="relative max-w-sm">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder={isEdit ? "Leave blank to keep current" : "Strong password"}
+              />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">Must include uppercase, lowercase, number & special character (min 8)</p>
           </div>
-          <p className="text-xs text-muted-foreground">Must include uppercase, lowercase, number & special character (min 8)</p>
-        </div>
+        )}
+        {isEdit && passwordChanged && (
+          <p className="text-sm text-muted-foreground">Password has been changed by the employee and cannot be modified by admin.</p>
+        )}
       </div>
 
       {/* Dashboard Access */}
