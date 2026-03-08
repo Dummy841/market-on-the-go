@@ -216,6 +216,7 @@ const SellerLogin = () => {
               <p className="text-sm text-muted-foreground text-center">
                 OTP sent to <span className="font-semibold">{mobile}</span>
               </p>
+              {reusedMessage && <p className="text-sm text-orange-600 font-medium text-center">{reusedMessage}</p>}
               <div className="flex justify-center">
                 <InputOTP maxLength={4} value={otp} onChange={setOtp}>
                   <InputOTPGroup>

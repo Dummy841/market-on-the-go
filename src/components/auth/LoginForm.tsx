@@ -157,7 +157,10 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
             </>
           ) : (
             <>
-              <div className="text-center mb-4"><p className="text-sm text-muted-foreground">OTP sent to <span className="font-medium text-foreground">+91 {mobile}</span></p></div>
+              <div className="text-center mb-4">
+                <p className="text-sm text-muted-foreground">OTP sent to <span className="font-medium text-foreground">+91 {mobile}</span></p>
+                {reusedMessage && <p className="text-sm text-orange-600 font-medium mt-2">{reusedMessage}</p>}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="otp">Enter OTP</Label>
                 <Input id="otp" type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="Enter 4-digit OTP" value={otp} onChange={(e) => handleOtpChange(e.target.value)} maxLength={4} className="text-center text-2xl font-bold tracking-[0.5em] h-14 border-2 border-primary/30 focus:border-primary" autoFocus />
