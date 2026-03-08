@@ -29,6 +29,7 @@ interface ServiceModule {
 }
 
 const Subcategories = () => {
+  const { hasPermission } = useAdminAuth();
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [modules, setModules] = useState<ServiceModule[]>([]);
   const [loading, setLoading] = useState(true);
