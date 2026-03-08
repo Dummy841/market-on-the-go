@@ -139,20 +139,22 @@ const App = () => {
       {/* BrowserRouter must wrap providers that use react-router hooks (e.g., voice-call navigation) */}
       <BrowserRouter>
         <GoogleMapsProvider>
-          <UserAuthProvider>
-            <SellerAuthProvider>
-              <CartProvider>
-                <OrderTrackingProvider>
-                    <TooltipProvider>
-                      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-                      <Toaster />
-                      <Sonner />
-                      <AppContent />
-                    </TooltipProvider>
-                </OrderTrackingProvider>
-              </CartProvider>
-            </SellerAuthProvider>
-          </UserAuthProvider>
+          <AdminAuthProvider>
+            <UserAuthProvider>
+              <SellerAuthProvider>
+                <CartProvider>
+                  <OrderTrackingProvider>
+                      <TooltipProvider>
+                        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                        <Toaster />
+                        <Sonner />
+                        <AppContent />
+                      </TooltipProvider>
+                  </OrderTrackingProvider>
+                </CartProvider>
+              </SellerAuthProvider>
+            </UserAuthProvider>
+          </AdminAuthProvider>
         </GoogleMapsProvider>
       </BrowserRouter>
     </QueryClientProvider>
