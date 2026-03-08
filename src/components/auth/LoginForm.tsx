@@ -84,11 +84,13 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
       if (data.success) {
         setSessionId(data.sessionId);
         if (data.reused) {
-          toast({ title: "OTP Still Active", description: "Your recent OTP is still valid. Please use it." });
+          setReusedMessage("Your recent OTP is still valid. Please use it.");
+          setStep('verify'); setResendTimer(180); setOtp(""); isVerifyingRef.current = false;
         } else {
+          setReusedMessage("");
           toast({ title: "OTP Sent", description: "Please enter the 4-digit OTP sent to your mobile" });
+          setStep('verify'); setResendTimer(30); setOtp(""); isVerifyingRef.current = false;
         }
-        setStep('verify'); setResendTimer(30); setOtp(""); isVerifyingRef.current = false;
       } else throw new Error(data.error || 'Failed to send OTP');
     } catch (error: any) {
       setError(error.message || "Failed to send OTP. Please try again.");
