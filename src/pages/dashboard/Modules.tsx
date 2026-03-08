@@ -292,12 +292,14 @@ const Modules = () => {
           setIsDialogOpen(open);
           if (!open) resetForm();
         }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Module
-            </Button>
-          </DialogTrigger>
+          {hasPermission("modules", "create") && (
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Module
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{editingModule ? 'Edit Module' : 'Create New Module'}</DialogTitle>
