@@ -15,6 +15,7 @@ import SellerDetailsModal from '@/components/SellerDetailsModal';
 import EditSellerModal from '@/components/EditSellerModal';
 import SellerSettlementsModal from '@/components/SellerSettlementsModal';
 import { Seller } from '@/contexts/SellerAuthContext';
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 const Sellers = () => {
   const navigate = useNavigate();
