@@ -90,6 +90,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
         gst_percentage: product.gst_percentage,
         show_in_quick_add: product.show_in_quick_add,
         is_active: product.is_active,
+        description: (product as any).description || '',
       });
       setProductNameSearch(product.product_name);
       setSelectedItemName(product.product_name);
