@@ -394,16 +394,6 @@ const RestaurantMenu = () => {
 
             {/* Restaurant Header - Compact */}
             <div className="bg-card rounded-lg p-3 mb-6 shadow-card">
-              {restaurant.is_online === false && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="destructive" className="text-xs">Offline</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      Not taking orders now
-                    </span>
-                  </div>
-                </div>
-              )}
               <div className="flex items-center gap-3">
                 <img
                   src={restaurant.profile_photo_url || restaurant1}
