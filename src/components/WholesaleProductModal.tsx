@@ -269,7 +269,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
       if (product) {
         const { error } = await supabase
           .from('wholesale_products' as any)
-          .update({
+           .update({
             product_name: form.product_name,
             barcode: form.barcode,
             category: form.category || null,
@@ -282,6 +282,7 @@ const WholesaleProductModal = ({ open, onClose, product, onSaved }: Props) => {
             gst_percentage: form.gst_percentage,
             show_in_quick_add: form.show_in_quick_add,
             is_active: form.is_active,
+            description: form.description || null,
           } as any)
           .eq('id', product.id);
         if (error) throw error;
