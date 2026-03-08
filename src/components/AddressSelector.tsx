@@ -96,6 +96,7 @@ const AddressSelector = ({
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
 
   // Load saved addresses when component opens
   useEffect(() => {
