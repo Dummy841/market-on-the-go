@@ -717,6 +717,11 @@ export const Checkout = () => {
               {hasActivePass && (
                 <p className="text-xs text-muted-foreground ml-1">Free delivery up to 10km only</p>
               )}
+              {!hasActivePass && deliveryFee > 0 && (
+                <p className="text-xs text-green-600 ml-1">
+                  💡 Buy Zippy Pass or shop above ₹299 for free delivery
+                </p>
+              )}
               <div className="flex justify-between text-sm">
                 <span>Platform Fee</span>
                 <span>₹{platformFee}</span>
