@@ -401,6 +401,45 @@ const AddressSelector = ({
         </DialogContent>
       </Dialog>
 
+      {/* Location Permission Prompt */}
+      {showLocationPrompt && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60">
+          <div className="bg-background rounded-2xl p-6 mx-6 max-w-sm w-full shadow-xl text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-orange-100 rounded-full flex items-center justify-center">
+              <MapPin className="h-8 w-8 text-orange-600" />
+            </div>
+            <h3 className="text-lg font-semibold">Enable Location</h3>
+            <p className="text-sm text-muted-foreground">
+              Location access is required to add an address. Please enable location in your device settings and try again.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowLocationPrompt(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  setShowLocationPrompt(false);
+                  // Try requesting again
+                  navigator.geolocation.getCurrentPosition(
+                    () => setShowLocationPicker(true),
+                    () => setShowLocationPrompt(true),
+                    { timeout: 5000 }
+                  );
+                }}
+              >
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Full Screen Location Picker - Rendered via Portal to ensure it's on top */}
       {showLocationPicker && createPortal(
         <FullScreenLocationPicker
