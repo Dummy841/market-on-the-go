@@ -123,13 +123,9 @@ const Refunds = () => {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold text-foreground">Refunds Management</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex gap-3 overflow-x-auto pb-2">
           {[1, 2].map(i => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-16 bg-muted rounded"></div>
-              </CardContent>
-            </Card>
+            <div key={i} className="animate-pulse min-w-[140px] h-16 bg-muted rounded-lg flex-1"></div>
           ))}
         </div>
       </div>
