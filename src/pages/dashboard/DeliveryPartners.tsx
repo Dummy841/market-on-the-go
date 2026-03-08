@@ -23,6 +23,7 @@ interface DeliveryPartner {
 }
 
 const DeliveryPartners = () => {
+  const { hasPermission } = useAdminAuth();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingPartner, setEditingPartner] = useState<DeliveryPartner | null>(null);
   const [partners, setPartners] = useState<DeliveryPartner[]>([]);
