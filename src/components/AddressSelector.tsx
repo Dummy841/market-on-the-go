@@ -143,12 +143,36 @@ const AddressSelector = ({
     }
   };
 
+  const checkLocationAndProceed = async () => {
+    try {
+      if ('permissions' in navigator) {
+        const result = await navigator.permissions.query({ name: 'geolocation' });
+        if (result.state === 'denied') {
+          setShowLocationPrompt(true);
+          return;
+        }
+        if (result.state === 'prompt') {
+          // Try to get location - if denied, show prompt
+          navigator.geolocation.getCurrentPosition(
+            () => setShowLocationPicker(true),
+            () => setShowLocationPrompt(true),
+            { timeout: 5000 }
+          );
+          return;
+        }
+      }
+      setShowLocationPicker(true);
+    } catch {
+      setShowLocationPicker(true);
+    }
+  };
+
   const handleUseCurrentLocation = () => {
-    setShowLocationPicker(true);
+    checkLocationAndProceed();
   };
 
   const handleAddNewAddress = () => {
-    setShowLocationPicker(true);
+    checkLocationAndProceed();
   };
 
   const handleLocationSelect = (lat: number, lng: number, address: string) => {

@@ -104,6 +104,8 @@ const ItemImageCarousel = ({ images, alt, className = '' }: ItemImageCarouselPro
             key={idx}
             src={img}
             alt={`${alt} ${idx + 1}`}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover flex-shrink-0"
             draggable={false}
           />
