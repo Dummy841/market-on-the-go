@@ -230,7 +230,8 @@ const WholesaleOrders = () => {
                     </TableCell>
                   </TableRow>
                 ))
-              )}
+              );
+              })()}
             </TableBody>
           </Table>
         </div>
