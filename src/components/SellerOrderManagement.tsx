@@ -758,5 +758,18 @@ export const SellerOrderManagement = () => {
             </div>}
         </DialogContent>
       </Dialog>
+      {/* Product Confirmation Modal */}
+      <ProductConfirmationModal
+        open={showProductConfirmation}
+        onOpenChange={setShowProductConfirmation}
+        order={confirmationOrder}
+        onConfirmed={() => {
+          if (confirmationOrder) {
+            updateOrderStatus(confirmationOrder.id, 'packed', 'seller_packed_at');
+            setShowProductConfirmation(false);
+            setConfirmationOrder(null);
+          }
+        }}
+      />
     </div>;
 };
