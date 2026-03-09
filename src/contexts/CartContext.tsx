@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface CartItem {
   id: string;
@@ -36,7 +38,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cartRestaurantLongitude, setCartRestaurantLongitude] = useState<number | null>(null);
 
   useEffect(() => {
-    // Load cart from localStorage
     const storedCart = localStorage.getItem('cart');
     const storedRestaurant = localStorage.getItem('cartRestaurant');
     const storedRestaurantName = localStorage.getItem('cartRestaurantName');
@@ -44,112 +45,113 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedRestaurantLng = localStorage.getItem('cartRestaurantLongitude');
     
     if (storedCart) {
-      try {
-        setCartItems(JSON.parse(storedCart));
-      } catch (error) {
-        console.error('Error parsing stored cart:', error);
-      }
+      try { setCartItems(JSON.parse(storedCart)); } catch { /* ignore */ }
     }
-    
-    if (storedRestaurant) {
-      setCartRestaurant(storedRestaurant);
-    }
-    
-    if (storedRestaurantName) {
-      setCartRestaurantName(storedRestaurantName);
-    }
-    
-    if (storedRestaurantLat) {
-      setCartRestaurantLatitude(parseFloat(storedRestaurantLat));
-    }
-    
-    if (storedRestaurantLng) {
-      setCartRestaurantLongitude(parseFloat(storedRestaurantLng));
-    }
+    if (storedRestaurant) setCartRestaurant(storedRestaurant);
+    if (storedRestaurantName) setCartRestaurantName(storedRestaurantName);
+    if (storedRestaurantLat) setCartRestaurantLatitude(parseFloat(storedRestaurantLat));
+    if (storedRestaurantLng) setCartRestaurantLongitude(parseFloat(storedRestaurantLng));
   }, []);
 
   useEffect(() => {
-    // Save cart to localStorage whenever it changes
     localStorage.setItem('cart', JSON.stringify(cartItems));
-    if (cartRestaurant) {
-      localStorage.setItem('cartRestaurant', cartRestaurant);
-    } else {
-      localStorage.removeItem('cartRestaurant');
-    }
-    if (cartRestaurantName) {
-      localStorage.setItem('cartRestaurantName', cartRestaurantName);
-    } else {
-      localStorage.removeItem('cartRestaurantName');
-    }
-    if (cartRestaurantLatitude !== null) {
-      localStorage.setItem('cartRestaurantLatitude', cartRestaurantLatitude.toString());
-    } else {
-      localStorage.removeItem('cartRestaurantLatitude');
-    }
-    if (cartRestaurantLongitude !== null) {
-      localStorage.setItem('cartRestaurantLongitude', cartRestaurantLongitude.toString());
-    } else {
-      localStorage.removeItem('cartRestaurantLongitude');
-    }
+    if (cartRestaurant) localStorage.setItem('cartRestaurant', cartRestaurant);
+    else localStorage.removeItem('cartRestaurant');
+    if (cartRestaurantName) localStorage.setItem('cartRestaurantName', cartRestaurantName);
+    else localStorage.removeItem('cartRestaurantName');
+    if (cartRestaurantLatitude !== null) localStorage.setItem('cartRestaurantLatitude', cartRestaurantLatitude.toString());
+    else localStorage.removeItem('cartRestaurantLatitude');
+    if (cartRestaurantLongitude !== null) localStorage.setItem('cartRestaurantLongitude', cartRestaurantLongitude.toString());
+    else localStorage.removeItem('cartRestaurantLongitude');
   }, [cartItems, cartRestaurant, cartRestaurantName, cartRestaurantLatitude, cartRestaurantLongitude]);
 
-  const addToCart = (item: Omit<CartItem, 'quantity'>) => {
-    // Check if cart is empty or item is from same restaurant
+  const addToCart = useCallback(async (item: Omit<CartItem, 'quantity'>) => {
+    // Multi-seller check
     if (cartRestaurant && cartRestaurant !== item.seller_id) {
       return;
     }
 
+    // Check stock from database
+    const { data: dbItem } = await supabase
+      .from('items')
+      .select('stock_quantity')
+      .eq('id', item.id)
+      .maybeSingle();
+
+    const stock = dbItem?.stock_quantity ?? 0;
+
+    // Get current quantity in cart for this item
+    const currentInCart = cartItems.find(c => c.id === item.id)?.quantity ?? 0;
+    const requestedTotal = currentInCart + 1;
+
+    if (stock === 0) {
+      toast({ variant: 'destructive', title: 'Out of Stock', description: `"${item.item_name}" is currently out of stock.` });
+      return;
+    }
+
+    if (requestedTotal > stock) {
+      toast({ variant: 'destructive', title: 'Limited Stock', description: `Only ${stock} qty available for "${item.item_name}".` });
+      return;
+    }
+
     setCartItems(prev => {
-      const existingItem = prev.find(cartItem => cartItem.id === item.id);
-      
-      if (existingItem) {
-        return prev.map(cartItem =>
-          cartItem.id === item.id
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
-            : cartItem
-        );
-      } else {
-        return [...prev, { ...item, quantity: 1 }];
+      const existing = prev.find(c => c.id === item.id);
+      if (existing) {
+        return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
       }
+      return [...prev, { ...item, quantity: 1 }];
     });
 
-    // Set restaurant if this is the first item
     if (!cartRestaurant) {
       setCartRestaurant(item.seller_id);
       setCartRestaurantName(item.seller_name);
       if (item.seller_latitude) setCartRestaurantLatitude(item.seller_latitude);
       if (item.seller_longitude) setCartRestaurantLongitude(item.seller_longitude);
     }
-  };
+  }, [cartRestaurant, cartItems]);
 
   const removeFromCart = (itemId: string) => {
     setCartItems(prev => {
       const newItems = prev.filter(item => item.id !== itemId);
-      
-      // Clear restaurant if cart becomes empty
       if (newItems.length === 0) {
         setCartRestaurant(null);
         setCartRestaurantName(null);
         setCartRestaurantLatitude(null);
         setCartRestaurantLongitude(null);
       }
-      
       return newItems;
     });
   };
 
-  const updateQuantity = (itemId: string, quantity: number) => {
+  const updateQuantity = useCallback(async (itemId: string, quantity: number) => {
     if (quantity <= 0) {
       removeFromCart(itemId);
       return;
     }
 
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === itemId ? { ...item, quantity } : item
-      )
-    );
-  };
+    // Check stock
+    const { data: dbItem } = await supabase
+      .from('items')
+      .select('stock_quantity, item_name')
+      .eq('id', itemId)
+      .maybeSingle();
+
+    const stock = dbItem?.stock_quantity ?? 0;
+
+    if (stock === 0) {
+      toast({ variant: 'destructive', title: 'Out of Stock', description: `"${dbItem?.item_name || 'Item'}" is currently out of stock.` });
+      removeFromCart(itemId);
+      return;
+    }
+
+    if (quantity > stock) {
+      toast({ variant: 'destructive', title: 'Limited Stock', description: `Only ${stock} qty available for "${dbItem?.item_name || 'Item'}".` });
+      setCartItems(prev => prev.map(item => item.id === itemId ? { ...item, quantity: stock } : item));
+      return;
+    }
+
+    setCartItems(prev => prev.map(item => item.id === itemId ? { ...item, quantity } : item));
+  }, []);
 
   const clearCart = () => {
     setCartItems([]);
@@ -159,13 +161,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCartRestaurantLongitude(null);
   };
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.seller_price * item.quantity), 0);
-  };
-
-  const getTotalItems = () => {
-    return cartItems.reduce((total, item) => total + item.quantity, 0);
-  };
+  const getTotalPrice = () => cartItems.reduce((total, item) => total + (item.seller_price * item.quantity), 0);
+  const getTotalItems = () => cartItems.reduce((total, item) => total + item.quantity, 0);
 
   const value = {
     cartItems,
