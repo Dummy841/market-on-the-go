@@ -708,7 +708,6 @@ const SellerWholesale = () => {
           </DialogContent>
         </Dialog>
       )}
-      </div>
     </div>);
 
 };
