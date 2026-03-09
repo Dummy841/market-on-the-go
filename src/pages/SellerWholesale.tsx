@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Minus, ShoppingCart, Upload, Search, X, Package, FileText, Lock, Info } from 'lucide-react';
-import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
+import SellerHeader from '@/components/SellerHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -268,12 +268,9 @@ const SellerWholesale = () => {
   // Orders step
   if (step === 'orders') {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SellerHamburgerMenu />
-          <h2 className="text-xl font-bold">My Wholesale Orders</h2>
-        </div>
-
+      <div className="min-h-screen bg-background">
+        <SellerHeader />
+        <div className="p-4">
         {ordersLoading ?
         <div className="text-center py-10 text-muted-foreground">Loading orders...</div> :
         orders.length === 0 ?
@@ -435,6 +432,7 @@ const SellerWholesale = () => {
             </DialogContent>
           </Dialog>
         }
+        </div>
       </div>);
 
   }
@@ -559,33 +557,21 @@ const SellerWholesale = () => {
   // Browse step
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border p-3 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            <SellerHamburgerMenu />
-            <h1 className="text-lg font-bold">Wholesale Shop</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            
-
-            
-            {cartCount > 0 &&
-            <Button onClick={() => setStep('cart')} className="relative">
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Cart ({cartCount})
-                <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">{cartCount}</Badge>
-              </Button>
-            }
-          </div>
-        </div>
-      </header>
-
+      <SellerHeader />
       <div className="p-4 max-w-7xl mx-auto">
-        <div className="relative max-w-sm mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          {cartCount > 0 && (
+            <Button onClick={() => setStep('cart')} className="relative">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Cart ({cartCount})
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">{cartCount}</Badge>
+            </Button>
+          )}
         </div>
-
         {loading ?
         <div className="text-center py-10 text-muted-foreground">Loading products...</div> :
 

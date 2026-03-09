@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CreditCard, Plus, Trash2, Check, Camera, Usb, ChevronRight } from 'lucide-react';
-import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
+import SellerHeader from '@/components/SellerHeader';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -96,12 +96,7 @@ const POSSettings = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border p-3">
-        <div className="flex items-center gap-3">
-          <SellerHamburgerMenu />
-          
-        </div>
-      </header>
+      <SellerHeader />
 
       <div className="flex-1 p-4 max-w-lg mx-auto w-full">
         {activeSection === 'menu' &&

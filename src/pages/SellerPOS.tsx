@@ -6,14 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, Camera, Plus, Minus, Trash2, ShoppingBag, Keyboard } from 'lucide-react';
-import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
+import SellerHeader from '@/components/SellerHeader';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import POSCheckoutModal from '@/components/POSCheckoutModal';
 import POSBarcodeScannerModal from '@/components/POSBarcodeScannerModal';
 import POSSettingsModal from '@/components/POSSettingsModal';
-
 interface Item {
   id: string;
   item_name: string;
@@ -245,20 +244,7 @@ const SellerPOS = () => {
   return (
     <div className="fixed inset-0 bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
-      <header className="bg-card border-b border-border p-3">
-        <div className="flex items-center gap-3">
-          <SellerHamburgerMenu />
-          <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
-          
-
-
-
-
-
-
-          
-        </div>
-      </header>
+      <SellerHeader />
 
       {/* Search & Barcode Bar */}
       <div className="bg-card border-b border-border p-3 flex gap-2 flex-wrap">

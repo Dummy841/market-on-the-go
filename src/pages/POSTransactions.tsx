@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Eye, Printer, Languages } from 'lucide-react';
-import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
+import SellerHeader from '@/components/SellerHeader';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -249,12 +249,7 @@ const POSTransactions = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border p-3" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
-        <div className="flex items-center gap-3">
-          <SellerHamburgerMenu />
-          
-        </div>
-      </header>
+      <SellerHeader />
 
       {/* Date Filters + Stats */}
       <div className="bg-card border-b border-border p-3 flex gap-3 items-center flex-wrap">
