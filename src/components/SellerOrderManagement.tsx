@@ -212,6 +212,8 @@ export const SellerOrderManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [showProductConfirmation, setShowProductConfirmation] = useState(false);
+  const [confirmationOrder, setConfirmationOrder] = useState<Order | null>(null);
   const [selectedStatus, setSelectedStatus] = useState("pending");
   const [dateFilter, setDateFilter] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState("");
