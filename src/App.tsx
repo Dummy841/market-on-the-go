@@ -154,6 +154,7 @@ const App = () => {
                   <OrderTrackingProvider>
                       <TooltipProvider>
                         {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+                        <TermsAgreementPopup />
                         <Toaster />
                         <Sonner />
                         <AppContent />
