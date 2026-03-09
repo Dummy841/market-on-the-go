@@ -32,12 +32,9 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
   const { addToCart, cartItems, cartRestaurant, removeFromCart, updateQuantity } = useCart();
   const [showInfo, setShowInfo] = useState(false);
 
-  const isOutOfStock = (item.stock_quantity ?? 0) <= 0;
-  const isAvailable = item.is_active && !isOutOfStock;
   const cartItem = cartItems.find(ci => ci.id === item.id);
   const quantity = cartItem?.quantity || 0;
   const mrp = item.mrp || 0;
-  const discountPercent = mrp > item.seller_price ? Math.round(((mrp - item.seller_price) / mrp) * 100) : 0;
 
   // Build images array
   const images = item.images && item.images.length > 0 
@@ -86,19 +83,12 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
         {/* Product Image with Carousel */}
         <div className="relative aspect-square">
           {images.length > 0 ? (
-            <div className={`w-full h-full ${!isAvailable ? 'grayscale opacity-60' : ''}`}>
+            <div className="w-full h-full">
               <ItemImageCarousel images={images} alt={item.item_name} />
             </div>
           ) : (
-            <div className={`w-full h-full bg-muted flex items-center justify-center ${!isAvailable ? 'grayscale opacity-60' : ''}`}>
+            <div className="w-full h-full bg-muted flex items-center justify-center">
               <span className="text-muted-foreground text-xs">No image</span>
-            </div>
-          )}
-          {!isAvailable && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <span className="text-white text-xs font-medium px-2 py-1 bg-destructive rounded">
-                {isOutOfStock ? 'Out of Stock' : 'Unavailable'}
-              </span>
             </div>
           )}
           {/* Discount Badge */}
@@ -143,7 +133,6 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
                 <button
                   onClick={handleDecrement}
                   className="h-6 w-6 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
-                  disabled={!isAvailable}
                 >
                   <Minus className="h-2.5 w-2.5 text-primary" />
                 </button>
@@ -151,7 +140,6 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
                 <button
                   onClick={handleIncrement}
                   className="h-6 w-6 flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
-                  disabled={!isAvailable}
                 >
                   <Plus className="h-2.5 w-2.5 text-primary" />
                 </button>
@@ -161,7 +149,6 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
                 size="sm"
                 className="h-6 px-2 text-[11px] bg-primary hover:bg-primary/90"
                 onClick={handleAddToCart}
-                disabled={!isAvailable}
               >
                 ADD
               </Button>
@@ -196,7 +183,6 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
                   handleAddToCart();
                   setShowInfo(false);
                 }}
-                disabled={!isAvailable}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add to Cart
