@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Wallet, ArrowUpRight, ArrowDownLeft, Clock, Filter, FileText, ImageIcon, ExternalLink } from 'lucide-react';
-import SellerHamburgerMenu from '@/components/SellerHamburgerMenu';
+import SellerHeader from '@/components/SellerHeader';
 import { supabase } from '@/integrations/supabase/client';
 import { useSellerAuth } from '@/contexts/SellerAuthContext';
 import { useToast } from '@/hooks/use-toast';

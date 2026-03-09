@@ -244,20 +244,7 @@ const SellerPOS = () => {
   return (
     <div className="fixed inset-0 bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
-      <header className="bg-card border-b border-border p-3">
-        <div className="flex items-center gap-3">
-          <SellerHamburgerMenu />
-          <h1 className="text-lg font-bold flex-1 truncate">POS - {seller.seller_name}</h1>
-          
-
-
-
-
-
-
-          
-        </div>
-      </header>
+      <SellerHeader />
 
       {/* Search & Barcode Bar */}
       <div className="bg-card border-b border-border p-3 flex gap-2 flex-wrap">
