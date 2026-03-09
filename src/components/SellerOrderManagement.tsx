@@ -12,6 +12,7 @@ import { formatDistanceToNow, isToday, isThisWeek, isThisMonth, format } from "d
 import { toZonedTime } from 'date-fns-tz';
 import { Package, Clock, CheckCircle, Truck, AlertCircle, User, Eye, Filter, Volume2, Search, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import ProductConfirmationModal from "@/components/ProductConfirmationModal";
 interface Order {
   id: string;
   user_id: string;
@@ -211,6 +212,8 @@ export const SellerOrderManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [showProductConfirmation, setShowProductConfirmation] = useState(false);
+  const [confirmationOrder, setConfirmationOrder] = useState<Order | null>(null);
   const [selectedStatus, setSelectedStatus] = useState("pending");
   const [dateFilter, setDateFilter] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState("");
@@ -513,7 +516,10 @@ export const SellerOrderManagement = () => {
             </Button>
           </div>;
       case 'accepted':
-        return <Button size="sm" onClick={() => updateOrderStatus(order.id, 'packed', 'seller_packed_at')} className="bg-purple-600 hover:bg-purple-700">
+        return <Button size="sm" onClick={() => {
+            setConfirmationOrder(order);
+            setShowProductConfirmation(true);
+          }} className="bg-purple-600 hover:bg-purple-700">
             Mark as Packed
           </Button>;
       default:
@@ -752,5 +758,18 @@ export const SellerOrderManagement = () => {
             </div>}
         </DialogContent>
       </Dialog>
+      {/* Product Confirmation Modal */}
+      <ProductConfirmationModal
+        open={showProductConfirmation}
+        onOpenChange={setShowProductConfirmation}
+        order={confirmationOrder}
+        onConfirmed={() => {
+          if (confirmationOrder) {
+            updateOrderStatus(confirmationOrder.id, 'packed', 'seller_packed_at');
+            setShowProductConfirmation(false);
+            setConfirmationOrder(null);
+          }
+        }}
+      />
     </div>;
 };

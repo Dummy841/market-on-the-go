@@ -1,58 +1,60 @@
 
 
-## Plan: Product Confirmation Before Marking as Packed
+## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
 
-### Overview
-When a seller clicks "Mark as Packed" on an accepted order, instead of immediately packing, a **Product Confirmation Modal** opens. The seller must verify each order item by scanning its barcode (or photographing it for fruits/vegetables). Only after all items are confirmed can the order be marked as packed.
+### 1. Fix POS Header Under Status Bar
+The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
 
-### How It Works
+**File:** `src/pages/SellerPOS.tsx` (line 237)
 
-1. **Trigger**: When seller clicks "Mark as Packed" on an accepted order, open a new `ProductConfirmationModal` instead of directly updating status.
+### 2. Show All Cart Columns on Mobile (Reorder)
+Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
 
-2. **Modal UI**: Shows all order items as a checklist. Each item row shows:
-   - Item name, quantity, and price
-   - A green checkmark icon when confirmed
-   - A **Scan** button (right side) to scan that item's barcode
-   - For fruits/vegetables subcategory items: a **Photo** button instead of Scan
+Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
 
-3. **Barcode Scanning Flow**:
-   - Clicking "Scan" opens the device camera using `BarcodeDetector` API (reusing pattern from `POSBarcodeScannerModal`)
-   - Scanned barcode is matched against the item's barcode in the `items` table (queried by item ID)
-   - If matched: green tick on that item + beep sound
-   - If not matched: show "Product not matched" error toast
-   - Seller scans items one by one
+**File:** `src/pages/SellerPOS.tsx`
 
-4. **Fruits & Vegetables Flow**:
-   - For items whose `subcategory_id` maps to a subcategory with category = "Fruits & Vegetables" (or similar), show a **Photo** button instead of Scan
-   - Opens camera in portrait mode with background blur CSS (object-fit + backdrop-filter styling to simulate depth-of-field focus)
-   - Seller takes a photo → item is marked as confirmed (photo serves as visual verification record)
+### 3. Persist Cart in localStorage Instead of sessionStorage
+Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
 
-5. **Completion**: 
-   - "Mark as Packed" button at bottom is **disabled** until all items have green ticks
-   - Once all confirmed, clicking it calls `updateOrderStatus(orderId, 'packed', 'seller_packed_at')`
+**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
 
-### Technical Details
+### 4. Faster UPI QR Code Generation
+Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
 
-**New Component**: `src/components/ProductConfirmationModal.tsx`
-- Props: `open`, `onOpenChange`, `order` (the selected order), `onConfirmed` (callback to mark as packed)
-- State: `confirmedItems: Set<string>` tracking confirmed item IDs
-- State: `scanningItemId: string | null` for which item is being scanned
-- State: `photoItemId: string | null` for which item is being photographed
+**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
 
-**Database Queries**:
-- Fetch items with subcategory info: `supabase.from('items').select('id, barcode, subcategory_id').in('id', itemIds)` 
-- Fetch subcategories to identify fruits/vegetables: `supabase.from('subcategories').select('id, name, category').in('id', subcategoryIds)`
-- Match logic: compare scanned barcode against item's `barcode` field
+Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
 
-**Modification to `SellerOrderManagement.tsx`**:
-- In `getActionButtons`, for `accepted` status, instead of directly calling `updateOrderStatus`, open the `ProductConfirmationModal`
-- Add state for `showProductConfirmation` and pass `selectedOrder` to the modal
+### 5. Add Telugu Name Fields to Seller Items
+**Database migration:** Add `telugu_name` column to the `items` table.
 
-**Camera/Scanner**: Reuse the BarcodeDetector pattern from `POSBarcodeScannerModal.tsx` — camera stream, detection loop, beep sound on match.
+**Files:**
+- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
+- `src/components/EditItemModal.tsx` — Same fields for editing.
+- Save `telugu_name` to the items table.
 
-**Photo for Fruits/Vegetables**: Use `navigator.mediaDevices.getUserMedia` with portrait-oriented video, apply CSS blur to outer edges of the video feed to create a focused-center effect. Capture frame on button click to confirm.
+For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
 
-### Files Changed
-1. **New**: `src/components/ProductConfirmationModal.tsx` — the confirmation modal with scan/photo logic
-2. **Modified**: `src/components/SellerOrderManagement.tsx` — wire up the modal before "Mark as Packed"
+### 6. Bilingual Receipt Printing (Telugu / English)
+Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
+
+- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
+- "Print in English" prints current receipt as-is.
+- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
+
+**Files:**
+- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
+- Update CartItem interface to include `telugu_name`.
+- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
+
+### Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
+| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
+| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
+| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
+| **Database migration** | Add `telugu_name text` column to `items` table |
 
