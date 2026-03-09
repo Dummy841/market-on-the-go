@@ -12,6 +12,7 @@ import { formatDistanceToNow, isToday, isThisWeek, isThisMonth, format } from "d
 import { toZonedTime } from 'date-fns-tz';
 import { Package, Clock, CheckCircle, Truck, AlertCircle, User, Eye, Filter, Volume2, Search, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import ProductConfirmationModal from "@/components/ProductConfirmationModal";
 interface Order {
   id: string;
   user_id: string;
