@@ -20,6 +20,7 @@ import Banners from "./pages/dashboard/Banners";
 import Modules from "./pages/dashboard/Modules";
 import Subcategories from "./pages/dashboard/Subcategories";
 import SupportChats from "./pages/dashboard/SupportChats";
+import TermsConditions from "./pages/dashboard/TermsConditions";
 import Revenue from "./pages/dashboard/Revenue";
 import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
 import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
@@ -107,6 +108,7 @@ const AppContent = () => {
         <Route path="modules" element={<Modules />} />
         <Route path="subcategories" element={<Subcategories />} />
         <Route path="support-chats" element={<SupportChats />} />
+        <Route path="terms-conditions" element={<TermsConditions />} />
         <Route path="wholesale-inventory" element={<WholesaleInventory />} />
         <Route path="wholesale-orders" element={<WholesaleOrders />} />
         <Route path="production" element={<ProductionManagement />} />
