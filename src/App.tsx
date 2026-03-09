@@ -108,6 +108,7 @@ const AppContent = () => {
         <Route path="modules" element={<Modules />} />
         <Route path="subcategories" element={<Subcategories />} />
         <Route path="support-chats" element={<SupportChats />} />
+        <Route path="terms-conditions" element={<TermsConditions />} />
         <Route path="wholesale-inventory" element={<WholesaleInventory />} />
         <Route path="wholesale-orders" element={<WholesaleOrders />} />
         <Route path="production" element={<ProductionManagement />} />

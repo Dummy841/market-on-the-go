@@ -39,6 +39,7 @@ const menuItems = [
       { title: "Modules", url: "/dashboard/modules", icon: Grid3X3, permissionKey: "modules" },
       { title: "Subcategories", url: "/dashboard/subcategories", icon: Layers, permissionKey: "subcategories" },
       { title: "Support", url: "/dashboard/support-chats", icon: MessageCircle, permissionKey: "support_chats" },
+      { title: "Terms & Conditions", url: "/dashboard/terms-conditions", icon: ScrollText, permissionKey: "terms_conditions" },
     ],
   },
   {
