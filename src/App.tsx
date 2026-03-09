@@ -20,6 +20,7 @@ import Banners from "./pages/dashboard/Banners";
 import Modules from "./pages/dashboard/Modules";
 import Subcategories from "./pages/dashboard/Subcategories";
 import SupportChats from "./pages/dashboard/SupportChats";
+import TermsConditions from "./pages/dashboard/TermsConditions";
 import Revenue from "./pages/dashboard/Revenue";
 import WholesaleInventory from "./pages/dashboard/WholesaleInventory";
 import WholesaleOrders from "./pages/dashboard/WholesaleOrders";
