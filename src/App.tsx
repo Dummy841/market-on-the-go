@@ -49,6 +49,7 @@ import UserWallet from "./pages/UserWallet";
 import Profile from "./pages/Profile";
 import AdminLogin from "./pages/AdminLogin";
 import SplashScreen from "./components/SplashScreen";
+import TermsAgreementPopup from "./components/TermsAgreementPopup";
  
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { SellerAuthProvider } from "./contexts/SellerAuthContext";
