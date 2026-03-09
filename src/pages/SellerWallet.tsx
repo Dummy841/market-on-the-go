@@ -219,15 +219,7 @@ const SellerWallet = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b border-border p-4">
-        <div className="max-w-4xl mx-auto flex items-center gap-4 flex-wrap">
-          <SellerHamburgerMenu />
-          <div className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold">My Wallet</h1>
-          </div>
-        </div>
-      </header>
+      <SellerHeader />
 
       <main className="max-w-4xl mx-auto p-4 space-y-6">
         {/* Balance Card with Bank Details and Withdraw - Sticky */}

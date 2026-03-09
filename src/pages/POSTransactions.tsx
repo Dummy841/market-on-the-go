@@ -249,12 +249,7 @@ const POSTransactions = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border p-3" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top))' }}>
-        <div className="flex items-center gap-3">
-          <SellerHamburgerMenu />
-          
-        </div>
-      </header>
+      <SellerHeader />
 
       {/* Date Filters + Stats */}
       <div className="bg-card border-b border-border p-3 flex gap-3 items-center flex-wrap">

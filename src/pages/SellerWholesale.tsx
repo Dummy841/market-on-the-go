@@ -268,11 +268,9 @@ const SellerWholesale = () => {
   // Orders step
   if (step === 'orders') {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <SellerHamburgerMenu />
-          <h2 className="text-xl font-bold">My Wholesale Orders</h2>
-        </div>
+      <div className="min-h-screen bg-background">
+        <SellerHeader />
+        <div className="p-4">
 
         {ordersLoading ?
         <div className="text-center py-10 text-muted-foreground">Loading orders...</div> :

@@ -96,12 +96,7 @@ const POSSettings = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-card border-b border-border p-3">
-        <div className="flex items-center gap-3">
-          <SellerHamburgerMenu />
-          
-        </div>
-      </header>
+      <SellerHeader />
 
       <div className="flex-1 p-4 max-w-lg mx-auto w-full">
         {activeSection === 'menu' &&
