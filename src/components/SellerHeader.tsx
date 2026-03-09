@@ -208,11 +208,10 @@ const SellerHeader = () => {
                 variant="outline" 
                 size="sm" 
                 onClick={() => navigate('/seller-wallet')}
-                className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 hover:from-green-600 hover:to-emerald-700"
+                className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0 hover:from-emerald-600 hover:to-emerald-700"
               >
                 <Wallet className="w-4 h-4" />
-                <span className="hidden sm:inline">{formatCurrency(walletBalance)}</span>
-                <span className="sm:hidden">{formatCurrency(walletBalance)}</span>
+                <span>{formatCurrency(walletBalance)}</span>
               </Button>
             )}
             
@@ -222,7 +221,7 @@ const SellerHeader = () => {
                 variant={isOnline ? "default" : "outline"}
                 size="icon"
                 onClick={handleToggleOnlineStatus}
-                className={isOnline ? "bg-green-500 hover:bg-green-600" : "text-destructive border-destructive"}
+                className={isOnline ? "bg-emerald-500 hover:bg-emerald-600" : "text-destructive border-destructive"}
               >
                 {isOnline ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
               </Button>
@@ -283,7 +282,10 @@ const SellerHeader = () => {
 
       <ChangePasswordModal 
         open={showChangePassword} 
-        onOpenChange={setShowChangePassword} 
+        onOpenChange={setShowChangePassword}
+        userType="seller"
+        userId={seller.id}
+        currentPasswordHash={seller.password_hash || ''}
       />
     </>
   );
