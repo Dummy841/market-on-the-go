@@ -271,7 +271,6 @@ const SellerWholesale = () => {
       <div className="min-h-screen bg-background">
         <SellerHeader />
         <div className="p-4">
-
         {ordersLoading ?
         <div className="text-center py-10 text-muted-foreground">Loading orders...</div> :
         orders.length === 0 ?
