@@ -22,7 +22,7 @@ interface Props {
   onConfirmed: () => void;
 }
 
-const FRUITS_VEG_KEYWORDS = ['fruits', 'vegetables', 'fruit', 'vegetable', 'veggies'];
+const FRUITS_VEG_KEYWORDS = ['fruits', 'vegetables', 'fruit', 'vegetable', 'veggies', 'vegitables', 'vegitable'];
 
 const ProductConfirmationModal = ({ open, onOpenChange, order, onConfirmed }: Props) => {
   const [confirmedItems, setConfirmedItems] = useState<Set<string>>(new Set());
