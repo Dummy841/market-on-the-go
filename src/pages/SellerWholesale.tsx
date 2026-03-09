@@ -557,26 +557,21 @@ const SellerWholesale = () => {
   // Browse step
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border p-3 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            <SellerHamburgerMenu />
-            <h1 className="text-lg font-bold">Wholesale Shop</h1>
+      <SellerHeader />
+      <div className="p-4 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <div className="flex items-center gap-2">
-            
-
-            
-            {cartCount > 0 &&
+          {cartCount > 0 && (
             <Button onClick={() => setStep('cart')} className="relative">
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Cart ({cartCount})
-                <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">{cartCount}</Badge>
-              </Button>
-            }
-          </div>
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Cart ({cartCount})
+              <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]">{cartCount}</Badge>
+            </Button>
+          )}
         </div>
-      </header>
 
       <div className="p-4 max-w-7xl mx-auto">
         <div className="relative max-w-sm mb-4">
