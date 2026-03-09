@@ -78,10 +78,9 @@ const TermsAgreementPopup = () => {
   return (
     <Dialog open={showPopup} onOpenChange={() => {/* prevent closing without agreeing */}}>
       <DialogContent
-        className="sm:max-w-lg z-[10002] rounded-2xl max-h-[85vh]"
+        className="sm:max-w-lg z-[10002] rounded-2xl max-h-[85vh] [&>button.absolute]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
-        hideCloseButton
       >
         <DialogHeader>
           <DialogTitle className="text-center">Updated Terms & Conditions</DialogTitle>
