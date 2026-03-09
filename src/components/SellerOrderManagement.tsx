@@ -516,7 +516,10 @@ export const SellerOrderManagement = () => {
             </Button>
           </div>;
       case 'accepted':
-        return <Button size="sm" onClick={() => updateOrderStatus(order.id, 'packed', 'seller_packed_at')} className="bg-purple-600 hover:bg-purple-700">
+        return <Button size="sm" onClick={() => {
+            setConfirmationOrder(order);
+            setShowProductConfirmation(true);
+          }} className="bg-purple-600 hover:bg-purple-700">
             Mark as Packed
           </Button>;
       default:
