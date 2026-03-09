@@ -106,7 +106,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
       const { data, error } = await supabase.functions.invoke('verify-2factor-otp', { body: { sessionId, otp } });
       if (error) throw error;
       if (!data.success) { setError(data.error || "Invalid OTP"); setIsLoading(false); isVerifyingRef.current = false; return; }
-      const { data: user, error: userError } = await supabase.from('users').insert({ name, mobile, is_verified: true }).select().single();
+      const { data: user, error: userError } = await supabase.from('users').insert({ name, mobile, is_verified: true, terms_agreed_at: new Date().toISOString() }).select().single();
       if (userError) throw userError;
       toast({ title: "Success", description: "Registration successful! You can now place orders." });
       onSuccess(user); onClose(); resetForm();
