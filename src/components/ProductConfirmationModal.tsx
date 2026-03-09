@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { CheckCircle, ScanBarcode, Camera, X, Package } from 'lucide-react';
@@ -194,46 +193,58 @@ const ProductConfirmationModal = ({ open, onOpenChange, order, onConfirmed }: Pr
     onOpenChange(false);
   };
 
-  if (!order) return null;
+  if (!order || !open) return null;
 
   const allConfirmed = order.items.every(item => confirmedItems.has(item.id));
   const isCameraActive = !!scanningItemId || !!photoItemId;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Confirm Products - #{order.id.slice(-4)}
-          </DialogTitle>
-        </DialogHeader>
+    <div className="fixed inset-0 z-[200] bg-background flex flex-col">
+      {/* Header */}
+      <header className="bg-card border-b border-border p-3 flex items-center justify-between shrink-0" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="flex items-center gap-2">
+          <Package className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold">Confirm Products - #{order.id.slice(-4)}</h1>
+        </div>
+        <Button variant="ghost" size="icon" onClick={handleClose}>
+          <X className="w-5 h-5" />
+        </Button>
+      </header>
 
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading items...</div>
-        ) : isCameraActive ? (
-          /* Camera View */
-          <div className="space-y-3">
-            <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-              <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-              {scanningItemId && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-56 h-28 border-2 border-white/60 rounded-lg" />
-                </div>
-              )}
-              {photoItemId && (
-                <div className="absolute inset-0 pointer-events-none" style={{
-                  background: 'radial-gradient(ellipse 60% 60% at center, transparent 40%, rgba(0,0,0,0.6) 100%)'
-                }} />
-              )}
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">Loading items...</div>
+      ) : isCameraActive ? (
+        <>
+          {/* Full-screen Camera View */}
+          <div className="relative bg-black flex-1 min-h-0">
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            {scanningItemId && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-64 h-32 border-2 border-white/50 rounded-lg" />
+              </div>
+            )}
+            {photoItemId && (
+              <div className="absolute inset-0 pointer-events-none" style={{
+                background: 'radial-gradient(ellipse 60% 60% at center, transparent 40%, rgba(0,0,0,0.6) 100%)'
+              }} />
+            )}
+            {/* Scanning item label */}
+            <div className="absolute top-3 left-0 right-0 flex justify-center pointer-events-none">
+              <div className="bg-black/60 text-white text-sm px-4 py-2 rounded-full">
+                {scanningItemId
+                  ? `Scanning: ${order.items.find(i => i.id === scanningItemId)?.item_name || ''}`
+                  : `Photo: ${order.items.find(i => i.id === photoItemId)?.item_name || ''}`}
+              </div>
             </div>
+          </div>
 
+          {/* Bottom actions */}
+          <div className="bg-card border-t border-border p-4 shrink-0 space-y-2">
             <p className="text-sm text-center text-muted-foreground">
               {scanningItemId
                 ? 'Point camera at the product barcode'
                 : 'Take a photo of the product to confirm'}
             </p>
-
             <div className="flex gap-2">
               {photoItemId && (
                 <Button className="flex-1" onClick={capturePhoto}>
@@ -249,79 +260,81 @@ const ProductConfirmationModal = ({ open, onOpenChange, order, onConfirmed }: Pr
               </Button>
             </div>
           </div>
-        ) : (
-          /* Items Checklist */
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Scan each product barcode to verify before packing.
-            </p>
+        </>
+      ) : (
+        /* Items Checklist - scrollable */
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Scan each product barcode to verify before packing.
+          </p>
 
-            {order.items.map(item => {
-              const isConfirmed = confirmedItems.has(item.id);
-              const isFruitsVeg = fruitsVegItemIds.has(item.id);
+          {order.items.map(item => {
+            const isConfirmed = confirmedItems.has(item.id);
+            const isFruitsVeg = fruitsVegItemIds.has(item.id);
 
-              return (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    isConfirmed ? 'bg-green-50 border-green-200' : 'bg-card border-border'
-                  }`}
-                >
-                  {/* Confirmation icon */}
-                  <div className="shrink-0">
-                    {isConfirmed ? (
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
-                    )}
-                  </div>
-
-                  {/* Item info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{item.item_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Qty: {item.quantity} · ₹{item.seller_price * item.quantity}
-                    </div>
-                  </div>
-
-                  {/* Scan / Photo button */}
-                  {!isConfirmed && (
-                    isFruitsVeg ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setPhotoItemId(item.id)}
-                        className="shrink-0"
-                      >
-                        <Camera className="w-4 h-4 mr-1" /> Photo
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setScanningItemId(item.id)}
-                        className="shrink-0"
-                      >
-                        <ScanBarcode className="w-4 h-4 mr-1" /> Scan
-                      </Button>
-                    )
+            return (
+              <div
+                key={item.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                  isConfirmed ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' : 'bg-card border-border'
+                }`}
+              >
+                <div className="shrink-0">
+                  {isConfirmed ? (
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
                   )}
                 </div>
-              );
-            })}
 
-            <Button
-              className="w-full bg-purple-600 hover:bg-purple-700"
-              disabled={!allConfirmed}
-              onClick={onConfirmed}
-            >
-              <Package className="w-4 h-4 mr-1" />
-              {allConfirmed ? 'Mark as Packed' : `Confirm all items (${confirmedItems.size}/${order.items.length})`}
-            </Button>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{item.item_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Qty: {item.quantity} · ₹{item.seller_price * item.quantity}
+                  </div>
+                </div>
+
+                {!isConfirmed && (
+                  isFruitsVeg ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPhotoItemId(item.id)}
+                      className="shrink-0"
+                    >
+                      <Camera className="w-4 h-4 mr-1" /> Photo
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setScanningItemId(item.id)}
+                      className="shrink-0"
+                    >
+                      <ScanBarcode className="w-4 h-4 mr-1" /> Scan
+                    </Button>
+                  )
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Fixed bottom button - only show when not in camera mode */}
+      {!isCameraActive && !loading && (
+        <div className="bg-card border-t border-border p-4 shrink-0">
+          <Button
+            className="w-full bg-purple-600 hover:bg-purple-700"
+            disabled={!allConfirmed}
+            onClick={onConfirmed}
+          >
+            <Package className="w-4 h-4 mr-1" />
+            {allConfirmed ? 'Mark as Packed' : `Confirm all items (${confirmedItems.size}/${order.items.length})`}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 };
 
