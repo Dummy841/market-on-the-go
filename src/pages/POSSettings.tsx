@@ -27,7 +27,7 @@ const POSSettings = () => {
   const [newLabel, setNewLabel] = useState('');
   const [activeSection, setActiveSection] = useState<'menu' | 'payment' | 'scanner'>('menu');
   const [scannerPreference, setScannerPreference] = useState<'camera' | 'external'>(() => {
-    return (localStorage.getItem('pos_scanner_pref') as 'camera' | 'external') || 'camera';
+    return localStorage.getItem('pos_scanner_pref') as 'camera' | 'external' || 'camera';
   });
 
   useEffect(() => {
@@ -37,12 +37,12 @@ const POSSettings = () => {
   const fetchUpiIds = async () => {
     if (!seller) return;
     setLoadingData(true);
-    const { data } = await supabase
-      .from('seller_upi_ids')
-      .select('*')
-      .eq('seller_id', seller.id)
-      .order('created_at', { ascending: true });
-    setUpiIds((data as any[]) || []);
+    const { data } = await supabase.
+    from('seller_upi_ids').
+    select('*').
+    eq('seller_id', seller.id).
+    order('created_at', { ascending: true });
+    setUpiIds(data as any[] || []);
     setLoadingData(false);
   };
 
@@ -60,7 +60,7 @@ const POSSettings = () => {
       seller_id: seller.id,
       upi_id: newUpiId.trim(),
       label: newLabel.trim() || 'Primary',
-      is_default: isFirst,
+      is_default: isFirst
     });
     if (error) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -99,17 +99,17 @@ const POSSettings = () => {
       <header className="bg-card border-b border-border p-3">
         <div className="flex items-center gap-3">
           <SellerHamburgerMenu />
-          <h1 className="text-lg font-bold flex-1">POS Settings</h1>
+          
         </div>
       </header>
 
       <div className="flex-1 p-4 max-w-lg mx-auto w-full">
-        {activeSection === 'menu' && (
-          <div className="space-y-3">
+        {activeSection === 'menu' &&
+        <div className="space-y-3">
             <button
-              className="w-full p-4 rounded-lg border border-border hover:bg-accent flex items-center gap-3 text-left transition-colors"
-              onClick={() => setActiveSection('payment')}
-            >
+            className="w-full p-4 rounded-lg border border-border hover:bg-accent flex items-center gap-3 text-left transition-colors"
+            onClick={() => setActiveSection('payment')}>
+            
               <CreditCard className="w-6 h-6 text-primary" />
               <div className="flex-1">
                 <div className="font-semibold">Payment Settings</div>
@@ -119,9 +119,9 @@ const POSSettings = () => {
             </button>
 
             <button
-              className="w-full p-4 rounded-lg border border-border hover:bg-accent flex items-center gap-3 text-left transition-colors"
-              onClick={() => setActiveSection('scanner')}
-            >
+            className="w-full p-4 rounded-lg border border-border hover:bg-accent flex items-center gap-3 text-left transition-colors"
+            onClick={() => setActiveSection('scanner')}>
+            
               <Camera className="w-6 h-6 text-primary" />
               <div className="flex-1">
                 <div className="font-semibold">Barcode Scanner</div>
@@ -130,10 +130,10 @@ const POSSettings = () => {
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
-        )}
+        }
 
-        {activeSection === 'payment' && (
-          <div className="space-y-4">
+        {activeSection === 'payment' &&
+        <div className="space-y-4">
             <Button variant="ghost" size="sm" onClick={() => setActiveSection('menu')}>
               ← Back
             </Button>
@@ -145,74 +145,74 @@ const POSSettings = () => {
               </Button>
             </div>
 
-            {showAdd && (
-              <div className="p-4 border border-border rounded-lg space-y-3 bg-card">
+            {showAdd &&
+          <div className="p-4 border border-border rounded-lg space-y-3 bg-card">
                 <div>
                   <Label className="text-xs">UPI ID *</Label>
                   <Input
-                    placeholder="yourname@upi"
-                    value={newUpiId}
-                    onChange={e => setNewUpiId(e.target.value)}
-                    autoFocus
-                  />
+                placeholder="yourname@upi"
+                value={newUpiId}
+                onChange={(e) => setNewUpiId(e.target.value)}
+                autoFocus />
+              
                 </div>
                 <div>
                   <Label className="text-xs">Label</Label>
                   <Input
-                    placeholder="e.g. Business, Personal"
-                    value={newLabel}
-                    onChange={e => setNewLabel(e.target.value)}
-                  />
+                placeholder="e.g. Business, Personal"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)} />
+              
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleAddUpi} className="flex-1">Add</Button>
-                  <Button size="sm" variant="outline" onClick={() => { setShowAdd(false); setNewUpiId(''); setNewLabel(''); }}>Cancel</Button>
+                  <Button size="sm" variant="outline" onClick={() => {setShowAdd(false);setNewUpiId('');setNewLabel('');}}>Cancel</Button>
                 </div>
               </div>
-            )}
+          }
 
-            {loadingData ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
-            ) : upiIds.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
+            {loadingData ?
+          <p className="text-sm text-muted-foreground text-center py-4">Loading...</p> :
+          upiIds.length === 0 ?
+          <div className="text-center py-12 text-muted-foreground">
                 <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p className="text-sm font-medium">No UPI IDs added yet</p>
                 <p className="text-xs">Add a UPI ID to receive payments via QR code</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {upiIds.map(upi => (
-                  <div
-                    key={upi.id}
-                    className={`p-4 rounded-lg border-2 flex items-center gap-3 transition-colors ${
-                      upi.is_default ? 'border-primary bg-primary/5' : 'border-border'
-                    }`}
-                  >
+              </div> :
+
+          <div className="space-y-2">
+                {upiIds.map((upi) =>
+            <div
+              key={upi.id}
+              className={`p-4 rounded-lg border-2 flex items-center gap-3 transition-colors ${
+              upi.is_default ? 'border-primary bg-primary/5' : 'border-border'}`
+              }>
+              
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{upi.upi_id}</div>
                       <div className="text-xs text-muted-foreground">{upi.label}</div>
                     </div>
-                    {upi.is_default ? (
-                      <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1 shrink-0">
+                    {upi.is_default ?
+              <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1 shrink-0">
                         <Check className="w-3 h-3" /> Default
-                      </span>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => handleSetDefault(upi.id)}>
+                      </span> :
+
+              <Button size="sm" variant="outline" onClick={() => handleSetDefault(upi.id)}>
                         Set Default
                       </Button>
-                    )}
+              }
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => handleDelete(upi.id)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
-                ))}
-              </div>
             )}
+              </div>
+          }
           </div>
-        )}
+        }
 
-        {activeSection === 'scanner' && (
-          <div className="space-y-4">
+        {activeSection === 'scanner' &&
+        <div className="space-y-4">
             <Button variant="ghost" size="sm" onClick={() => setActiveSection('menu')}>
               ← Back
             </Button>
@@ -222,39 +222,39 @@ const POSSettings = () => {
 
             <div className="space-y-3">
               <button
-                className={`w-full p-4 rounded-lg border-2 flex items-center gap-4 text-left transition-colors ${
-                  scannerPreference === 'camera' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
-                }`}
-                onClick={() => handleScannerPref('camera')}
-              >
+              className={`w-full p-4 rounded-lg border-2 flex items-center gap-4 text-left transition-colors ${
+              scannerPreference === 'camera' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'}`
+              }
+              onClick={() => handleScannerPref('camera')}>
+              
                 <Camera className="w-8 h-8 text-primary" />
                 <div className="flex-1">
                   <div className="font-semibold">Camera Scanner</div>
                   <div className="text-sm text-muted-foreground">Use your device camera to scan barcodes</div>
                 </div>
-                {scannerPreference === 'camera' && (
-                  <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1">
+                {scannerPreference === 'camera' &&
+              <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3" /> Active
                   </span>
-                )}
+              }
               </button>
 
               <button
-                className={`w-full p-4 rounded-lg border-2 flex items-center gap-4 text-left transition-colors ${
-                  scannerPreference === 'external' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
-                }`}
-                onClick={() => handleScannerPref('external')}
-              >
+              className={`w-full p-4 rounded-lg border-2 flex items-center gap-4 text-left transition-colors ${
+              scannerPreference === 'external' ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'}`
+              }
+              onClick={() => handleScannerPref('external')}>
+              
                 <Usb className="w-8 h-8 text-primary" />
                 <div className="flex-1">
                   <div className="font-semibold">External Scanner</div>
                   <div className="text-sm text-muted-foreground">Connect USB or Bluetooth barcode scanner</div>
                 </div>
-                {scannerPreference === 'external' && (
-                  <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1">
+                {scannerPreference === 'external' &&
+              <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3" /> Active
                   </span>
-                )}
+              }
               </button>
             </div>
 
@@ -264,10 +264,10 @@ const POSSettings = () => {
               <p>• <strong>External:</strong> Plug in a USB scanner or pair a Bluetooth scanner. Barcodes are read as keyboard input.</p>
             </div>
           </div>
-        )}
+        }
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default POSSettings;
