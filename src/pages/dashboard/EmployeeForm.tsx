@@ -140,6 +140,16 @@ const PERMISSION_GROUPS = [
       { key: "edit", label: "Edit Entry" },
     ],
   },
+  {
+    key: "terms_conditions",
+    label: "Terms & Conditions",
+    permissions: [
+      { key: "view", label: "View Terms" },
+      { key: "create", label: "Add Term" },
+      { key: "edit", label: "Edit Term" },
+      { key: "delete", label: "Delete Term" },
+    ],
+  },
 ];
 
 const EmployeeForm = () => {
