@@ -150,7 +150,7 @@ const PERMISSION_GROUPS = [
       { key: "delete", label: "Delete Term" },
     ],
   },
-];
+]; // end PERMISSION_GROUPS
 
 const EmployeeForm = () => {
   const { id } = useParams();
