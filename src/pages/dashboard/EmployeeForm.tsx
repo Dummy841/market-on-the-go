@@ -161,6 +161,7 @@ const EmployeeForm = () => {
   const [formData, setFormData] = useState({ name: "", mobile: "", email: "", password: "Zippy@1234" });
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [permissionSearch, setPermissionSearch] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -336,9 +337,18 @@ const EmployeeForm = () => {
       <div className="border rounded-lg p-5 space-y-4 bg-card">
         <h3 className="font-semibold text-lg">Dashboard Access</h3>
         <p className="text-sm text-muted-foreground">Select the sections and actions this employee can access.</p>
+        <Input
+          placeholder="Search sections..."
+          value={permissionSearch}
+          onChange={(e) => setPermissionSearch(e.target.value)}
+          className="max-w-sm"
+        />
 
         <div className="space-y-2">
-          {PERMISSION_GROUPS.map((group) => {
+          {PERMISSION_GROUPS.filter((group) =>
+            group.label.toLowerCase().includes(permissionSearch.toLowerCase()) ||
+            group.permissions.some((p) => p.label.toLowerCase().includes(permissionSearch.toLowerCase()))
+          ).map((group) => {
             const permKeys = group.permissions.map((p) => p.key);
             const allChecked = permKeys.every((k) => permissions[group.key]?.[k]);
             const someChecked = permKeys.some((k) => permissions[group.key]?.[k]);
