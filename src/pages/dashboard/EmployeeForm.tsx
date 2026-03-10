@@ -161,6 +161,7 @@ const EmployeeForm = () => {
   const [formData, setFormData] = useState({ name: "", mobile: "", email: "", password: "Zippy@1234" });
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [permissionSearch, setPermissionSearch] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
