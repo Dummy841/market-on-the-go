@@ -495,25 +495,34 @@ export type Database = {
       production_entries: {
         Row: {
           batch_number: string
+          best_before: string | null
           created_at: string
+          expiry_date: string | null
           id: string
           item_name: string
+          manufacture_date: string
           stock_quantity: number
           updated_at: string
         }
         Insert: {
           batch_number: string
+          best_before?: string | null
           created_at?: string
+          expiry_date?: string | null
           id?: string
           item_name: string
+          manufacture_date?: string
           stock_quantity?: number
           updated_at?: string
         }
         Update: {
           batch_number?: string
+          best_before?: string | null
           created_at?: string
+          expiry_date?: string | null
           id?: string
           item_name?: string
+          manufacture_date?: string
           stock_quantity?: number
           updated_at?: string
         }
