@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Bold, AArrowUp, AArrowDown } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface TermItem {
   id: string;
@@ -26,6 +27,8 @@ const TermsConditions = () => {
   const [content, setContent] = useState("");
   const [displayOrder, setDisplayOrder] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [isBold, setIsBold] = useState(false);
+  const [fontSize, setFontSize] = useState(14);
   const { toast } = useToast();
 
   const fetchTerms = async () => {
@@ -78,11 +81,31 @@ const TermsConditions = () => {
     toast({ title: "Deleted" });
   };
 
+  const toggleBold = () => {
+    const textarea = document.getElementById("term-content-textarea") as HTMLTextAreaElement;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    if (start === end) {
+      setIsBold(!isBold);
+      return;
+    }
+    const selected = content.substring(start, end);
+    const isBoldAlready = selected.startsWith("**") && selected.endsWith("**");
+    let newContent: string;
+    if (isBoldAlready) {
+      newContent = content.substring(0, start) + selected.slice(2, -2) + content.substring(end);
+    } else {
+      newContent = content.substring(0, start) + `**${selected}**` + content.substring(end);
+    }
+    setContent(newContent);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Terms & Conditions</h1>
-        <Button onClick={() => { setEditingTerm(null); setContent(""); setDisplayOrder(terms.length); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditingTerm(null); setContent(""); setDisplayOrder(terms.length); setFontSize(14); setDialogOpen(true); }}>
           <Plus className="h-4 w-4 mr-2" />Add Term
         </Button>
       </div>
@@ -124,19 +147,68 @@ const TermsConditions = () => {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingTerm ? "Edit Term" : "Add Term"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
+        <DialogContent className="!max-w-full !w-full !h-full !max-h-full !rounded-none m-0 p-0 flex flex-col">
+          <div className="p-6 pb-0 flex-shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-xl">{editingTerm ? "Edit Term" : "Add Term"}</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-auto p-6 space-y-5">
             <div className="space-y-2">
-              <Label>Content</Label>
-              <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Enter term/condition text" rows={4} />
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Content</Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={toggleBold}
+                    title="Bold selected text (wrap with **)"
+                  >
+                    <Bold className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFontSize(Math.max(10, fontSize - 1))}
+                    title="Decrease font size"
+                  >
+                    <AArrowDown className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground w-8 text-center">{fontSize}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFontSize(Math.min(24, fontSize + 1))}
+                    title="Increase font size"
+                  >
+                    <AArrowUp className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                id="term-content-textarea"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Enter term/condition text. Use **text** for bold."
+                rows={12}
+                style={{ fontSize: `${fontSize}px` }}
+                className="min-h-[200px]"
+              />
             </div>
             <div className="space-y-2">
-              <Label>Display Order</Label>
+              <Label className="text-base font-semibold">Display Order</Label>
               <Input type="number" value={displayOrder} onChange={(e) => setDisplayOrder(Number(e.target.value))} />
             </div>
+          </div>
+
+          <div className="p-6 pt-3 flex-shrink-0 border-t">
             <Button onClick={handleSave} disabled={saving} className="w-full">
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {editingTerm ? "Update" : "Add"}
