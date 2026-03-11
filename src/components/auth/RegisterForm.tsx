@@ -23,6 +23,16 @@ interface TermItem {
   display_order: number;
 }
 
+const renderTermContent = (text: string) => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
 export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: RegisterFormProps) => {
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [name, setName] = useState("");
@@ -35,9 +45,11 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [terms, setTerms] = useState<TermItem[]>([]);
   const [showTerms, setShowTerms] = useState(false);
+  const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
   const isVerifyingRef = useRef(false);
+  const termsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchTerms = async () => {
@@ -173,7 +185,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
                     />
                     <label htmlFor="terms" className="text-sm leading-tight cursor-pointer">
                       I agree to the{" "}
-                      <button type="button" onClick={() => setShowTerms(true)} className="text-primary underline font-medium">
+                      <button type="button" onClick={() => { setTermsScrolledToEnd(false); setShowTerms(true); }} className="text-primary underline font-medium">
                         Terms & Conditions
                       </button>
                     </label>
@@ -210,31 +222,48 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
         </DialogContent>
       </Dialog>
 
-      {/* Terms & Conditions Dialog */}
+      {/* Terms & Conditions Dialog - Fullscreen */}
       <Dialog open={showTerms} onOpenChange={setShowTerms}>
-        <DialogContent className="sm:max-w-lg z-[10001] rounded-2xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Terms & Conditions</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[50vh] pr-4">
-            <div className="space-y-3 py-2">
+        <DialogContent className="!max-w-full !w-full !h-full !max-h-full !rounded-none m-0 p-0 flex flex-col z-[10001]">
+          <div className="flex-shrink-0 p-5 pb-3">
+            <DialogHeader>
+              <DialogTitle className="text-xl text-center font-bold">Terms & Conditions</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground text-center mt-2">Please read all terms carefully</p>
+          </div>
+          <div
+            ref={termsScrollRef}
+            onScroll={() => {
+              const el = termsScrollRef.current;
+              if (!el) return;
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) setTermsScrolledToEnd(true);
+            }}
+            className="flex-1 overflow-y-auto px-5 py-4"
+          >
+            <div className="space-y-6">
               {terms.map((term, idx) => (
-                <div key={term.id} className="flex gap-3">
-                  <span className="text-sm font-semibold text-primary min-w-[24px]">{idx + 1}.</span>
-                  <p className="text-sm text-foreground leading-relaxed">{term.content}</p>
+                <div key={term.id} className="flex gap-4">
+                  <span className="font-bold text-primary min-w-[28px] flex-shrink-0">{idx + 1}.</span>
+                  <p className="text-foreground leading-relaxed" style={{ lineHeight: 1.8 }}>{renderTermContent(term.content)}</p>
                 </div>
               ))}
             </div>
-          </ScrollArea>
-          <Button
-            onClick={() => {
-              setAgreedToTerms(true);
-              setShowTerms(false);
-            }}
-            className="w-full mt-2"
-          >
-            I Agree
-          </Button>
+            <div className="mt-8 pb-4">
+              {termsScrolledToEnd ? (
+                <Button
+                  onClick={() => {
+                    setAgreedToTerms(true);
+                    setShowTerms(false);
+                  }}
+                  className="w-full h-12 text-base font-semibold"
+                >
+                  I Agree
+                </Button>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground animate-pulse">↓ Scroll down to read all terms ↓</p>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>

@@ -156,16 +156,22 @@ const TermsAgreementPopup = () => {
             ))}
           </div>
 
-          {/* I Agree button at the end of content */}
+          {/* I Agree button at the end of content, only visible after scrolling */}
           <div className="mt-8 pb-4">
-            <Button
-              onClick={handleAgree}
-              disabled={loading}
-              className="w-full h-12 text-base font-semibold"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              I Agree
-            </Button>
+            {scrolledToEnd ? (
+              <Button
+                onClick={handleAgree}
+                disabled={loading}
+                className="w-full h-12 text-base font-semibold"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                I Agree
+              </Button>
+            ) : (
+              <p className="text-center text-sm text-muted-foreground animate-pulse">
+                ↓ Scroll down to read all terms ↓
+              </p>
+            )}
           </div>
         </div>
       </DialogContent>
