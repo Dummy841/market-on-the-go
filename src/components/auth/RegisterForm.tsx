@@ -23,6 +23,16 @@ interface TermItem {
   display_order: number;
 }
 
+const renderTermContent = (text: string) => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
 export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: RegisterFormProps) => {
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [name, setName] = useState("");
