@@ -209,10 +209,11 @@ const TermsConditions = () => {
                 </div>
               </div>
               <Textarea
+                ref={textareaRef}
                 id="term-content-textarea"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Enter term/condition text. Use **text** for bold."
+                placeholder="Enter term/condition text. Select text and click B to bold."
                 rows={12}
                 style={{ fontSize: `${fontSize}px` }}
                 className="min-h-[200px]"
