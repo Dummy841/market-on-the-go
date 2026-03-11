@@ -35,9 +35,11 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [terms, setTerms] = useState<TermItem[]>([]);
   const [showTerms, setShowTerms] = useState(false);
+  const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
   const { toast } = useToast();
   const abortControllerRef = useRef<AbortController | null>(null);
   const isVerifyingRef = useRef(false);
+  const termsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchTerms = async () => {
