@@ -226,6 +226,14 @@ const ProductionManagement = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Input
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
           {loading ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : entries.length === 0 ? (
@@ -244,12 +252,16 @@ const ProductionManagement = () => {
                     <TableHead>Stock</TableHead>
                     <TableHead>Mfg Date</TableHead>
                     <TableHead>Exp / Best Before</TableHead>
-                    <TableHead>Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {entries.map((entry) => (
+                  {entries
+                    .filter((entry) =>
+                      entry.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      entry.batch_number.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">{entry.item_name}</TableCell>
                       <TableCell>{entry.batch_number}</TableCell>
@@ -262,7 +274,6 @@ const ProductionManagement = () => {
                             ? `BB: ${entry.best_before}`
                             : "-"}
                       </TableCell>
-                      <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         {hasPermission("production", "edit") && (
                           <Button size="icon" variant="ghost" onClick={() => openEdit(entry)}>
