@@ -52,7 +52,7 @@ const ProductionManagement = () => {
       const { data, error } = await supabase
         .from('production_entries' as any)
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('stock_quantity', { ascending: true });
       if (error) throw error;
       setEntries((data as any) || []);
     } catch (error) {
