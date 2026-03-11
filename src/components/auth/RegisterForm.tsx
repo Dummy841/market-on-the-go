@@ -185,7 +185,7 @@ export const RegisterForm = ({ isOpen, onClose, onSuccess, initialMobile }: Regi
                     />
                     <label htmlFor="terms" className="text-sm leading-tight cursor-pointer">
                       I agree to the{" "}
-                      <button type="button" onClick={() => setShowTerms(true)} className="text-primary underline font-medium">
+                      <button type="button" onClick={() => { setTermsScrolledToEnd(false); setShowTerms(true); }} className="text-primary underline font-medium">
                         Terms & Conditions
                       </button>
                     </label>

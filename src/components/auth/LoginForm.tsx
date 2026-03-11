@@ -212,7 +212,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
                     />
                     <label htmlFor="login-terms" className="text-sm leading-tight cursor-pointer">
                       I agree to the{" "}
-                      <button type="button" onClick={() => setShowTerms(true)} className="text-primary underline font-medium">
+                      <button type="button" onClick={() => { setTermsScrolledToEnd(false); setShowTerms(true); }} className="text-primary underline font-medium">
                         Terms & Conditions
                       </button>
                     </label>
