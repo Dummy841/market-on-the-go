@@ -81,24 +81,40 @@ const TermsConditions = () => {
     toast({ title: "Deleted" });
   };
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const toggleBold = () => {
-    const textarea = document.getElementById("term-content-textarea") as HTMLTextAreaElement;
+    const textarea = textareaRef.current;
     if (!textarea) return;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     if (start === end) {
-      setIsBold(!isBold);
+      toast({ title: "Select text first", description: "Highlight the text you want to bold", variant: "destructive" });
       return;
     }
     const selected = content.substring(start, end);
-    const isBoldAlready = selected.startsWith("**") && selected.endsWith("**");
+    // Check if the selection is already wrapped with ** (check surrounding chars)
+    const before = content.substring(0, start);
+    const after = content.substring(end);
+    const isWrapped = before.endsWith("**") && after.startsWith("**");
     let newContent: string;
-    if (isBoldAlready) {
-      newContent = content.substring(0, start) + selected.slice(2, -2) + content.substring(end);
+    let newStart: number;
+    let newEnd: number;
+    if (isWrapped) {
+      newContent = before.slice(0, -2) + selected + after.slice(2);
+      newStart = start - 2;
+      newEnd = end - 2;
     } else {
-      newContent = content.substring(0, start) + `**${selected}**` + content.substring(end);
+      newContent = before + `**${selected}**` + after;
+      newStart = start + 2;
+      newEnd = end + 2;
     }
     setContent(newContent);
+    // Restore selection after state update
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newStart, newEnd);
+    });
   };
 
   return (
