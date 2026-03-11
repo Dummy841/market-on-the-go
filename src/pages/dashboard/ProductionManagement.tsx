@@ -22,17 +22,10 @@ interface ProductionEntry {
   created_at: string;
 }
 
-const BEST_BEFORE_OPTIONS = [
-  { value: "1 month", label: "1 Month" },
-  { value: "2 months", label: "2 Months" },
-  { value: "3 months", label: "3 Months" },
-  { value: "6 months", label: "6 Months" },
-  { value: "9 months", label: "9 Months" },
-  { value: "1 year", label: "1 Year" },
-  { value: "18 months", label: "18 Months" },
-  { value: "2 years", label: "2 Years" },
-  { value: "3 years", label: "3 Years" },
-];
+const BEST_BEFORE_OPTIONS = Array.from({ length: 60 }, (_, i) => ({
+  value: `${i + 1} month${i + 1 > 1 ? "s" : ""}`,
+  label: `${i + 1} Month${i + 1 > 1 ? "s" : ""}`,
+}));
 
 const ProductionManagement = () => {
   const { hasPermission } = useAdminAuth();
