@@ -22,23 +22,17 @@ interface ProductionEntry {
   created_at: string;
 }
 
-const BEST_BEFORE_OPTIONS = [
-  { value: "1 month", label: "1 Month" },
-  { value: "2 months", label: "2 Months" },
-  { value: "3 months", label: "3 Months" },
-  { value: "6 months", label: "6 Months" },
-  { value: "9 months", label: "9 Months" },
-  { value: "1 year", label: "1 Year" },
-  { value: "18 months", label: "18 Months" },
-  { value: "2 years", label: "2 Years" },
-  { value: "3 years", label: "3 Years" },
-];
+const BEST_BEFORE_OPTIONS = Array.from({ length: 60 }, (_, i) => ({
+  value: `${i + 1} month${i + 1 > 1 ? "s" : ""}`,
+  label: `${i + 1} Month${i + 1 > 1 ? "s" : ""}`,
+}));
 
 const ProductionManagement = () => {
   const { hasPermission } = useAdminAuth();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editEntry, setEditEntry] = useState<ProductionEntry | null>(null);
   const [itemName, setItemName] = useState("");
   const [batchNumber, setBatchNumber] = useState("");
@@ -58,7 +52,7 @@ const ProductionManagement = () => {
       const { data, error } = await supabase
         .from('production_entries' as any)
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('stock_quantity', { ascending: true });
       if (error) throw error;
       setEntries((data as any) || []);
     } catch (error) {
@@ -232,6 +226,14 @@ const ProductionManagement = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Input
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
           {loading ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : entries.length === 0 ? (
@@ -250,12 +252,16 @@ const ProductionManagement = () => {
                     <TableHead>Stock</TableHead>
                     <TableHead>Mfg Date</TableHead>
                     <TableHead>Exp / Best Before</TableHead>
-                    <TableHead>Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {entries.map((entry) => (
+                  {entries
+                    .filter((entry) =>
+                      entry.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      entry.batch_number.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">{entry.item_name}</TableCell>
                       <TableCell>{entry.batch_number}</TableCell>
@@ -268,7 +274,6 @@ const ProductionManagement = () => {
                             ? `BB: ${entry.best_before}`
                             : "-"}
                       </TableCell>
-                      <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         {hasPermission("production", "edit") && (
                           <Button size="icon" variant="ghost" onClick={() => openEdit(entry)}>
