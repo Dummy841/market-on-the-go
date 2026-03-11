@@ -32,6 +32,7 @@ const ProductionManagement = () => {
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editEntry, setEditEntry] = useState<ProductionEntry | null>(null);
   const [itemName, setItemName] = useState("");
   const [batchNumber, setBatchNumber] = useState("");
