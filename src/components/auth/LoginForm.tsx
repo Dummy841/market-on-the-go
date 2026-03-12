@@ -200,13 +200,7 @@ export const LoginForm = ({ isOpen, onClose, onSuccess, onRegisterRequired }: Lo
                       id="login-terms"
                       checked={agreedToTerms}
                       onCheckedChange={(checked) => {
-                        if (!agreedToTerms && !checked) {
-                          setAgreedToTerms(false);
-                        } else if (!agreedToTerms) {
-                          setShowTerms(true);
-                        } else {
-                          setAgreedToTerms(false);
-                        }
+                        setAgreedToTerms(!!checked);
                       }}
                       className="mt-0.5"
                     />
