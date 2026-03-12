@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Store, Truck, ChevronDown, BarChart3, Settings, FileText, Image, RotateCcw, Wallet, MessageCircle, Grid3X3, IndianRupee, Layers, Factory, UserCog, ScrollText } from "lucide-react";
+import { Users, Store, Truck, ChevronDown, BarChart3, Settings, FileText, Image, RotateCcw, Wallet, MessageCircle, Grid3X3, IndianRupee, Layers, Factory, UserCog, ScrollText, Shield } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,6 +40,7 @@ const menuItems = [
       { title: "Subcategories", url: "/dashboard/subcategories", icon: Layers, permissionKey: "subcategories" },
       { title: "Support", url: "/dashboard/support-chats", icon: MessageCircle, permissionKey: "support_chats" },
       { title: "Terms & Conditions", url: "/dashboard/terms-conditions", icon: ScrollText, permissionKey: "terms_conditions" },
+      { title: "Privacy Policy", url: "/dashboard/privacy-policy", icon: Shield, permissionKey: "privacy_policy" },
     ],
   },
   {
