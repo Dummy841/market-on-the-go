@@ -40,6 +40,7 @@ const menuItems = [
       { title: "Subcategories", url: "/dashboard/subcategories", icon: Layers, permissionKey: "subcategories" },
       { title: "Support", url: "/dashboard/support-chats", icon: MessageCircle, permissionKey: "support_chats" },
       { title: "Terms & Conditions", url: "/dashboard/terms-conditions", icon: ScrollText, permissionKey: "terms_conditions" },
+      { title: "Privacy Policy", url: "/dashboard/privacy-policy", icon: Shield, permissionKey: "privacy_policy" },
     ],
   },
   {
