@@ -82,3 +82,22 @@ export const getDeliveryFee = (distanceKm: number, orderAmount: number): number 
   if (distanceKm <= 20) return orderAmount >= 2000 ? 0 : 59;
   return 99;
 };
+
+/**
+ * Get delivery fee for multi-seller orders
+ * @param sellerCount Number of unique sellers in cart
+ * @param orderAmount Total order amount
+ * @param hasPass Whether user has active Zippy Pass
+ * @param maxDistance Maximum distance among all sellers
+ * @returns Delivery fee amount
+ */
+export const getMultiSellerDeliveryFee = (
+  sellerCount: number,
+  orderAmount: number,
+  hasPass: boolean,
+  maxDistance: number
+): number => {
+  if (hasPass && maxDistance <= 10) return 0;
+  if (orderAmount >= 299 && maxDistance <= 10) return 0;
+  return sellerCount === 1 ? 19 : 29;
+};
