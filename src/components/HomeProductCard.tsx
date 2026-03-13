@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Plus, Minus, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
-import { toast } from '@/hooks/use-toast';
 import ItemImageCarousel from '@/components/ItemImageCarousel';
 import {
   Dialog,
@@ -29,7 +28,7 @@ interface HomeProductCardProps {
 }
 
 export const HomeProductCard = ({ item }: HomeProductCardProps) => {
-  const { addToCart, cartItems, cartRestaurant, removeFromCart, updateQuantity } = useCart();
+  const { addToCart, cartItems, removeFromCart, updateQuantity } = useCart();
   const [showInfo, setShowInfo] = useState(false);
 
   const cartItem = cartItems.find(ci => ci.id === item.id);
@@ -42,15 +41,6 @@ export const HomeProductCard = ({ item }: HomeProductCardProps) => {
     : item.item_photo_url ? [item.item_photo_url] : [];
 
   const handleAddToCart = () => {
-    if (cartRestaurant && cartRestaurant !== item.seller_id) {
-      toast({
-        title: "Different Seller",
-        description: "You can order from a single seller at a time.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     addToCart({
       id: item.id,
       item_name: item.item_name,

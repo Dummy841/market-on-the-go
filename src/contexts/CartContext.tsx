@@ -26,51 +26,33 @@ interface CartContextType {
   clearCart: () => void;
   getTotalPrice: () => number;
   getTotalItems: () => number;
+  getUniqueSellers: () => { seller_id: string; seller_name: string }[];
+  getItemsBySeller: () => Record<string, CartItem[]>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [cartRestaurant, setCartRestaurant] = useState<string | null>(null);
-  const [cartRestaurantName, setCartRestaurantName] = useState<string | null>(null);
-  const [cartRestaurantLatitude, setCartRestaurantLatitude] = useState<number | null>(null);
-  const [cartRestaurantLongitude, setCartRestaurantLongitude] = useState<number | null>(null);
+
+  // Derived values for backward compatibility
+  const cartRestaurant = cartItems.length > 0 ? cartItems[0].seller_id : null;
+  const cartRestaurantName = cartItems.length > 0 ? cartItems[0].seller_name : null;
+  const cartRestaurantLatitude = cartItems.length > 0 ? (cartItems[0].seller_latitude ?? null) : null;
+  const cartRestaurantLongitude = cartItems.length > 0 ? (cartItems[0].seller_longitude ?? null) : null;
 
   useEffect(() => {
     const storedCart = localStorage.getItem('cart');
-    const storedRestaurant = localStorage.getItem('cartRestaurant');
-    const storedRestaurantName = localStorage.getItem('cartRestaurantName');
-    const storedRestaurantLat = localStorage.getItem('cartRestaurantLatitude');
-    const storedRestaurantLng = localStorage.getItem('cartRestaurantLongitude');
-    
     if (storedCart) {
       try { setCartItems(JSON.parse(storedCart)); } catch { /* ignore */ }
     }
-    if (storedRestaurant) setCartRestaurant(storedRestaurant);
-    if (storedRestaurantName) setCartRestaurantName(storedRestaurantName);
-    if (storedRestaurantLat) setCartRestaurantLatitude(parseFloat(storedRestaurantLat));
-    if (storedRestaurantLng) setCartRestaurantLongitude(parseFloat(storedRestaurantLng));
   }, []);
 
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cartItems));
-    if (cartRestaurant) localStorage.setItem('cartRestaurant', cartRestaurant);
-    else localStorage.removeItem('cartRestaurant');
-    if (cartRestaurantName) localStorage.setItem('cartRestaurantName', cartRestaurantName);
-    else localStorage.removeItem('cartRestaurantName');
-    if (cartRestaurantLatitude !== null) localStorage.setItem('cartRestaurantLatitude', cartRestaurantLatitude.toString());
-    else localStorage.removeItem('cartRestaurantLatitude');
-    if (cartRestaurantLongitude !== null) localStorage.setItem('cartRestaurantLongitude', cartRestaurantLongitude.toString());
-    else localStorage.removeItem('cartRestaurantLongitude');
-  }, [cartItems, cartRestaurant, cartRestaurantName, cartRestaurantLatitude, cartRestaurantLongitude]);
+  }, [cartItems]);
 
   const addToCart = useCallback(async (item: Omit<CartItem, 'quantity'>) => {
-    // Multi-seller check
-    if (cartRestaurant && cartRestaurant !== item.seller_id) {
-      return;
-    }
-
     // Check stock from database
     const { data: dbItem } = await supabase
       .from('items')
@@ -79,8 +61,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .maybeSingle();
 
     const stock = dbItem?.stock_quantity ?? 0;
-
-    // Get current quantity in cart for this item
     const currentInCart = cartItems.find(c => c.id === item.id)?.quantity ?? 0;
     const requestedTotal = currentInCart + 1;
 
@@ -101,26 +81,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return [...prev, { ...item, quantity: 1 }];
     });
-
-    if (!cartRestaurant) {
-      setCartRestaurant(item.seller_id);
-      setCartRestaurantName(item.seller_name);
-      if (item.seller_latitude) setCartRestaurantLatitude(item.seller_latitude);
-      if (item.seller_longitude) setCartRestaurantLongitude(item.seller_longitude);
-    }
-  }, [cartRestaurant, cartItems]);
+  }, [cartItems]);
 
   const removeFromCart = (itemId: string) => {
-    setCartItems(prev => {
-      const newItems = prev.filter(item => item.id !== itemId);
-      if (newItems.length === 0) {
-        setCartRestaurant(null);
-        setCartRestaurantName(null);
-        setCartRestaurantLatitude(null);
-        setCartRestaurantLongitude(null);
-      }
-      return newItems;
-    });
+    setCartItems(prev => prev.filter(item => item.id !== itemId));
   };
 
   const updateQuantity = useCallback(async (itemId: string, quantity: number) => {
@@ -129,7 +93,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Check stock
     const { data: dbItem } = await supabase
       .from('items')
       .select('stock_quantity, item_name')
@@ -155,14 +118,28 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setCartItems([]);
-    setCartRestaurant(null);
-    setCartRestaurantName(null);
-    setCartRestaurantLatitude(null);
-    setCartRestaurantLongitude(null);
   };
 
   const getTotalPrice = () => cartItems.reduce((total, item) => total + (item.seller_price * item.quantity), 0);
   const getTotalItems = () => cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  const getUniqueSellers = useCallback(() => {
+    const seen = new Set<string>();
+    return cartItems.filter(item => {
+      if (seen.has(item.seller_id)) return false;
+      seen.add(item.seller_id);
+      return true;
+    }).map(item => ({ seller_id: item.seller_id, seller_name: item.seller_name }));
+  }, [cartItems]);
+
+  const getItemsBySeller = useCallback(() => {
+    const grouped: Record<string, CartItem[]> = {};
+    cartItems.forEach(item => {
+      if (!grouped[item.seller_id]) grouped[item.seller_id] = [];
+      grouped[item.seller_id].push(item);
+    });
+    return grouped;
+  }, [cartItems]);
 
   const value = {
     cartItems,
@@ -176,6 +153,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearCart,
     getTotalPrice,
     getTotalItems,
+    getUniqueSellers,
+    getItemsBySeller,
   };
 
   return (

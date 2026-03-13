@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -17,13 +16,13 @@ serve(async (req) => {
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature,
-      order_data 
+      order_data,
+      order_data_list,
     } = await req.json();
 
     console.log('Verifying Razorpay payment:', { razorpay_order_id, razorpay_payment_id });
 
     const RAZORPAY_KEY_SECRET = Deno.env.get('RAZORPAY_KEY_SECRET');
-
     if (!RAZORPAY_KEY_SECRET) {
       throw new Error('Razorpay secret not configured');
     }
@@ -40,11 +39,7 @@ serve(async (req) => {
     );
     
     const data = `${razorpay_order_id}|${razorpay_payment_id}`;
-    const signature = await crypto.crypto.subtle.sign(
-      "HMAC",
-      key,
-      encoder.encode(data)
-    );
+    const signature = await crypto.crypto.subtle.sign("HMAC", key, encoder.encode(data));
     
     const expectedSignature = Array.from(new Uint8Array(signature))
       .map(b => b.toString(16).padStart(2, '0'))
@@ -57,40 +52,50 @@ serve(async (req) => {
 
     console.log('Payment signature verified successfully');
 
-    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Insert the order into database
-    const { data: insertedOrder, error: insertError } = await supabase
-      .from('orders')
-      .insert([{
-        ...order_data,
-        payment_method: 'razorpay',
-        status: 'pending'
-      }])
-      .select()
-      .single();
+    // Support both single order_data and order_data_list (array)
+    const ordersToCreate = order_data_list || (order_data ? [order_data] : []);
 
-    if (insertError) {
-      console.error('Error inserting order:', insertError);
-      throw new Error(`Failed to create order: ${insertError.message}`);
+    if (ordersToCreate.length === 0) {
+      throw new Error('No order data provided');
     }
 
-    console.log('Order created successfully:', insertedOrder.id);
+    const insertedOrders = [];
+    for (const od of ordersToCreate) {
+      const { data: insertedOrder, error: insertError } = await supabase
+        .from('orders')
+        .insert([{
+          ...od,
+          payment_method: od.payment_method || 'razorpay',
+          status: 'pending'
+        }])
+        .select()
+        .single();
 
-    // Fetch full order details with related data
+      if (insertError) {
+        console.error('Error inserting order:', insertError);
+        throw new Error(`Failed to create order: ${insertError.message}`);
+      }
+
+      console.log('Order created:', insertedOrder.id);
+      insertedOrders.push(insertedOrder);
+    }
+
+    // Fetch full details for first order (for tracking)
     const { data: orderDetails } = await supabase
       .from('orders')
       .select('*, delivery_partners(id, name, mobile, profile_photo_url), sellers(seller_latitude, seller_longitude, seller_name)')
-      .eq('id', insertedOrder.id)
+      .eq('id', insertedOrders[0].id)
       .single();
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         order: orderDetails,
+        orders: insertedOrders,
         payment_id: razorpay_payment_id 
       }),
       { 

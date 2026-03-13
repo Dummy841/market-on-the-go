@@ -255,6 +255,7 @@ export const HomeProductsGrid = ({ userLocation, searchQuery = '' }: HomeProduct
             }
             return { ...item, distance: Infinity };
           })
+          .filter(item => (item.distance || Infinity) <= 10)
           .sort((a, b) => {
             if (a.seller_is_online !== b.seller_is_online) return a.seller_is_online ? -1 : 1;
             return (a.distance || 0) - (b.distance || 0);
