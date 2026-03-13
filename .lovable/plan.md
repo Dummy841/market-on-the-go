@@ -1,60 +1,115 @@
 
 
-## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
+## Plan: Multi-Seller Cart, 10km Filter, Split Orders & Order UI Improvements
 
-### 1. Fix POS Header Under Status Bar
-The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
+This is a large feature spanning the home page, cart, checkout, order creation, and order history. Here is the breakdown:
 
-**File:** `src/pages/SellerPOS.tsx` (line 237)
+---
 
-### 2. Show All Cart Columns on Mobile (Reorder)
-Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
+### 1. Home Screen: 10km Distance Filter
 
-Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
+**File: `src/components/HomeProductsGrid.tsx`**
 
-**File:** `src/pages/SellerPOS.tsx`
+Currently items are sorted by distance but NOT filtered. Add a 10km cutoff filter after distance calculation:
 
-### 3. Persist Cart in localStorage Instead of sessionStorage
-Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
+```ts
+// After calculating distance, filter to 10km
+formattedItems = formattedItems.filter(item => (item.distance || Infinity) <= 10);
+```
 
-**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
+This applies whether user is logged in (using selectedAddress) or not (using GPS/currentLat).
 
-### 4. Faster UPI QR Code Generation
-Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
+---
 
-**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
+### 2. Enable Multi-Seller Cart
 
-Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
+**File: `src/contexts/CartContext.tsx`**
 
-### 5. Add Telugu Name Fields to Seller Items
-**Database migration:** Add `telugu_name` column to the `items` table.
+- Remove the single-seller restriction in `addToCart` (the `if (cartRestaurant && cartRestaurant !== item.seller_id)` check)
+- Remove the single `cartRestaurant/Name/Lat/Lng` tracking since cart now holds items from multiple sellers
+- Keep `cartItems` with `seller_id`, `seller_name`, `seller_latitude`, `seller_longitude` per item
+- Add helper: `getSellerIds()` returns unique seller IDs in cart
+- Add helper: `getItemsBySeller()` groups cart items by seller
 
-**Files:**
-- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
-- `src/components/EditItemModal.tsx` — Same fields for editing.
-- Save `telugu_name` to the items table.
+**File: `src/components/HomeProductCard.tsx`**
 
-For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
+- Remove the "Different Seller" toast block — multi-seller is now allowed
 
-### 6. Bilingual Receipt Printing (Telugu / English)
-Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
+**File: `src/components/Cart.tsx` & `src/pages/CartPage.tsx`**
 
-- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
-- "Print in English" prints current receipt as-is.
-- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
+- Group cart items by seller name for display
+- Show seller name as section header
 
-**Files:**
-- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
-- Update CartItem interface to include `telugu_name`.
-- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
+---
 
-### Summary of Changes
+### 3. Checkout: Distance Validation & Split Order Creation
+
+**File: `src/pages/Checkout.tsx`**
+
+Major refactor:
+
+- **Distance check per seller**: For each unique seller in cart, fetch seller coordinates and verify all are within 10km of delivery address. Block checkout if any seller is >10km.
+- **Delivery fee**: ₹19 if 1 seller, ₹29 if >1 seller (flat, not per-seller)
+- **Split order creation**: On payment success, create one `orders` row per seller with:
+  - Only that seller's items
+  - `platform_fee` proportional to that seller's item subtotal
+  - `delivery_fee` = total delivery fee / number of sellers (split equally)
+  - Unique order IDs
+- **Total amount** shown to user = sum of all item totals + single delivery fee + single platform fee
+- Payment is single (Razorpay or wallet)
+
+---
+
+### 4. Delivery Fee Logic Update
+
+**File: `src/lib/distanceUtils.ts`**
+
+Add or update logic:
+```ts
+export const getMultiSellerDeliveryFee = (sellerCount: number, orderAmount: number, hasPass: boolean, maxDistance: number): number => {
+  if (hasPass && maxDistance <= 10) return 0;
+  if (orderAmount >= 299 && maxDistance <= 10) return 0;
+  return sellerCount === 1 ? 19 : 29;
+};
+```
+
+---
+
+### 5. My Orders: Item Images & View Items Modal
+
+**File: `src/pages/MyOrders.tsx`**
+
+- Update the Order interface items to include `item_photo_url`
+- On the order card, show the first item's image as a thumbnail
+- Add a "View Items" button that opens a dialog/modal
+- The modal lists all items with: image, name, quantity, price
+
+**File: `src/pages/Checkout.tsx` (order creation)**
+
+- Include `item_photo_url` in the items JSON saved to the order so it's available in order history
+
+---
+
+### 6. Order Details / Invoice Fee Split
+
+**File: `src/pages/OrderDetails.tsx`**
+
+- Each order already stores its own `delivery_fee` and `platform_fee`, so the invoice will naturally show the split values per order since we store them correctly during creation.
+
+---
+
+### Summary of Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
-| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
-| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
-| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
-| **Database migration** | Add `telugu_name text` column to `items` table |
+| `src/components/HomeProductsGrid.tsx` | Add 10km distance filter |
+| `src/contexts/CartContext.tsx` | Remove single-seller lock, add multi-seller helpers |
+| `src/components/HomeProductCard.tsx` | Remove "Different Seller" toast |
+| `src/components/Cart.tsx` | Group items by seller in display |
+| `src/pages/CartPage.tsx` | Group items by seller in display |
+| `src/pages/Checkout.tsx` | Multi-seller distance validation, split order creation, new fee logic |
+| `src/lib/distanceUtils.ts` | Add multi-seller delivery fee function |
+| `src/pages/MyOrders.tsx` | Add item images, "View Items" button with modal |
+
+No database migration needed — the existing `orders` table supports this since each order row is per-seller already.
 
