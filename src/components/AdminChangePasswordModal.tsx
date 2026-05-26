@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Camera, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+import FaceCaptureModal from "@/components/FaceCaptureModal";
 
 interface Props {
   open: boolean;
@@ -16,59 +13,54 @@ interface Props {
 }
 
 export const AdminChangePasswordModal = ({ open, onOpenChange, employeeId }: Props) => {
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
   const { toast } = useToast();
 
-  const handleSave = async () => {
-    if (!PASSWORD_REGEX.test(newPassword)) {
-      toast({ title: "Weak password", description: "Must include uppercase, lowercase, number & special character (min 8)", variant: "destructive" });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({ title: "Passwords don't match", variant: "destructive" });
-      return;
-    }
-
+  const handleCapture = async (descriptor: number[]) => {
     setSaving(true);
-    const { data: hash } = await supabase.rpc("hash_password", { password: newPassword });
-    const { error } = await supabase.from("admin_employees" as any).update({ password_hash: hash, password_changed: true, updated_at: new Date().toISOString() }).eq("id", employeeId);
+    const { error } = await supabase
+      .from("admin_employees" as any)
+      .update({ face_descriptor: descriptor as any, updated_at: new Date().toISOString() })
+      .eq("id", employeeId);
     setSaving(false);
-
     if (error) {
-      toast({ title: "Failed to update password", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to update face", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Password updated successfully" });
-      setNewPassword("");
-      setConfirmPassword("");
-      onOpenChange(false);
+      setDone(true);
+      toast({ title: "Face updated successfully" });
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader><DialogTitle>Change Password</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>New Password</Label>
-            <div className="relative">
-              <Input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">Uppercase, lowercase, number & special character (min 8)</p>
+    <>
+      <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setDone(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Re-enroll Face ID</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Capture a new face image to update your Face ID login.
+            </p>
+            {done && (
+              <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                <CheckCircle2 className="h-4 w-4" /> Face updated successfully
+              </div>
+            )}
+            <Button onClick={() => setCaptureOpen(true)} disabled={saving} className="w-full">
+              <Camera className="h-4 w-4 mr-2" />
+              {saving ? "Saving..." : done ? "Recapture" : "Capture New Face"}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Confirm Password</Label>
-            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm password" />
-          </div>
-          <Button onClick={handleSave} disabled={saving} className="w-full">{saving ? "Updating..." : "Update Password"}</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      <FaceCaptureModal
+        open={captureOpen}
+        onClose={() => setCaptureOpen(false)}
+        onCapture={(desc) => handleCapture(desc)}
+        title="Re-enroll Face"
+        mode="enroll"
+      />
+    </>
   );
 };
