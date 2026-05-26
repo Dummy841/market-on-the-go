@@ -29,36 +29,17 @@ const AdminLogin = () => {
       return;
     }
 
-    // Superadmin bootstrap: if no face enrolled yet, allow enrollment from login screen
+    // Superadmin bypass: login directly without face capture
     if (mobile === SUPERADMIN_MOBILE) {
       setIsLoading(true);
-      // Ensure the superadmin row exists
-      const { data: existing } = await supabase
-        .from("admin_employees" as any)
-        .select("id, face_descriptor, is_active")
-        .eq("mobile", SUPERADMIN_MOBILE)
-        .maybeSingle();
-
-      if (!existing) {
-        const { error: insErr } = await supabase.from("admin_employees" as any).insert({
-          name: "Super Admin",
-          mobile: SUPERADMIN_MOBILE,
-          role: "superadmin",
-          is_active: true,
-          permissions: {},
-        });
-        if (insErr) {
-          setIsLoading(false);
-          toast({ title: "Setup failed", description: insErr.message, variant: "destructive" });
-          return;
-        }
-      }
-
-      const stored = (existing as any)?.face_descriptor;
-      const needsEnroll = !stored || !Array.isArray(stored) || stored.length === 0;
+      const result = await login(mobile, []);
       setIsLoading(false);
-      setEnrollMode(needsEnroll);
-      setFaceOpen(true);
+      if (result.success) {
+        toast({ title: "Welcome, Super Admin!" });
+        navigate("/dashboard", { replace: true });
+      } else {
+        toast({ title: "Login Failed", description: result.error, variant: "destructive" });
+      }
       return;
     }
 
