@@ -1,60 +1,92 @@
+## Plan: Face Authentication for Admin Employees
 
+Replace the password-based admin employee registration and login flow with a face capture + face-match flow using the device camera.
 
-## Plan: POS Layout Fixes, Cart Persistence, Telugu Name Support & Bilingual Receipts
+---
 
-### 1. Fix POS Header Under Status Bar
-The `fixed inset-0` layout doesn't account for safe-area insets. Add `pt-[env(safe-area-inset-top)]` to the root container so the header stays below the status bar.
+### 1. Dependencies & Assets
 
-**File:** `src/pages/SellerPOS.tsx` (line 237)
+- Install `react-webcam` (camera stream) and `face-api.js` (face detection + 128-d descriptor embedding).
+- Add face-api.js model weights to `public/face-models/` (tiny_face_detector + face_landmark_68 + face_recognition). Loaded once on demand.
 
-### 2. Show All Cart Columns on Mobile (Reorder)
-Currently mobile hides Barcode, Disc%, Tax, MRP columns via `hidden md:table-cell`. Change column order to: #, Product, Qty, Net, then show Barcode, MRP, Disc%, Tax as additional visible columns (smaller text). Remove the `hidden md:table-cell` classes. Remove the S.No (#) column — freeze it is not needed.
+### 2. Database
 
-Column order: **Product, Qty, Net, MRP, Disc%, Tax, Barcode, Delete**. All visible, with secondary columns in smaller text.
+New migration:
+- Add column `face_descriptor jsonb` to `admin_employees` (stores the 128-float embedding array).
+- Keep `password_hash` nullable / unused going forward (don't drop — backward compat for existing rows; new employees can have it set to a placeholder or made nullable).
+- Migration will `ALTER COLUMN password_hash DROP NOT NULL`.
 
-**File:** `src/pages/SellerPOS.tsx`
+### 3. Shared Face Capture Modal
 
-### 3. Persist Cart in localStorage Instead of sessionStorage
-Change `sessionStorage` to `localStorage` so cart survives page refreshes, navigation away, and app restarts. Items remain until order completes or manual delete.
+New component `src/components/FaceCaptureModal.tsx`:
+- Opens fullscreen dialog with `react-webcam` preview.
+- Circular/oval SVG overlay guiding face placement.
+- Loads face-api.js models on mount (shows "Loading models..." state).
+- Runs detection loop ~5fps using `TinyFaceDetector`.
+- Real-time status banner:
+  - "No face detected" (0 faces) — red
+  - "Multiple faces detected" (>1) — red
+  - "Move closer / center your face" (face box too small or off-center) — amber
+  - "Low lighting detected" (mean luminance threshold) — amber
+  - "Hold still..." (valid for <1.5s) — blue
+  - Auto-capture once stable for ~1.5s with single centered well-lit face.
+- On capture: compute 128-d descriptor via `faceapi.computeFaceDescriptor`, return descriptor + snapshot dataURL to parent, close modal.
+- Handles camera permission denied with retry alert.
+- Mode prop: `"enroll"` (returns descriptor) or `"verify"` (returns descriptor for matching).
 
-**File:** `src/pages/SellerPOS.tsx` (lines 43-56) — replace `sessionStorage` with `localStorage`
+### 4. Employee Creation Form (`EmployeeForm.tsx`)
 
-### 4. Faster UPI QR Code Generation
-Replace the external API call (`api.qrserver.com`) with a client-side QR generation approach. Use a `data:` URI with a canvas-based QR generator or inline SVG. The simplest approach: generate the UPI string as a `data:` URI directly using a lightweight inline QR code library. Will use a simple canvas-based QR code generator function embedded directly, avoiding any new dependency.
+- Remove password field, password regex, show/hide toggle, and `passwordChanged` logic.
+- Add "Capture Face" button. When clicked opens `FaceCaptureModal` in enroll mode.
+- After capture: show green badge "Face Captured Successfully" + thumbnail; allow recapture.
+- On save:
+  - New employee: require descriptor; insert with `face_descriptor` JSON; set `password_hash` to a random placeholder string (since column may still be NOT NULL until migration runs).
+  - Edit: capture optional; if recaptured, update `face_descriptor`.
 
-**File:** `src/components/POSCheckoutModal.tsx` — replace the `<img src="https://api.qrserver.com/...">` with a canvas-rendered QR code using a small inline QR generation utility, or preload the image when the checkout modal opens (eagerly fetch when UPI step isn't yet selected).
+### 5. Admin Login (`AdminLogin.tsx` + `AdminAuthContext.tsx`)
 
-Simpler approach: **Preload** the QR image as soon as the modal opens (not just when UPI is clicked), so it's already cached when the user taps UPI.
+- Replace password input with "Login with Face ID" button (enabled after valid 10-digit mobile entered).
+- Flow:
+  1. Fetch employee by mobile (active = true). If none → error.
+  2. If `face_descriptor` is null → error "Face not enrolled. Contact admin."
+  3. Open `FaceCaptureModal` in verify mode.
+  4. On captured descriptor, compute Euclidean distance vs stored descriptor.
+  5. If distance < 0.5 (configurable threshold) → success, save session, navigate to dashboard.
+  6. Else show "Authentication Failed, Please Try Again" with retry button.
+- `AdminAuthContext.login` signature changes to `login(mobile, faceDescriptor)`; password param removed.
+- Remove `verify_password` RPC call; keep employee fetch.
 
-### 5. Add Telugu Name Fields to Seller Items
-**Database migration:** Add `telugu_name` column to the `items` table.
+### 6. Change Password Modal
 
-**Files:**
-- `src/components/SellerItemsForm.tsx` — Add two fields below Item Name: "Telugu Name" (input, shows Telugu script) and an "Auto Translate" button that calls Google Translate API (free endpoint) to translate the English item_name to Telugu.
-- `src/components/EditItemModal.tsx` — Same fields for editing.
-- Save `telugu_name` to the items table.
+- `AdminChangePasswordModal.tsx` becomes "Re-enroll Face" modal (or hidden entirely). Simplest: replace its trigger to open FaceCaptureModal and update `face_descriptor`.
 
-For auto-translation, use the free Google Translate URL: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=te&dt=t&q=TEXT`. This doesn't require an API key.
+### 7. UI/UX Details
 
-### 6. Bilingual Receipt Printing (Telugu / English)
-Replace auto-print with two buttons: **"Print in Telugu"** and **"Print in English"**.
+- Circular overlay using SVG mask over video.
+- Animated ring pulses green when face valid; red border when invalid.
+- Status pill at bottom of modal with icon + message.
+- Loading spinner with text "Analyzing face..." during model load and verification.
+- Toast on success/failure.
 
-- After payment completes, show a small dialog/section with both print buttons instead of auto-printing.
-- "Print in English" prints current receipt as-is.
-- "Print in Telugu" prints receipt using `telugu_name` from the cart items for product names. Need to fetch `telugu_name` for cart items from the database before printing.
+### Technical Notes
 
-**Files:**
-- `src/components/POSCheckoutModal.tsx` — Add post-payment state showing two print buttons. Modify `printReceipt` to accept a `language` parameter. Fetch `telugu_name` for items when printing in Telugu.
-- Update CartItem interface to include `telugu_name`.
-- Update `src/pages/SellerPOS.tsx` Item interface to include `telugu_name` and fetch it.
+- face-api.js models (~6MB total) served from `/public/face-models/`. Lazy-loaded only when modal opens; cached after first load.
+- Descriptor is a `Float32Array(128)` → stored as plain number array in jsonb.
+- Match threshold: 0.5 Euclidean distance (face-api.js standard).
+- No biometric data leaves the client except the descriptor (not the raw image).
+- Lighting check: sample center pixels of canvas frame, require mean luminance > 50 and < 230.
+- Centering check: detection box center within 25% of frame center; box width between 30%–70% of frame width.
 
-### Summary of Changes
+### Files
 
-| File | Change |
-|------|--------|
-| `src/pages/SellerPOS.tsx` | Safe-area padding, show all columns, localStorage cart, fetch telugu_name |
-| `src/components/POSCheckoutModal.tsx` | Preload QR, bilingual print buttons, post-payment print UI |
-| `src/components/SellerItemsForm.tsx` | Telugu name input + auto-translate |
-| `src/components/EditItemModal.tsx` | Telugu name input + auto-translate |
-| **Database migration** | Add `telugu_name text` column to `items` table |
+Created:
+- `src/components/FaceCaptureModal.tsx`
+- `public/face-models/*` (model weight files — fetched from face-api.js CDN and committed)
+- new migration adding `face_descriptor` column + relaxing `password_hash`
 
+Modified:
+- `src/pages/dashboard/EmployeeForm.tsx`
+- `src/pages/AdminLogin.tsx`
+- `src/contexts/AdminAuthContext.tsx`
+- `src/components/AdminChangePasswordModal.tsx` (re-enroll face)
+- `package.json` (add `react-webcam`, `face-api.js`)
