@@ -18,12 +18,13 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          face_descriptor: Json | null
           id: string
           is_active: boolean
           mobile: string
           name: string
           password_changed: boolean
-          password_hash: string
+          password_hash: string | null
           permissions: Json
           profile_photo_url: string | null
           role: string
@@ -32,12 +33,13 @@ export type Database = {
         Insert: {
           created_at?: string
           email?: string | null
+          face_descriptor?: Json | null
           id?: string
           is_active?: boolean
           mobile: string
           name: string
           password_changed?: boolean
-          password_hash: string
+          password_hash?: string | null
           permissions?: Json
           profile_photo_url?: string | null
           role?: string
@@ -46,12 +48,13 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string | null
+          face_descriptor?: Json | null
           id?: string
           is_active?: boolean
           mobile?: string
           name?: string
           password_changed?: boolean
-          password_hash?: string
+          password_hash?: string | null
           permissions?: Json
           profile_photo_url?: string | null
           role?: string
