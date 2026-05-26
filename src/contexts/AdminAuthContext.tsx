@@ -46,7 +46,7 @@ interface AdminEmployee {
 interface AdminAuthContextType {
   admin: AdminEmployee | null;
   loading: boolean;
-  login: (mobile: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (mobile: string, faceDescriptor: number[]) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isSuperAdmin: () => boolean;
   hasPermission: (section: string, action?: string) => boolean;
@@ -78,7 +78,7 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
     return !!admin.permissions?.[section]?.[action];
   };
 
-  const login = async (mobile: string, password: string) => {
+  const login = async (mobile: string, faceDescriptor: number[]) => {
     try {
       const { data: employee, error } = await supabase
         .from("admin_employees" as any)
@@ -91,13 +91,20 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
         return { success: false, error: "Invalid mobile number or account not found" };
       }
 
-      const { data: isValid } = await supabase.rpc("verify_password", {
-        hash: (employee as any).password_hash,
-        password,
-      });
+      const stored = (employee as any).face_descriptor as number[] | null;
+      if (!stored || !Array.isArray(stored) || stored.length === 0) {
+        return { success: false, error: "Face not enrolled. Contact admin." };
+      }
 
-      if (!isValid) {
-        return { success: false, error: "Incorrect password" };
+      // Euclidean distance
+      let sum = 0;
+      for (let i = 0; i < stored.length; i++) {
+        const d = stored[i] - (faceDescriptor[i] ?? 0);
+        sum += d * d;
+      }
+      const distance = Math.sqrt(sum);
+      if (distance > 0.55) {
+        return { success: false, error: "Authentication Failed, Please Try Again" };
       }
 
       const adminData: AdminEmployee = {

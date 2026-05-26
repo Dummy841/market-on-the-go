@@ -6,9 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, EyeOff, ChevronDown, ChevronRight } from "lucide-react";
-
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+import { ArrowLeft, ChevronDown, ChevronRight, Camera, CheckCircle2 } from "lucide-react";
+import FaceCaptureModal from "@/components/FaceCaptureModal";
 
 const PERMISSION_GROUPS = [
   {
@@ -158,16 +157,18 @@ const EmployeeForm = () => {
   const { toast } = useToast();
   const isEdit = !!id;
 
-  const [formData, setFormData] = useState({ name: "", mobile: "", email: "", password: "Zippy@1234" });
+  const [formData, setFormData] = useState({ name: "", mobile: "", email: "" });
   const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [permissionSearch, setPermissionSearch] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(isEdit);
-  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [faceModalOpen, setFaceModalOpen] = useState(false);
+  const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
+  const [facePreview, setFacePreview] = useState<string | null>(null);
+  const [hasExistingFace, setHasExistingFace] = useState(false);
 
   useEffect(() => {
     if (isEdit) {
@@ -178,10 +179,10 @@ const EmployeeForm = () => {
           .eq("id", id)
           .single();
         if (!error && data) {
-          setFormData({ name: data.name, mobile: data.mobile, email: data.email || "", password: "" });
+          setFormData({ name: data.name, mobile: data.mobile, email: data.email || "" });
           setExistingPhotoUrl(data.profile_photo_url);
           setPermissions((data as any).permissions || {});
-          setPasswordChanged((data as any).password_changed || false);
+          setHasExistingFace(!!(data as any).face_descriptor);
         }
         setLoading(false);
       })();
@@ -216,12 +217,8 @@ const EmployeeForm = () => {
       toast({ title: "Invalid mobile number", variant: "destructive" });
       return;
     }
-    if (!isEdit && !formData.password) {
-      toast({ title: "Password is required", variant: "destructive" });
-      return;
-    }
-    if (formData.password && !PASSWORD_REGEX.test(formData.password)) {
-      toast({ title: "Weak password", description: "Must have uppercase, lowercase, number, and special character (min 8 chars)", variant: "destructive" });
+    if (!isEdit && !faceDescriptor) {
+      toast({ title: "Face capture required", description: "Please capture the employee's face before saving.", variant: "destructive" });
       return;
     }
 
@@ -247,9 +244,8 @@ const EmployeeForm = () => {
         permissions,
         updated_at: new Date().toISOString(),
       };
-      if (formData.password) {
-        const { data: hash } = await supabase.rpc("hash_password", { password: formData.password });
-        updateData.password_hash = hash;
+      if (faceDescriptor) {
+        updateData.face_descriptor = faceDescriptor;
       }
       const { error } = await supabase.from("admin_employees").update(updateData).eq("id", id);
       if (error) {
@@ -259,14 +255,13 @@ const EmployeeForm = () => {
         navigate("/dashboard/employees");
       }
     } else {
-      const { data: hash } = await supabase.rpc("hash_password", { password: formData.password });
       const { error } = await supabase.from("admin_employees").insert({
         name: formData.name,
         mobile: formData.mobile,
         email: formData.email || null,
-        password_hash: hash,
         profile_photo_url: photoUrl,
         permissions: permissions as any,
+        face_descriptor: faceDescriptor as any,
       });
       if (error) {
         toast({ title: "Failed to add employee", description: error.message, variant: "destructive" });
@@ -310,27 +305,28 @@ const EmployeeForm = () => {
             <Input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
           </div>
         </div>
-        {/* Hide password field entirely if editing and employee already changed their password */}
-        {!(isEdit && passwordChanged) && (
-          <div className="space-y-2">
-            <Label>Password {isEdit ? "(leave blank to keep current)" : "(default: Zippy@1234)"}</Label>
-            <div className="relative max-w-sm">
-              <Input
-                type={showPassword ? "text" : "password"}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder={isEdit ? "Leave blank to keep current" : "Strong password"}
-              />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">Must include uppercase, lowercase, number & special character (min 8)</p>
+        <div className="space-y-2">
+          <Label>Face Authentication {isEdit ? "(recapture to update)" : "*"}</Label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button type="button" variant="outline" onClick={() => setFaceModalOpen(true)}>
+              <Camera className="h-4 w-4 mr-2" />
+              {faceDescriptor ? "Recapture Face" : hasExistingFace ? "Update Face" : "Capture Face"}
+            </Button>
+            {faceDescriptor && (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium">
+                <CheckCircle2 className="h-4 w-4" />
+                Face Captured Successfully
+              </div>
+            )}
+            {!faceDescriptor && hasExistingFace && (
+              <span className="text-xs text-muted-foreground">Face already enrolled for this employee.</span>
+            )}
+            {facePreview && (
+              <img src={facePreview} alt="Captured face" className="h-12 w-12 rounded-full object-cover border" />
+            )}
           </div>
-        )}
-        {isEdit && passwordChanged && (
-          <p className="text-sm text-muted-foreground">Password has been changed by the employee and cannot be modified by admin.</p>
-        )}
+          <p className="text-xs text-muted-foreground">Employee will log in using face recognition only.</p>
+        </div>
       </div>
 
       {/* Dashboard Access */}
@@ -393,6 +389,17 @@ const EmployeeForm = () => {
         </Button>
         <Button variant="outline" onClick={() => navigate("/dashboard/employees")}>Cancel</Button>
       </div>
+      <FaceCaptureModal
+        open={faceModalOpen}
+        onClose={() => setFaceModalOpen(false)}
+        onCapture={(desc, img) => {
+          setFaceDescriptor(desc);
+          setFacePreview(img);
+          toast({ title: "Face Captured Successfully" });
+        }}
+        title="Enroll Employee Face"
+        mode="enroll"
+      />
     </div>
   );
 };
