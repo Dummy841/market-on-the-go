@@ -9,26 +9,87 @@ import { ScanFace } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import zippyLogo from "@/assets/zippy-logo.png";
 import FaceCaptureModal from "@/components/FaceCaptureModal";
+import { supabase } from "@/integrations/supabase/client";
+
+const SUPERADMIN_MOBILE = "9502395261";
 
 const AdminLogin = () => {
   const [mobile, setMobile] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [faceOpen, setFaceOpen] = useState(false);
+  const [enrollMode, setEnrollMode] = useState(false);
   const { login } = useAdminAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const startFaceLogin = (e?: React.FormEvent) => {
+  const startFaceLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!/^[6-9]\d{9}$/.test(mobile)) {
       toast({ title: "Invalid mobile number", description: "Enter a valid 10-digit Indian mobile number", variant: "destructive" });
       return;
     }
+
+    // Superadmin bootstrap: if no face enrolled yet, allow enrollment from login screen
+    if (mobile === SUPERADMIN_MOBILE) {
+      setIsLoading(true);
+      // Ensure the superadmin row exists
+      const { data: existing } = await supabase
+        .from("admin_employees" as any)
+        .select("id, face_descriptor, is_active")
+        .eq("mobile", SUPERADMIN_MOBILE)
+        .maybeSingle();
+
+      if (!existing) {
+        const { error: insErr } = await supabase.from("admin_employees" as any).insert({
+          name: "Super Admin",
+          mobile: SUPERADMIN_MOBILE,
+          role: "superadmin",
+          is_active: true,
+          permissions: {},
+        });
+        if (insErr) {
+          setIsLoading(false);
+          toast({ title: "Setup failed", description: insErr.message, variant: "destructive" });
+          return;
+        }
+      }
+
+      const stored = (existing as any)?.face_descriptor;
+      const needsEnroll = !stored || !Array.isArray(stored) || stored.length === 0;
+      setIsLoading(false);
+      setEnrollMode(needsEnroll);
+      setFaceOpen(true);
+      return;
+    }
+
+    setEnrollMode(false);
     setFaceOpen(true);
   };
 
   const handleFaceCaptured = async (descriptor: number[]) => {
     setIsLoading(true);
+
+    if (enrollMode && mobile === SUPERADMIN_MOBILE) {
+      const { error } = await supabase
+        .from("admin_employees" as any)
+        .update({ face_descriptor: descriptor as any, updated_at: new Date().toISOString() })
+        .eq("mobile", SUPERADMIN_MOBILE);
+      if (error) {
+        setIsLoading(false);
+        toast({ title: "Enrollment failed", description: error.message, variant: "destructive" });
+        return;
+      }
+      const result = await login(mobile, descriptor);
+      setIsLoading(false);
+      if (result.success) {
+        toast({ title: "Face enrolled. Welcome!" });
+        navigate("/dashboard", { replace: true });
+      } else {
+        toast({ title: "Enrolled — please login again", description: result.error });
+      }
+      return;
+    }
+
     const result = await login(mobile, descriptor);
     setIsLoading(false);
 
@@ -77,8 +138,8 @@ const AdminLogin = () => {
         open={faceOpen}
         onClose={() => setFaceOpen(false)}
         onCapture={(desc) => handleFaceCaptured(desc)}
-        title="Face ID Login"
-        mode="verify"
+        title={enrollMode ? "Enroll Super Admin Face" : "Face ID Login"}
+        mode={enrollMode ? "enroll" : "verify"}
       />
     </div>
   );
