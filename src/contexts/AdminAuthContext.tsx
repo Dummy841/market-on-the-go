@@ -80,6 +80,47 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (mobile: string, faceDescriptor: number[]) => {
     try {
+      // Superadmin bypass: no face check required
+      if (mobile === SUPERADMIN_MOBILE) {
+        let { data: employee } = await supabase
+          .from("admin_employees" as any)
+          .select("*")
+          .eq("mobile", SUPERADMIN_MOBILE)
+          .maybeSingle();
+
+        if (!employee) {
+          const { data: inserted, error: insErr } = await supabase
+            .from("admin_employees" as any)
+            .insert({
+              name: "Super Admin",
+              mobile: SUPERADMIN_MOBILE,
+              role: "superadmin",
+              is_active: true,
+              permissions: {},
+            })
+            .select("*")
+            .single();
+          if (insErr || !inserted) {
+            return { success: false, error: insErr?.message || "Setup failed" };
+          }
+          employee = inserted;
+        }
+
+        const adminData: AdminEmployee = {
+          id: (employee as any).id,
+          name: (employee as any).name,
+          mobile: (employee as any).mobile,
+          email: (employee as any).email,
+          profile_photo_url: (employee as any).profile_photo_url,
+          role: (employee as any).role,
+          is_active: (employee as any).is_active,
+          permissions: (employee as any).permissions || {},
+        };
+        saveSession(adminData);
+        setAdmin(adminData);
+        return { success: true };
+      }
+
       const { data: employee, error } = await supabase
         .from("admin_employees" as any)
         .select("*")
