@@ -40,10 +40,12 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
   const stableSinceRef = useRef<number | null>(null);
   const capturedRef = useRef(false);
   const rafRef = useRef<number | null>(null);
+  
   // Liveness / blink tracking
   const blinkPhaseRef = useRef<"open" | "closing" | "blinked">("open");
   const blinkConfirmedRef = useRef(false);
   const livenessStartRef = useRef<number | null>(null);
+  
   const [resetTick, setResetTick] = useState(0);
   const [status, setStatus] = useState<Status>({ kind: "loading", msg: "Loading face models..." });
   const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -58,6 +60,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
     livenessStartRef.current = null;
     setPermissionError(null);
     setStatus({ kind: "loading", msg: "Loading face models..." });
+    
     loadModels()
       .then(() => setStatus({ kind: "warn", msg: "Position your face in the circle" }))
       .catch((e) => setStatus({ kind: "error", msg: "Failed to load models: " + e.message }));
@@ -73,45 +76,33 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
     setResetTick((t) => t + 1);
   }, []);
 
-  const doCapture = useCallback(async () => {
+  // Optimized capture processing using direct detection data
+  const processFinalCapture = useCallback(async (video: HTMLVideoElement) => {
     if (capturedRef.current) return;
-    const webcam = webcamRef.current;
-    if (!webcam || !webcam.video) return;
-    const video = webcam.video as HTMLVideoElement;
     capturedRef.current = true;
     setStatus({ kind: "capturing", msg: mode === "verify" ? "Verifying..." : "Capturing..." });
+
     try {
-      // Strict single-face guard before final capture
-      const allFaces = await faceapi.detectAllFaces(
-        video,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
-      );
-      if (allFaces.length !== 1) {
-        capturedRef.current = false;
-        stableSinceRef.current = null;
-        blinkPhaseRef.current = "open";
-        blinkConfirmedRef.current = false;
-        livenessStartRef.current = null;
-        setStatus({ kind: "error", msg: allFaces.length === 0 ? "No face detected. Try again." : "Only one face is allowed. Try again." });
-        return;
-      }
+      // Single, definitive compute step for landmarks and face recognition profile descriptor
       const result = await faceapi
         .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
+
       if (!result) {
-        capturedRef.current = false;
-        stableSinceRef.current = null;
-        setStatus({ kind: "error", msg: "Could not capture face. Try again." });
-        return;
+        throw new Error("Face signature lost. Please hold still.");
       }
-      const snapshot = webcam.getScreenshot() || "";
+
+      const webcam = webcamRef.current;
+      const snapshot = webcam?.getScreenshot() || "";
       const descriptor = Array.from(result.descriptor);
+
       onCapture(descriptor, snapshot);
       onClose();
     } catch (e: any) {
       capturedRef.current = false;
-      setStatus({ kind: "error", msg: "Capture failed: " + e.message });
+      stableSinceRef.current = null;
+      setStatus({ kind: "error", msg: e.message || "Capture failed. Try again." });
     }
   }, [onCapture, onClose, mode]);
 
@@ -124,6 +115,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
       if (cancelled || capturedRef.current) return;
       const webcam = webcamRef.current;
       const video = webcam?.video as HTMLVideoElement | undefined;
+      
       if (!video || video.readyState !== 4) {
         rafRef.current = window.setTimeout(tick, 200) as any;
         return;
@@ -139,15 +131,12 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
 
         if (detections.length === 0) {
           stableSinceRef.current = null;
-          blinkPhaseRef.current = "open";
-          blinkConfirmedRef.current = false;
-          livenessStartRef.current = null;
+          if (!blinkConfirmedRef.current) {
+            blinkPhaseRef.current = "open";
+          }
           setStatus({ kind: "warn", msg: "No face detected" });
         } else if (detections.length > 1) {
           stableSinceRef.current = null;
-          blinkPhaseRef.current = "open";
-          blinkConfirmedRef.current = false;
-          livenessStartRef.current = null;
           setStatus({ kind: "warn", msg: "Multiple faces detected — only one person allowed" });
         } else {
           const det = detections[0].detection.box;
@@ -156,26 +145,27 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
           const vh = video.videoHeight;
           const cx = det.x + det.width / 2;
           const cy = det.y + det.height / 2;
-          const centerOk = Math.abs(cx - vw / 2) < vw * 0.2 && Math.abs(cy - vh / 2) < vh * 0.25;
-          const sizeOk = det.width > vw * 0.25 && det.width < vw * 0.75;
+          
+          const centerOk = Math.abs(cx - vw / 2) < vw * 0.25 && Math.abs(cy - vh / 2) < vh * 0.3;
+          const sizeOk = det.width > vw * 0.22 && det.width < vw * 0.78;
 
-          // Lighting check (sample center pixels)
+          // Lighting evaluation
           let lightingOk = true;
           try {
             const canvas = document.createElement("canvas");
-            canvas.width = 80; canvas.height = 80;
+            canvas.width = 40; canvas.height = 40;
             const ctx = canvas.getContext("2d")!;
-            ctx.drawImage(video, det.x, det.y, det.width, det.height, 0, 0, 80, 80);
-            const data = ctx.getImageData(0, 0, 80, 80).data;
+            ctx.drawImage(video, det.x, det.y, det.width, det.height, 0, 0, 40, 40);
+            const data = ctx.getImageData(0, 0, 40, 40).data;
             let sum = 0;
             for (let i = 0; i < data.length; i += 4) {
               sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
             }
             const mean = sum / (data.length / 4);
-            lightingOk = mean > 50 && mean < 235;
+            lightingOk = mean > 40 && mean < 245;
             if (!lightingOk) {
               stableSinceRef.current = null;
-              setStatus({ kind: "warn", msg: mean <= 50 ? "Too dark — improve lighting" : "Too bright" });
+              setStatus({ kind: "warn", msg: mean <= 40 ? "Too dark — improve lighting" : "Too bright" });
             }
           } catch {}
 
@@ -184,49 +174,54 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
             setStatus({ kind: "warn", msg: "Center your face in the circle" });
           } else if (!sizeOk) {
             stableSinceRef.current = null;
-            setStatus({ kind: "warn", msg: det.width <= vw * 0.25 ? "Move closer" : "Move back" });
+            setStatus({ kind: "warn", msg: det.width <= vw * 0.22 ? "Move closer" : "Move back" });
           } else if (lightingOk) {
-            // Compute Eye Aspect Ratio for blink (liveness) detection
+            // Compute Eye Aspect Ratio for blink (liveness) tracking
             const ear = computeEAR(landmarks);
+            
             if (requireLiveness && !blinkConfirmedRef.current) {
               if (livenessStartRef.current == null) livenessStartRef.current = Date.now();
               const elapsedLive = Date.now() - livenessStartRef.current;
-              // State machine: open -> closing (EAR < 0.18) -> blinked (EAR > 0.25)
-              if (blinkPhaseRef.current === "open" && ear < 0.18) {
+              
+              // Adjusted triggers to accommodate normal webcam refresh rates
+              if (blinkPhaseRef.current === "open" && ear < 0.20) {
                 blinkPhaseRef.current = "closing";
-              } else if (blinkPhaseRef.current === "closing" && ear > 0.25) {
+              } else if (blinkPhaseRef.current === "closing" && ear > 0.24) {
                 blinkPhaseRef.current = "blinked";
                 blinkConfirmedRef.current = true;
               }
+              
               if (!blinkConfirmedRef.current) {
-                if (elapsedLive > 8000) {
-                  // Timeout — likely a photo (no blink detected)
+                if (elapsedLive > 10000) { // 10-second threshold
                   livenessStartRef.current = null;
                   blinkPhaseRef.current = "open";
-                  setStatus({ kind: "error", msg: "Liveness check failed. Photos are not allowed — please blink in front of the live camera." });
+                  setStatus({ kind: "error", msg: "Liveness check timed out. Please blink normally to verify." });
                   return;
                 }
-                setStatus({ kind: "blink", msg: "Please blink your eyes to verify you're a real person" });
-                if (!cancelled) rafRef.current = window.setTimeout(tick, 120) as any;
+                setStatus({ kind: "blink", msg: "Please blink your eyes to verify" });
+                if (!cancelled) rafRef.current = window.setTimeout(tick, 100) as any;
                 return;
               }
             }
 
             if (stableSinceRef.current == null) stableSinceRef.current = Date.now();
             const elapsed = Date.now() - stableSinceRef.current;
-            if (elapsed >= 600) {
-              setStatus({ kind: "ok", msg: "Hold still..." });
-              await doCapture();
+            
+            if (elapsed >= 500) {
+              setStatus({ kind: "ok", msg: "Analyzing face profile..." });
+              await processFinalCapture(video);
               return;
             } else {
-              setStatus({ kind: "ok", msg: requireLiveness ? "Blink detected — hold still..." : "Hold still..." });
+              setStatus({ kind: "ok", msg: requireLiveness ? "Blink verified — hold still..." : "Hold still..." });
             }
           }
         }
       } catch (e) {
-        // ignore transient errors
+        // ignore transient frames failures
       }
-      if (!cancelled) rafRef.current = window.setTimeout(tick, 200) as any;
+      if (!cancelled && !capturedRef.current) {
+        rafRef.current = window.setTimeout(tick, 150) as any;
+      }
     };
 
     tick();
@@ -234,7 +229,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
       cancelled = true;
       if (rafRef.current) clearTimeout(rafRef.current);
     };
-  }, [open, status.kind, permissionError, doCapture, requireLiveness, resetTick]);
+  }, [open, status.kind, permissionError, processFinalCapture, requireLiveness, resetTick]);
 
   const handleUserMediaError = (err: string | DOMException) => {
     const msg = typeof err === "string" ? err : err.message;
@@ -279,7 +274,6 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
                 mirrored
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              {/* Oval guide */}
               <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none">
                 <defs>
                   <mask id="oval-mask">
@@ -350,7 +344,6 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
 
 export default FaceCaptureModal;
 
-// Euclidean distance helper for matching
 export function faceDistance(a: number[], b: number[]): number {
   if (a.length !== b.length) return Infinity;
   let sum = 0;
@@ -361,7 +354,6 @@ export function faceDistance(a: number[], b: number[]): number {
   return Math.sqrt(sum);
 }
 
-// Eye Aspect Ratio (EAR) — average of both eyes
 function computeEAR(landmarks: faceapi.FaceLandmarks68): number {
   const left = landmarks.getLeftEye();
   const right = landmarks.getRightEye();
