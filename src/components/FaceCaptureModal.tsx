@@ -43,7 +43,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
   // Challenge State Tracking
   const [challenges, setChallenges] = useState<MoveTask[]>([]);
   const [currentStepIdx, setCurrentStepIdx] = useState<number>(0);
-  const [timeLeft, setTimeLeft] = useState<number>(3); // 3 seconds per move
+  const [timeLeft, setTimeLeft] = useState<number>(5); // 5 seconds per move
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Tracking references for movement thresholds
