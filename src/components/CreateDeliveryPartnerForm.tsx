@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Eye, EyeOff } from "lucide-react";
+import { Loader2, Camera, CheckCircle2 } from "lucide-react";
+import FaceCaptureModal from "@/components/FaceCaptureModal";
 
 interface DeliveryPartner {
   id: string;
@@ -28,14 +29,15 @@ interface CreateDeliveryPartnerFormProps {
 interface FormData {
   name: string;
   mobile: string;
-  password: string;
   profilePhoto?: FileList;
 }
 
 const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartner }: CreateDeliveryPartnerFormProps) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [faceModalOpen, setFaceModalOpen] = useState(false);
+  const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
+  const [facePreview, setFacePreview] = useState<string | null>(null);
   const { toast } = useToast();
   
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>();
@@ -45,9 +47,12 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
     if (editingPartner) {
       setValue('name', editingPartner.name);
       setValue('mobile', editingPartner.mobile);
-      setValue('password', ''); // Don't populate password for security
+      setFaceDescriptor(null);
+      setFacePreview(null);
     } else {
       reset();
+      setFaceDescriptor(null);
+      setFacePreview(null);
     }
   }, [editingPartner, setValue, reset]);
 
@@ -97,6 +102,17 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
         }
       }
 
+      // For a new partner, face capture is mandatory
+      if (!editingPartner && !faceDescriptor) {
+        toast({
+          title: "Face required",
+          description: "Please capture the partner's face to enable Face ID login",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       let error;
       if (editingPartner) {
         const updateData: any = {
@@ -106,13 +122,8 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
         if (profilePhotoUrl) {
           updateData.profile_photo_url = profilePhotoUrl;
         }
-        // Only update password if provided
-        if (data.password) {
-          const { data: hashedPassword, error: hashError } = await supabase.rpc('hash_password', { 
-            password: data.password 
-          });
-          if (hashError) throw hashError;
-          updateData.password_hash = hashedPassword;
+        if (faceDescriptor) {
+          updateData.face_descriptor = faceDescriptor as any;
         }
         
         const result = await supabase
@@ -121,18 +132,12 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
           .eq('id', editingPartner.id);
         error = result.error;
       } else {
-        // Hash password for new delivery partner
-        const { data: hashedPassword, error: hashError } = await supabase.rpc('hash_password', { 
-          password: data.password 
-        });
-        if (hashError) throw hashError;
-        
         const result = await supabase
           .from('delivery_partners')
           .insert({
             name: data.name,
             mobile: data.mobile,
-            password_hash: hashedPassword as any,
+            face_descriptor: faceDescriptor as any,
             profile_photo_url: profilePhotoUrl,
           });
         error = result.error;
@@ -149,6 +154,8 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
       }
       
       reset();
+      setFaceDescriptor(null);
+      setFacePreview(null);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -202,38 +209,25 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password {editingPartner && "(Leave empty to keep current password)"}</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                {...register("password", { 
-                  required: editingPartner ? false : "Password is required",
-                  minLength: {
-                    value: 6,
-                    message: "Password must be at least 6 characters long"
-                  }
-                })}
-                placeholder={editingPartner ? "Enter new password (optional)" : "Enter password"}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
+            <Label>Face Authentication {!editingPartner && <span className="text-destructive">*</span>}</Label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button type="button" variant={faceDescriptor ? "secondary" : "default"} onClick={() => setFaceModalOpen(true)}>
+                <Camera className="h-4 w-4 mr-2" />
+                {faceDescriptor ? "Recapture Face" : editingPartner ? "Re-enroll Face" : "Capture Face"}
               </Button>
+              {faceDescriptor && (
+                <div className="flex items-center gap-2 text-green-600 text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Face captured</span>
+                  {facePreview && <img src={facePreview} alt="" className="h-9 w-9 rounded-full object-cover border" />}
+                </div>
+              )}
             </div>
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {editingPartner
+                ? "Leave unchanged to keep current face. Re-enrolling replaces the saved face."
+                : "Partner will log in using face recognition with blink-based liveness check."}
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -275,6 +269,14 @@ const CreateDeliveryPartnerForm = ({ open, onOpenChange, onSuccess, editingPartn
             </Button>
           </div>
         </form>
+        <FaceCaptureModal
+          open={faceModalOpen}
+          onClose={() => setFaceModalOpen(false)}
+          onCapture={(descriptor, img) => { setFaceDescriptor(descriptor); setFacePreview(img); }}
+          title="Enroll Delivery Partner Face"
+          mode="enroll"
+          requireLiveness={true}
+        />
       </DialogContent>
     </Dialog>
   );
