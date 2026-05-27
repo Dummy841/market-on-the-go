@@ -30,7 +30,8 @@ const Employees = () => {
   const fetchEmployees = async () => {
     const { data, error } = await supabase.from("admin_employees").select("*").order("created_at", { ascending: false });
     if (!error && data) {
-      setEmployees((data as any[]).filter((e) => e.mobile !== SUPERADMIN_MOBILE));
+      // Show all employees including the super admin so they can re-enroll their own face
+      setEmployees(data as any[]);
     }
     setLoading(false);
   };
