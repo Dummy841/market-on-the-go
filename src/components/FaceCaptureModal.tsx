@@ -3,7 +3,7 @@ import Webcam from "react-webcam";
 import * as faceapi from "face-api.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, AlertCircle, Camera } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, Camera, RefreshCw } from "lucide-react";
 
 let modelsLoaded = false;
 const MODEL_URL = "/face-models";
@@ -24,6 +24,7 @@ interface FaceCaptureModalProps {
   onCapture: (descriptor: number[], imageDataUrl: string) => void;
   title?: string;
   mode?: "enroll" | "verify";
+  requireLiveness?: boolean;
 }
 
 type Status =
@@ -31,13 +32,19 @@ type Status =
   | { kind: "error"; msg: string }
   | { kind: "warn"; msg: string }
   | { kind: "ok"; msg: string }
+  | { kind: "blink"; msg: string }
   | { kind: "capturing"; msg: string };
 
-const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mode = "enroll" }: FaceCaptureModalProps) => {
+const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mode = "enroll", requireLiveness = true }: FaceCaptureModalProps) => {
   const webcamRef = useRef<Webcam>(null);
   const stableSinceRef = useRef<number | null>(null);
   const capturedRef = useRef(false);
   const rafRef = useRef<number | null>(null);
+  // Liveness / blink tracking
+  const blinkPhaseRef = useRef<"open" | "closing" | "blinked">("open");
+  const blinkConfirmedRef = useRef(false);
+  const livenessStartRef = useRef<number | null>(null);
+  const [resetTick, setResetTick] = useState(0);
   const [status, setStatus] = useState<Status>({ kind: "loading", msg: "Loading face models..." });
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
@@ -46,12 +53,25 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
     if (!open) return;
     capturedRef.current = false;
     stableSinceRef.current = null;
+    blinkPhaseRef.current = "open";
+    blinkConfirmedRef.current = false;
+    livenessStartRef.current = null;
     setPermissionError(null);
     setStatus({ kind: "loading", msg: "Loading face models..." });
     loadModels()
       .then(() => setStatus({ kind: "warn", msg: "Position your face in the circle" }))
       .catch((e) => setStatus({ kind: "error", msg: "Failed to load models: " + e.message }));
-  }, [open]);
+  }, [open, resetTick]);
+
+  const handleRetry = useCallback(() => {
+    capturedRef.current = false;
+    stableSinceRef.current = null;
+    blinkPhaseRef.current = "open";
+    blinkConfirmedRef.current = false;
+    livenessStartRef.current = null;
+    setStatus({ kind: "warn", msg: "Position your face in the circle" });
+    setResetTick((t) => t + 1);
+  }, []);
 
   const doCapture = useCallback(async () => {
     if (capturedRef.current) return;
@@ -61,6 +81,20 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
     capturedRef.current = true;
     setStatus({ kind: "capturing", msg: mode === "verify" ? "Verifying..." : "Capturing..." });
     try {
+      // Strict single-face guard before final capture
+      const allFaces = await faceapi.detectAllFaces(
+        video,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
+      );
+      if (allFaces.length !== 1) {
+        capturedRef.current = false;
+        stableSinceRef.current = null;
+        blinkPhaseRef.current = "open";
+        blinkConfirmedRef.current = false;
+        livenessStartRef.current = null;
+        setStatus({ kind: "error", msg: allFaces.length === 0 ? "No face detected. Try again." : "Only one face is allowed. Try again." });
+        return;
+      }
       const result = await faceapi
         .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
@@ -96,19 +130,28 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
       }
 
       try {
-        const detections = await faceapi.detectAllFaces(
-          video,
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-        );
+        const detections = await faceapi
+          .detectAllFaces(
+            video,
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+          )
+          .withFaceLandmarks();
 
         if (detections.length === 0) {
           stableSinceRef.current = null;
+          blinkPhaseRef.current = "open";
+          blinkConfirmedRef.current = false;
+          livenessStartRef.current = null;
           setStatus({ kind: "warn", msg: "No face detected" });
         } else if (detections.length > 1) {
           stableSinceRef.current = null;
-          setStatus({ kind: "error", msg: "Multiple faces detected" });
+          blinkPhaseRef.current = "open";
+          blinkConfirmedRef.current = false;
+          livenessStartRef.current = null;
+          setStatus({ kind: "warn", msg: "Multiple faces detected — only one person allowed" });
         } else {
-          const det = detections[0].box;
+          const det = detections[0].detection.box;
+          const landmarks = detections[0].landmarks;
           const vw = video.videoWidth;
           const vh = video.videoHeight;
           const cx = det.x + det.width / 2;
@@ -143,14 +186,40 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
             stableSinceRef.current = null;
             setStatus({ kind: "warn", msg: det.width <= vw * 0.25 ? "Move closer" : "Move back" });
           } else if (lightingOk) {
+            // Compute Eye Aspect Ratio for blink (liveness) detection
+            const ear = computeEAR(landmarks);
+            if (requireLiveness && !blinkConfirmedRef.current) {
+              if (livenessStartRef.current == null) livenessStartRef.current = Date.now();
+              const elapsedLive = Date.now() - livenessStartRef.current;
+              // State machine: open -> closing (EAR < 0.18) -> blinked (EAR > 0.25)
+              if (blinkPhaseRef.current === "open" && ear < 0.18) {
+                blinkPhaseRef.current = "closing";
+              } else if (blinkPhaseRef.current === "closing" && ear > 0.25) {
+                blinkPhaseRef.current = "blinked";
+                blinkConfirmedRef.current = true;
+              }
+              if (!blinkConfirmedRef.current) {
+                if (elapsedLive > 8000) {
+                  // Timeout — likely a photo (no blink detected)
+                  livenessStartRef.current = null;
+                  blinkPhaseRef.current = "open";
+                  setStatus({ kind: "error", msg: "Liveness check failed. Photos are not allowed — please blink in front of the live camera." });
+                  return;
+                }
+                setStatus({ kind: "blink", msg: "Please blink your eyes to verify you're a real person" });
+                if (!cancelled) rafRef.current = window.setTimeout(tick, 120) as any;
+                return;
+              }
+            }
+
             if (stableSinceRef.current == null) stableSinceRef.current = Date.now();
             const elapsed = Date.now() - stableSinceRef.current;
-            if (elapsed >= 1200) {
+            if (elapsed >= 600) {
               setStatus({ kind: "ok", msg: "Hold still..." });
               await doCapture();
               return;
             } else {
-              setStatus({ kind: "ok", msg: `Hold still... ${Math.ceil((1200 - elapsed) / 300)}` });
+              setStatus({ kind: "ok", msg: requireLiveness ? "Blink detected — hold still..." : "Hold still..." });
             }
           }
         }
@@ -165,7 +234,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
       cancelled = true;
       if (rafRef.current) clearTimeout(rafRef.current);
     };
-  }, [open, status.kind, permissionError, doCapture]);
+  }, [open, status.kind, permissionError, doCapture, requireLiveness, resetTick]);
 
   const handleUserMediaError = (err: string | DOMException) => {
     const msg = typeof err === "string" ? err : err.message;
@@ -175,6 +244,8 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
   const ringColor =
     status.kind === "ok" || status.kind === "capturing"
       ? "stroke-green-500"
+      : status.kind === "blink"
+      ? "stroke-blue-400"
       : status.kind === "error"
       ? "stroke-red-500"
       : status.kind === "warn"
@@ -199,6 +270,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
           ) : (
             <>
               <Webcam
+                key={resetTick}
                 ref={webcamRef}
                 audio={false}
                 screenshotFormat="image/jpeg"
@@ -236,6 +308,8 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
             className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
               status.kind === "ok" || status.kind === "capturing"
                 ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                : status.kind === "blink"
+                ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
                 : status.kind === "error"
                 ? "bg-red-500/10 text-red-700 dark:text-red-400"
                 : status.kind === "warn"
@@ -254,9 +328,20 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
             )}
             <span>{status.msg}</span>
           </div>
-          <Button variant="outline" className="w-full" onClick={onClose}>
-            Cancel
-          </Button>
+          {status.kind === "error" ? (
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handleRetry}>
+                <RefreshCw className="h-4 w-4 mr-2" /> Retry
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" className="w-full" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -274,4 +359,21 @@ export function faceDistance(a: number[], b: number[]): number {
     sum += d * d;
   }
   return Math.sqrt(sum);
+}
+
+// Eye Aspect Ratio (EAR) — average of both eyes
+function computeEAR(landmarks: faceapi.FaceLandmarks68): number {
+  const left = landmarks.getLeftEye();
+  const right = landmarks.getRightEye();
+  return (eyeAspectRatio(left) + eyeAspectRatio(right)) / 2;
+}
+
+function eyeAspectRatio(eye: { x: number; y: number }[]): number {
+  if (eye.length < 6) return 1;
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+  const vertical = dist(eye[1], eye[5]) + dist(eye[2], eye[4]);
+  const horizontal = 2 * dist(eye[0], eye[3]);
+  if (horizontal === 0) return 1;
+  return vertical / horizontal;
 }
