@@ -67,10 +67,16 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
     setPermissionError(null);
     setStatus({ kind: "loading", msg: "Initializing biometric parameters..." });
 
-    // Enrolling follows a fixed path; verification shuffles the array dynamically
-    const baseMoves: MoveTask[] = ["TURN_RIGHT", "TURN_LEFT", "BLINK"];
+    // Enrolling follows a fixed path; verification shuffles the array dynamically every single time
+    let baseMoves: MoveTask[] = ["TURN_RIGHT", "TURN_LEFT", "BLINK"];
     if (mode === "verify") {
-      baseMoves.sort(() => Math.random() - 0.5);
+      // Complete robust Fisher-Yates shuffle array routine to guarantee randomization on login
+      const shuffled = [...baseMoves];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      baseMoves = shuffled;
     }
     setChallenges(baseMoves);
 
@@ -81,9 +87,8 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
 
   // 2. Active 3-Second Countdown Handler per step
   useEffect(() => {
-    if (!open || status.kind === "loading" || status.kind === "error" || challenges.length === 0) return;
+    if (!open || status.kind === "loading" || status.kind === "error" || challenges.length === 0 || capturedRef.current) return;
 
-    // Start countdown timer once the user is aligned and processing challenges
     if (status.kind === "challenge" || status.kind === "ok" || status.kind === "warn") {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
@@ -134,7 +139,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
       const video = webcam?.video as HTMLVideoElement | undefined;
       
       if (!video || video.readyState !== 4) {
-        rafRef.current = window.setTimeout(tick, 100) as any;
+        rafRef.current = window.setTimeout(tick, 50) as any;
         return;
       }
 
@@ -155,7 +160,6 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
           const det = currentDetection.detection.box;
           const landmarks = currentDetection.landmarks;
           
-          // Cache face profile descriptor calculation to register against backend on matching step
           if (!capturedDescriptorRef.current) {
             capturedDescriptorRef.current = Array.from(currentDetection.descriptor);
           }
@@ -165,18 +169,19 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
           const cx = det.x + det.width / 2;
           const cy = det.y + det.height / 2;
           
-          const centerOk = Math.abs(cx - vw / 2) < vw * 0.3 && Math.abs(cy - vh / 2) < vh * 0.35;
+          const centerOk = Math.abs(cx - vw / 2) < vw * 0.35 && Math.abs(cy - vh / 2) < vh * 0.4;
 
           if (!centerOk && currentStepIdx === 0) {
             setStatus({ kind: "warn", msg: "Center your face in the circle to start" });
           } else {
-            // Process currently requested profile verification task
             const activeTask = challenges[currentStepIdx];
             setStatus({ kind: "challenge", msg: `${getChallengeInstruction(activeTask)} (${timeLeft}s left)` });
 
             if (activeTask === "BLINK") {
               const ear = computeEAR(landmarks);
-              if (blinkPhaseRef.current === "open" && ear < 0.18) {
+              
+              // Adjusted and relaxed EAR thresholds for consistent real-time verification
+              if (blinkPhaseRef.current === "open" && ear < 0.23) {
                 blinkPhaseRef.current = "closing";
               } else if (blinkPhaseRef.current === "closing" && ear > 0.25) {
                 blinkPhaseRef.current = "blinked";
@@ -184,7 +189,6 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
               }
             } else {
               // Mathematical Head Rotation Mapping
-              // Evaluate relative lateral offset ratio between nose tip and left/right jaw parameters
               const jawPoints = landmarks.getJawOutline();
               const nosePoints = landmarks.getNose();
               const leftJawX = jawPoints[0].x;
@@ -194,9 +198,9 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
               const totalWidth = rightJawX - leftJawX;
               const nosePositionRatio = (noseTipX - leftJawX) / totalWidth;
 
-              if (activeTask === "TURN_RIGHT" && nosePositionRatio < 0.35) {
+              if (activeTask === "TURN_RIGHT" && nosePositionRatio < 0.38) {
                 stepCompletedRef.current = true;
-              } else if (activeTask === "TURN_LEFT" && nosePositionRatio > 0.65) {
+              } else if (activeTask === "TURN_LEFT" && nosePositionRatio > 0.62) {
                 stepCompletedRef.current = true;
               }
             }
@@ -227,11 +231,12 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
           }
         }
       } catch (e) {
-        // block transient rendering frame skips
+        // block transient frame skip exceptions
       }
       
       if (!cancelled && !capturedRef.current) {
-        rafRef.current = window.setTimeout(tick, 80) as any;
+        // Sped up frame check cycle intervals from 80ms to 40ms during active assessments
+        rafRef.current = window.setTimeout(tick, 40) as any;
       }
     };
 
@@ -251,7 +256,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
     status.kind === "ok"
       ? "stroke-green-500"
       : status.kind === "challenge"
-      ? "stroke-blue-500 animate-pulse"
+      ? "stroke-blue-500"
       : status.kind === "error"
       ? "stroke-red-500"
       : status.kind === "warn"
@@ -301,7 +306,6 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
                 />
               </svg>
 
-              {/* Step Tracking Progress Node Layout */}
               <div className="absolute top-3 left-3 right-3 flex justify-between gap-2 pointer-events-none">
                 {challenges.map((_, idx) => (
                   <div 
@@ -310,7 +314,7 @@ const FaceCaptureModal = ({ open, onClose, onCapture, title = "Capture Face", mo
                       idx < currentStepIdx 
                         ? "bg-green-500 shadow" 
                         : idx === currentStepIdx && status.kind === "challenge"
-                        ? "bg-blue-500 animate-pulse scale-102"
+                        ? "bg-blue-500"
                         : "bg-white/30"
                     }`}
                   />
