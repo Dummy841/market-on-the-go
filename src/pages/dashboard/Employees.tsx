@@ -76,6 +76,9 @@ const Employees = () => {
                         <img src={emp.profile_photo_url} alt="" className="h-8 w-8 rounded-full object-cover" />
                       )}
                       {emp.name}
+                      {emp.mobile === SUPERADMIN_MOBILE && (
+                        <Badge variant="secondary" className="ml-1">Super Admin</Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>{emp.mobile}</TableCell>
@@ -92,7 +95,7 @@ const Employees = () => {
                           <Edit className="h-3 w-3" />
                         </Button>
                       )}
-                      {hasPermission("employees", "edit") && (
+                      {hasPermission("employees", "edit") && emp.mobile !== SUPERADMIN_MOBILE && (
                         <Button size="sm" variant={emp.is_active ? "destructive" : "default"} onClick={() => toggleActive(emp)}>
                           {emp.is_active ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
                         </Button>
