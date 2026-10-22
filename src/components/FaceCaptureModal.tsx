@@ -26,6 +26,8 @@ interface FaceCaptureModalProps {
   onCapture: (descriptor: number[], imageDataUrl: string) => void;
   title?: string;
   mode?: "enroll" | "verify";
+  /** Liveness (turn + blink) challenges always run; kept for caller compatibility. */
+  requireLiveness?: boolean;
 }
 
 type Status =
